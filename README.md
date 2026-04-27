@@ -57,7 +57,7 @@ npm start       # node dist/index.js (Coolify/prod entry)
 
 ## Env
 
-Bkz. `.env.example`. Kritik: `X_USERNAME`, `X_PASSWORD`, `OPENROUTER_API_KEY`.
+Bkz. `.env.example`. Kritik: `OPENROUTER_API_KEY` ve X session için `X_AUTH_TOKEN`.
 Default model: `google/gemini-2.5-flash`.
 
 ## Docker / Coolify Deploy
@@ -83,21 +83,20 @@ Uygulama Docker içinde şu path'leri kullanır:
 
 Bu storage olmadan her deploy'da session ve queue kaybolur.
 
-### İlk session yükleme (kritik)
+### X session yönetimi (kritik)
 
-Sunucuda GUI yok; X login akışını **kendi PC'nde bir kez** yap:
+Önerilen yöntem: kendi tarayıcında login olmuş X cookie'lerini Coolify env'e ekle. App her startup'ta bu cookie'leri `/data/user-data` browser profiline otomatik import eder.
 
-```bash
-npm install
-npx patchright install chromium  # lokal'de, sadece login için
-npm run login                    # tarayıcı açılır, e-posta kodu vs. manuel girilir
-```
+| Env             | Zorunlu mu | Açıklama                                      |
+|-----------------|------------|-----------------------------------------------|
+| `X_AUTH_TOKEN`  | Evet       | X `auth_token` cookie değeri                  |
+| `X_AUTH_MULTI`  | Hayır      | X `auth_multi` cookie değeri                  |
+| `X_CT0`         | Hayır      | CSRF cookie; varsa ekle                       |
+| `X_TWID`        | Hayır      | Kullanıcı id cookie; varsa ekle               |
 
-Oluşan `user-data/` klasörünü Coolify'daki `/data/user-data` storage dizinine yükle:
-- Coolify "Storage" panelinden tar.gz upload, **veya**
-- SSH ile sunucuya `scp -r user-data/ user@host:/path/to/volume/`
+Bu değerler secret'tır; repoya commit edilmez, sadece `.env` veya Coolify env içinde tutulur. Session yenilenirse cookie değerlerini güncelle ve redeploy/restart et.
 
-X session yenilenince (oturum süresi dolarsa) bu adımı tekrarla.
+Fallback yöntem: lokal profili oluşturup `/data/user-data` içine taşımak için `npm run import-session` çalıştır, sonra `user-data/` klasörünü storage'a kopyala.
 
 ### Coolify adımları
 
@@ -105,7 +104,8 @@ X session yenilenince (oturum süresi dolarsa) bu adımı tekrarla.
 2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
 3. **Persistent Storage**: `/data` path'ini kalıcı storage olarak bağla.
 4. **Environment Variables**:
-   - `X_USERNAME`, `X_PASSWORD`
+   - `X_AUTH_TOKEN`, `X_AUTH_MULTI` (session import için önerilir)
+   - `X_USERNAME`, `X_PASSWORD` (opsiyonel; eski otomatik login scripti için)
    - `OPENROUTER_API_KEY`
    - `OPENROUTER_MODEL` (opsiyonel, default `google/gemini-2.5-flash`)
    - `TWEETS_PER_DAY`, `DISPATCH_START_HOUR` (opsiyonel)

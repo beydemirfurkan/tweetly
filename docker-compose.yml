@@ -9,8 +9,12 @@ services:
       HEADLESS: "true"
       DATA_DIR: /data/app-data
       USER_DATA_DIR: /data/user-data
-      X_USERNAME: ${X_USERNAME}
-      X_PASSWORD: ${X_PASSWORD}
+      X_USERNAME: ${X_USERNAME:-}
+      X_PASSWORD: ${X_PASSWORD:-}
+      X_AUTH_TOKEN: ${X_AUTH_TOKEN:-}
+      X_AUTH_MULTI: ${X_AUTH_MULTI:-}
+      X_CT0: ${X_CT0:-}
+      X_TWID: ${X_TWID:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
       TWEETS_PER_DAY: ${TWEETS_PER_DAY:-10}
