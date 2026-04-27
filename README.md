@@ -45,3 +45,56 @@ data/          posted.json, queue.json, errors/
 
 Bkz. `.env.example`. Kritik: `X_USERNAME`, `X_PASSWORD`, `OPENROUTER_API_KEY`.
 Default model: `google/gemini-2.5-flash`.
+
+## Docker / Coolify Deploy
+
+Image, gerçek Google Chrome'u içeriyor (patchright anti-detection için
+`channel: 'chrome'` kullanıyor). Container `Europe/Istanbul` saat diliminde
+node-cron orchestrator'ı çalıştırır.
+
+### Persistent volumes (zorunlu)
+
+| Konteyner yolu     | Ne tutar                              |
+|--------------------|---------------------------------------|
+| `/app/user-data`   | X session (login sonrası dosyalar)    |
+| `/app/data`        | `posted.json`, `queue.json`, `errors/`|
+
+Bu volume'lar olmadan her deploy'da session kaybolur.
+
+### İlk session yükleme (kritik)
+
+Sunucuda GUI yok; X login akışını **kendi PC'nde bir kez** yap:
+
+```bash
+npm install
+npx patchright install chromium  # lokal'de, sadece login için
+npm run login                    # tarayıcı açılır, e-posta kodu vs. manuel girilir
+```
+
+Oluşan `user-data/` klasörünü Coolify'daki `/app/user-data` volume'üne yükle:
+- Coolify "Storage" panelinden tar.gz upload, **veya**
+- SSH ile sunucuya `scp -r user-data/ user@host:/path/to/volume/`
+
+X session yenilenince (oturum süresi dolarsa) bu adımı tekrarla.
+
+### Coolify adımları
+
+1. **New Resource → Application → Public Repository → Dockerfile**
+2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
+3. **Persistent Storage**: yukarıdaki iki yolu volume olarak bağla.
+4. **Environment Variables**:
+   - `X_USERNAME`, `X_PASSWORD`
+   - `OPENROUTER_API_KEY`
+   - `OPENROUTER_MODEL` (opsiyonel, default `google/gemini-2.5-flash`)
+   - `TWEETS_PER_DAY`, `DISPATCH_START_HOUR`, `DISPATCH_INTERVAL_MIN` (opsiyonel)
+5. Deploy.
+6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren tweet atılır.
+
+### Lokal Docker test
+
+```bash
+cp .env.example .env  # değerleri doldur
+docker compose up --build
+```
+
+`./user-data` ve `./data` host bind mount edilir; lokal session kullanılır.

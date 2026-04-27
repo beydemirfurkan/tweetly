@@ -1,0 +1,20 @@
+services:
+  tweetbot:
+    build: .
+    image: tweetbot:latest
+    container_name: tweetbot
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Istanbul
+      HEADLESS: "true"
+      X_USERNAME: ${X_USERNAME}
+      X_PASSWORD: ${X_PASSWORD}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
+      TWEETS_PER_DAY: ${TWEETS_PER_DAY:-10}
+      DISPATCH_START_HOUR: ${DISPATCH_START_HOUR:-9}
+      DISPATCH_INTERVAL_MIN: ${DISPATCH_INTERVAL_MIN:-30}
+      MAX_ATTEMPTS: ${MAX_ATTEMPTS:-3}
+    volumes:
+      - ./user-data:/app/user-data
+      - ./data:/app/data
