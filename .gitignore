@@ -1,0 +1,7 @@
+node_modules/
+.env
+user-data/
+data/posted.json
+data/queue.json
+data/errors/
+*.log
