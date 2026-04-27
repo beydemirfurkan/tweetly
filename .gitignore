@@ -7,3 +7,4 @@ data/errors/
 data/logs/
 dist/
 *.log
+*.tar.gz
