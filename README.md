@@ -1,11 +1,12 @@
 # tweetly
 
-GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine 5 dakikalık aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
+GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine 30 dakikalık aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
 
 ## Akış
 
-1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → 10 repo için Türkçe tweet üret → `data/queue.json`'a yaz, slot'ları 09:30'dan itibaren 5 dk arayla planla.
+1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → 10 repo için Türkçe tweet üret → `data/queue.json`'a yaz, slot'ları 09:30'dan itibaren 30 dk arayla planla.
 2. Her **5 dakika** — `dispatch`: vakti gelen 1 tweeti X'e atar, `data/posted.json`'a kaydeder.
+3. Queue'da gönderilecek tweet kalmazsa orchestrator otomatik refill yapar; boş/başarısız refill sonrası 30 dk cooldown uygular.
 
 ## Kurulum
 
@@ -110,7 +111,7 @@ Fallback yöntem: lokal profili oluşturup `/data/user-data` içine taşımak i�
    - `OPENROUTER_MODEL` (opsiyonel, default `google/gemini-2.5-flash`)
    - `TWEETS_PER_DAY`, `DISPATCH_START_HOUR` (opsiyonel)
 5. Deploy.
-6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren 5 dk aralıkla tweet atılır.
+6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren 30 dk aralıkla tweet atılır.
 
 ### Lokal Docker test
 

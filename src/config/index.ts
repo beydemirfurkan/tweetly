@@ -43,7 +43,7 @@ export const config = {
   pipeline: {
     tweetsPerDay: intOr('TWEETS_PER_DAY', 10),
     dispatchStartHour: intOr('DISPATCH_START_HOUR', 9),
-    dispatchIntervalMin: 5,
+    dispatchIntervalMin: 30,
     maxAttempts: intOr('MAX_ATTEMPTS', 3),
   },
 } as const;

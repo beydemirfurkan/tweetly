@@ -65,6 +65,12 @@ export function dueNext(now: Date = new Date()): QueueItem | null {
   return dueItems[0] ?? null;
 }
 
+export function hasActiveItems(): boolean {
+  return load().items.some(
+    (it) => it.status === 'pending' || (it.status === 'failed' && it.attempts < config.pipeline.maxAttempts)
+  );
+}
+
 export function update(id: string, patch: Partial<QueueItem>): QueueItem | null {
   const state = load();
   const idx = state.items.findIndex((it) => it.id === id);
