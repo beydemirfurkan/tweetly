@@ -48,10 +48,10 @@ function clean(text: string): string {
   return text.replace(/^["'`]+|["'`]+$/g, '').trim();
 }
 
-export async function generateTweet(repo: TrendingRepo): Promise<string> {
+export async function generateTweet(repo: TrendingRepo, styleHint?: string): Promise<string> {
   const messages: ChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: userPrompt(repo) },
+    { role: 'user', content: userPrompt(repo, styleHint) },
   ];
 
   let text = clean(await chat(messages));

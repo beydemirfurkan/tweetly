@@ -1,12 +1,14 @@
 # tweetly
 
-GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine 30 dakikalık aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
+GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine 30+ dakikalık jitter'lı aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
 
 ## Akış
 
-1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → 10 repo için Türkçe tweet üret → `data/queue.json`'a yaz, slot'ları 09:30'dan itibaren 30 dk arayla planla.
+1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → günlük en fazla 20 repo için Türkçe tweet üret → `data/queue.json`'a yaz, slot'ları 09:30'dan itibaren 30 dk + 5-12 dk jitter ile planla.
 2. Her **5 dakika** — `dispatch`: vakti gelen 1 tweeti X'e atar, `data/posted.json`'a kaydeder.
 3. Queue'da gönderilecek tweet kalmazsa orchestrator otomatik refill yapar; boş/başarısız refill sonrası 30 dk cooldown uygular.
+4. Arka arkaya 3 post hatası olursa circuit breaker 60 dk pause eder.
+5. `content-memory.json`, aynı/çok benzer tweet kalıplarını tekrar üretmeyi engeller.
 
 ## Kurulum
 
@@ -44,7 +46,7 @@ src/
   utils/       logger (console + data/logs/YYYY-MM-DD.log)
   index.ts     node-cron orchestrator
 data/
-  posted.json, queue.json
+  posted.json, queue.json, control.json, content-memory.json
   logs/        günlük rotated log dosyaları
   errors/      hata anı tarayıcı screenshot'ları
 ```
@@ -120,7 +122,7 @@ Fallback yöntem: lokal profili oluşturup `/data/user-data` içine taşımak i�
    - `OPENROUTER_API_KEY`
    - `ADMIN_TOKEN`
 5. Deploy.
-6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren 30 dk aralıkla tweet atılır.
+6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren jitter'lı 30+ dk aralıkla tweet atılır.
 
 ### Lokal Docker test
 

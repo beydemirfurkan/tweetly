@@ -1,6 +1,7 @@
 import { config } from '../config';
 import * as queue from '../storage/queue';
 import * as posted from '../storage/posted';
+import * as control from '../storage/control';
 import { isAuthRequiredError, postTweet } from '../core/postTweet';
 import type { QueueItem } from '../types';
 import { make } from '../utils/logger';
@@ -16,6 +17,12 @@ export async function run(): Promise<QueueItem | null> {
   }
   running = true;
   try {
+    if (control.isPaused()) {
+      const state = control.load();
+      log.warn(`Bot paused: ${state.reason ?? 'unknown'}${state.pauseUntil ? ` (${state.pauseUntil} kadar)` : ''}`);
+      return null;
+    }
+
     const item = queue.dueNext();
     if (!item) {
       log.info('Vakti gelen tweet yok.');
@@ -27,6 +34,7 @@ export async function run(): Promise<QueueItem | null> {
       await postTweet(item.text);
       queue.update(item.id, { status: 'sent', sentAt: new Date().toISOString() });
       posted.add(item.repo);
+      control.recordSuccess();
       log.ok(`Atıldı: ${item.repo}`);
       return item;
     } catch (err) {
@@ -39,6 +47,7 @@ export async function run(): Promise<QueueItem | null> {
           lastTriedAt: new Date().toISOString(),
           scheduledAt: retryAt,
         });
+        control.recordFailure(msg);
         log.warn(`Auth gerekli, attempt artırılmadı. ${item.repo} ${retryAt} için ertelendi.`);
         return null;
       }
@@ -52,6 +61,10 @@ export async function run(): Promise<QueueItem | null> {
         lastError: msg,
         lastTriedAt: new Date().toISOString(),
       });
+      const state = control.recordFailure(msg);
+      if (state.paused) {
+        log.error(`Circuit breaker açıldı: ${state.reason}. ${state.pauseUntil} kadar duraklatıldı.`);
+      }
       log.error(`Hata (${status}, deneme ${attempts}): ${msg}`);
       return null;
     }

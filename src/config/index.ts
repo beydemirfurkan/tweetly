@@ -28,6 +28,8 @@ export const config = {
     errors: path.join(DATA_DIR, 'errors'),
     posted: path.join(DATA_DIR, 'posted.json'),
     queue: path.join(DATA_DIR, 'queue.json'),
+    control: path.join(DATA_DIR, 'control.json'),
+    contentMemory: path.join(DATA_DIR, 'content-memory.json'),
   },
   x: {
     username: process.env.X_USERNAME ?? '',
@@ -41,10 +43,14 @@ export const config = {
     appName: process.env.OPENROUTER_APP_NAME ?? 'tweetbot',
   },
   pipeline: {
-    tweetsPerDay: intOr('TWEETS_PER_DAY', 10),
+    tweetsPerDay: intOr('TWEETS_PER_DAY', 20),
     dispatchStartHour: intOr('DISPATCH_START_HOUR', 9),
     dispatchIntervalMin: 30,
+    scheduleJitterMin: 5,
+    scheduleJitterMax: 12,
     maxAttempts: intOr('MAX_ATTEMPTS', 3),
+    circuitBreakerFailures: 3,
+    circuitBreakerPauseMin: 60,
   },
   server: {
     port: intOr('PORT', 3000),

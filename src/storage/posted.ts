@@ -43,3 +43,8 @@ export function add(repoSlug: string): void {
     save(state);
   }
 }
+
+export function countSince(date: Date): number {
+  const start = date.getTime();
+  return load().items.filter((it) => new Date(it.postedAt).getTime() >= start).length;
+}

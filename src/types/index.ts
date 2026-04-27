@@ -38,6 +38,30 @@ export interface PostedState {
   items: PostedItem[];
 }
 
+export interface ControlState {
+  paused: boolean;
+  reason?: string;
+  pausedAt?: string;
+  pauseUntil?: string;
+  consecutiveFailures: number;
+  lastFailureAt?: string;
+  lastFailure?: string;
+  lastSuccessAt?: string;
+  updatedAt: string;
+}
+
+export interface ContentMemoryItem {
+  repo: string;
+  textHash: string;
+  signature: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface ContentMemoryState {
+  items: ContentMemoryItem[];
+}
+
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'OK';
 
 export interface Logger {

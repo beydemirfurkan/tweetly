@@ -2,6 +2,8 @@ import http, { type IncomingMessage, type ServerResponse } from 'http';
 import { config } from '../config';
 import * as queue from '../storage/queue';
 import * as posted from '../storage/posted';
+import * as control from '../storage/control';
+import * as contentMemory from '../storage/contentMemory';
 import * as runtime from './runtime';
 import { make } from '../utils/logger';
 
@@ -25,11 +27,18 @@ function isAuthorized(req: IncomingMessage): boolean {
 function healthPayload(): object {
   const queueSummary = queue.summary();
   const state = runtime.snapshot();
+  const controlState = control.load();
 
   return {
-    ok: true,
+    ok: !control.isPaused() && queueSummary.counts.dead === 0,
     now: new Date().toISOString(),
     uptimeSec: state.uptimeSec,
+    control: {
+      paused: controlState.paused,
+      reason: controlState.reason ?? null,
+      pauseUntil: controlState.pauseUntil ?? null,
+      consecutiveFailures: controlState.consecutiveFailures,
+    },
     queue: {
       active: queueSummary.active,
       pending: queueSummary.counts.pending,
@@ -55,12 +64,17 @@ function statusPayload(): object {
       userData: config.paths.userData,
       queue: config.paths.queue,
       posted: config.paths.posted,
+      control: config.paths.control,
+      contentMemory: config.paths.contentMemory,
       logs: config.paths.logs,
       errors: config.paths.errors,
     },
     queue: queue.summary(),
     posted: {
       total: posted.load().items.length,
+    },
+    contentMemory: {
+      total: contentMemory.count(),
     },
     config: {
       tweetsPerDay: config.pipeline.tweetsPerDay,

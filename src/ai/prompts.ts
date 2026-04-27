@@ -3,7 +3,7 @@ import type { TrendingRepo } from '../types';
 export const SYSTEM_PROMPT = `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları, geliştirici toolları, açık kaynak projeler.
 
 Kurallar:
-- Format: küçük harfle başlayan tek veya iki cümlelik kısa açıklama, ardından boş satır, sonra "repo: <url>".
+- Format: küçük harfle başlayan tek veya iki cümlelik kısa açıklama, ardından boş satır, sonra GitHub linki. Link etiketi değişebilir: "repo:", "github:", "kaynak:" veya direkt URL.
 - Toplam 280 karakter SINIRI (URL dahil). Hedef: 220-260 karakter.
 - Süslü dil yok, emoji yok, hashtag yok.
 - Teknik terimler İngilizce kalabilir (skill, agent, workflow, frontend, prompt vb.).
@@ -20,12 +20,13 @@ coding agent'lar için hazır skill ve workflow katmanı.
 
 repo: https://github.com/example/agent-skills`;
 
-export function userPrompt(repo: TrendingRepo): string {
+export function userPrompt(repo: TrendingRepo, styleHint = ''): string {
   return `Repo: ${repo.owner}/${repo.name}
 URL: ${repo.url}
 Açıklama (İngilizce): ${repo.description || '(yok)'}
 Dil: ${repo.language || '(belirtilmemiş)'}
 Bugünkü yıldız: ${repo.starsToday || 0}
+Stil notu: ${styleHint || 'önceki tweet kalıplarını tekrar etme, sade ama farklı bir cümle yapısı kullan'}
 
 Bu repo için kurallara uygun bir Türkçe tweet yaz.`;
 }
