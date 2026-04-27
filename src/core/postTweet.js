@@ -1,5 +1,9 @@
-require('dotenv').config();
+const path = require('path');
 const { launch } = require('./browser');
+const { config } = require('../config');
+const { make } = require('../utils/logger');
+
+const log = make('postTweet');
 
 async function typeHuman(locator, text) {
   for (const ch of text) {
@@ -22,7 +26,7 @@ async function postTweet(text) {
     await page.waitForTimeout(3000);
 
     if (page.url().includes('/login') || page.url().includes('/i/flow')) {
-      throw new Error('Session geçersiz — önce `node src/login.js` çalıştır.');
+      throw new Error('Session geçersiz — önce `npm run login` çalıştır.');
     }
 
     const composer = page.locator('[data-testid="tweetTextarea_0"]').first();
@@ -36,14 +40,12 @@ async function postTweet(text) {
       .locator('[data-testid="tweetButtonInline"], [data-testid="tweetButton"]')
       .first();
     await postBtn.waitFor({ state: 'visible', timeout: 10000 });
-    // Disabled mı kontrolü
     const disabled = await postBtn.getAttribute('aria-disabled');
     if (disabled === 'true') {
       throw new Error('Post butonu disabled — metinde sorun olabilir.');
     }
     await postBtn.click();
 
-    // Başarı doğrulaması: textarea boşalır VEYA toast çıkar
     try {
       await Promise.race([
         page.waitForSelector('[data-testid="toast"]', { timeout: 15000 }),
@@ -59,13 +61,16 @@ async function postTweet(text) {
       throw new Error('Post sonrası onay alınamadı (toast/textarea boşalmadı).');
     }
 
-    console.log(`[postTweet] ✅ Atıldı: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`);
+    log.ok(`Atıldı: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`);
     await page.waitForTimeout(3000);
     return true;
   } catch (err) {
-    console.error('[postTweet] HATA:', err.message);
+    log.error(`HATA: ${err.message}`);
     try {
-      await page.screenshot({ path: `data/errors/post-${Date.now()}.png`, fullPage: true });
+      await page.screenshot({
+        path: path.join(config.paths.errors, `post-${Date.now()}.png`),
+        fullPage: true,
+      });
     } catch {}
     throw err;
   } finally {
@@ -76,7 +81,7 @@ async function postTweet(text) {
 if (require.main === module) {
   const text = process.argv.slice(2).join(' ');
   if (!text) {
-    console.error('Kullanım: node src/postTweet.js "tweet metni"');
+    log.error('Kullanım: node src/core/postTweet.js "tweet metni"');
     process.exit(1);
   }
   postTweet(text).catch(() => process.exit(1));

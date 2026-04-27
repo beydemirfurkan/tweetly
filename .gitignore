@@ -4,4 +4,6 @@ user-data/
 data/posted.json
 data/queue.json
 data/errors/
+data/logs/
+dist/
 *.log

@@ -1,8 +1,9 @@
-require('dotenv').config();
+const path = require('path');
 const { launch } = require('./browser');
+const { config, assertX } = require('../config');
+const { make } = require('../utils/logger');
 
-const USERNAME = process.env.X_USERNAME;
-const PASSWORD = process.env.X_PASSWORD;
+const log = make('login');
 
 async function isAlreadyLoggedIn(page) {
   await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -18,37 +19,35 @@ async function typeHuman(locator, text) {
 }
 
 async function login() {
-  if (!USERNAME || !PASSWORD) {
-    throw new Error('X_USERNAME ve X_PASSWORD .env içinde tanımlı olmalı');
-  }
+  assertX();
+  const { username, password } = config.x;
 
   const { context, page } = await launch();
 
   try {
     if (await isAlreadyLoggedIn(page)) {
-      console.log('[login] Zaten giriş yapılmış. Çıkıyorum.');
+      log.info('Zaten giriş yapılmış. Çıkıyorum.');
       return true;
     }
 
-    console.log('[login] Giriş akışı başlıyor...');
+    log.info('Giriş akışı başlıyor...');
     await page.goto('https://x.com/i/flow/login', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2500);
 
     const usernameInput = page.locator('input[autocomplete="username"]').first();
     await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
     await usernameInput.click();
-    await typeHuman(usernameInput, USERNAME);
+    await typeHuman(usernameInput, username);
     await page.waitForTimeout(500 + Math.random() * 800);
     await page.keyboard.press('Enter');
 
     await page.waitForTimeout(2500);
 
-    // Bazen "Enter your phone or email" challenge'ı çıkar
     const challenge = page.locator('input[data-testid="ocfEnterTextTextInput"]').first();
     if (await challenge.isVisible({ timeout: 3000 }).catch(() => false)) {
-      console.log('[login] Ek doğrulama soruluyor — username tekrar yazılıyor');
+      log.info('Ek doğrulama soruluyor — username tekrar yazılıyor');
       await challenge.click();
-      await typeHuman(challenge, USERNAME);
+      await typeHuman(challenge, username);
       await page.waitForTimeout(400);
       await page.keyboard.press('Enter');
       await page.waitForTimeout(2500);
@@ -57,18 +56,21 @@ async function login() {
     const passwordInput = page.locator('input[name="password"]').first();
     await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
     await passwordInput.click();
-    await typeHuman(passwordInput, PASSWORD);
+    await typeHuman(passwordInput, password);
     await page.waitForTimeout(500 + Math.random() * 800);
     await page.keyboard.press('Enter');
 
-    console.log('[login] Login butonuna basıldı, /home bekleniyor (max 2 dk — gerekirse email kodunu manuel gir)...');
+    log.info('Login butonuna basıldı, /home bekleniyor (max 2 dk — gerekirse e-posta kodunu manuel gir)...');
     await page.waitForURL('**/home', { timeout: 120000 });
-    console.log('[login] ✅ Giriş başarılı, session user-data/ içine kaydedildi.');
+    log.ok('Giriş başarılı, session user-data/ içine kaydedildi.');
     return true;
   } catch (err) {
-    console.error('[login] HATA:', err.message);
+    log.error(`HATA: ${err.message}`);
     try {
-      await page.screenshot({ path: `data/errors/login-${Date.now()}.png`, fullPage: true });
+      await page.screenshot({
+        path: path.join(config.paths.errors, `login-${Date.now()}.png`),
+        fullPage: true,
+      });
     } catch {}
     throw err;
   } finally {
@@ -78,7 +80,7 @@ async function login() {
 
 if (require.main === module) {
   login().catch((e) => {
-    console.error(e);
+    log.error(e);
     process.exit(1);
   });
 }
