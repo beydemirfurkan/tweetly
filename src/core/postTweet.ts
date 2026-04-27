@@ -6,6 +6,16 @@ import { config } from '../config';
 import { make } from '../utils/logger';
 
 const log = make('postTweet');
+const AUTH_REQUIRED_PREFIX = 'AUTH_REQUIRED:';
+
+export function isAuthRequiredError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.startsWith(AUTH_REQUIRED_PREFIX);
+}
+
+function authRequired(message: string): Error {
+  return new Error(`${AUTH_REQUIRED_PREFIX} ${message}`);
+}
 
 async function typeHuman(locator: Locator, text: string): Promise<void> {
   for (const ch of text) {
@@ -24,6 +34,17 @@ async function saveErrorScreenshot(page: Page): Promise<string | null> {
   }
 }
 
+async function clickPostButton(postBtn: Locator, page: Page): Promise<void> {
+  try {
+    await postBtn.click({ timeout: 5000 });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn(`Post butonu normal click başarısız, DOM click deneniyor: ${msg}`);
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await postBtn.evaluate((button) => (button as HTMLElement).click());
+  }
+}
+
 export async function postTweet(text: string): Promise<boolean> {
   if (!text || typeof text !== 'string' || !text.trim()) {
     throw new Error('postTweet: boş metin');
@@ -39,7 +60,7 @@ export async function postTweet(text: string): Promise<boolean> {
     await page.waitForTimeout(3000);
 
     if (page.url().includes('/login') || page.url().includes('/i/flow')) {
-      throw new Error('Session geçersiz — önce `npm run login` çalıştır.');
+      throw authRequired('Session geçersiz — X_AUTH_TOKEN ile session import edilmeli.');
     }
 
     const composer = page.locator('[data-testid="tweetTextarea_0"]').first();
@@ -48,6 +69,9 @@ export async function postTweet(text: string): Promise<boolean> {
     } catch (err) {
       const title = await page.title().catch(() => 'unknown');
       const detail = err instanceof Error ? err.message : String(err);
+      if (page.url() === 'https://x.com/' || title.includes('Olan biten burada')) {
+        throw authRequired(`X logged-out görünüyor. URL=${page.url()} title=${title}. ${detail}`);
+      }
       throw new Error(`Tweet composer bulunamadı. URL=${page.url()} title=${title}. ${detail}`);
     }
     await composer.click();
@@ -63,7 +87,7 @@ export async function postTweet(text: string): Promise<boolean> {
     if (disabled === 'true') {
       throw new Error('Post butonu disabled — metinde sorun olabilir.');
     }
-    await postBtn.click();
+    await clickPostButton(postBtn, page);
 
     try {
       await Promise.race([

@@ -1,7 +1,7 @@
 import { config } from '../config';
 import * as queue from '../storage/queue';
 import * as posted from '../storage/posted';
-import { postTweet } from '../core/postTweet';
+import { isAuthRequiredError, postTweet } from '../core/postTweet';
 import type { QueueItem } from '../types';
 import { make } from '../utils/logger';
 
@@ -31,6 +31,18 @@ export async function run(): Promise<QueueItem | null> {
       return item;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (isAuthRequiredError(err)) {
+        const retryAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        queue.update(item.id, {
+          status: 'failed',
+          lastError: msg,
+          lastTriedAt: new Date().toISOString(),
+          scheduledAt: retryAt,
+        });
+        log.warn(`Auth gerekli, attempt artırılmadı. ${item.repo} ${retryAt} için ertelendi.`);
+        return null;
+      }
+
       const attempts = (item.attempts || 0) + 1;
       const status: 'failed' | 'dead' =
         attempts >= config.pipeline.maxAttempts ? 'dead' : 'failed';

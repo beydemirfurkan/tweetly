@@ -1,4 +1,4 @@
-import type { BrowserContext } from 'patchright';
+import type { BrowserContext, Page } from 'patchright';
 import { launch } from './browser';
 import { config } from '../config';
 import { make } from '../utils/logger';
@@ -44,6 +44,24 @@ function visibleCookie(name: string, value: string, domain: string): CookieInput
   };
 }
 
+async function gotoHomeWithRetry(page: Page): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      return;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      log.warn(`X home açılamadı, tekrar denenecek (${attempt}/3): ${msg}`);
+      await page.waitForTimeout(2000 * attempt);
+    }
+  }
+
+  throw lastError;
+}
+
 export async function importSession(): Promise<boolean> {
   const authToken = requiredEnv('X_AUTH_TOKEN');
   const authMulti = optionalEnv('X_AUTH_MULTI');
@@ -63,7 +81,7 @@ export async function importSession(): Promise<boolean> {
 
   try {
     await context.addCookies(cookies);
-    await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await gotoHomeWithRetry(page);
     await page.waitForTimeout(5000);
 
     if (page.url().includes('/login') || page.url().includes('/i/flow')) {
