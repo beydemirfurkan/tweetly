@@ -14,7 +14,9 @@ FROM node:20-bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Europe/Istanbul \
     NODE_ENV=production \
-    HEADLESS=true
+    HEADLESS=true \
+    DATA_DIR=/data/app-data \
+    USER_DATA_DIR=/data/user-data
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       wget gnupg ca-certificates fonts-liberation tzdata \
@@ -35,8 +37,6 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
-RUN mkdir -p /app/user-data /app/data/errors /app/data/logs
-
-VOLUME ["/app/user-data", "/app/data"]
+RUN mkdir -p /data/user-data /data/app-data/errors /data/app-data/logs
 
 CMD ["node", "dist/index.js"]

@@ -7,6 +7,8 @@ services:
     environment:
       TZ: Europe/Istanbul
       HEADLESS: "true"
+      DATA_DIR: /data/app-data
+      USER_DATA_DIR: /data/user-data
       X_USERNAME: ${X_USERNAME}
       X_PASSWORD: ${X_PASSWORD}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
@@ -15,5 +17,7 @@ services:
       DISPATCH_START_HOUR: ${DISPATCH_START_HOUR:-9}
       MAX_ATTEMPTS: ${MAX_ATTEMPTS:-3}
     volumes:
-      - ./user-data:/app/user-data
-      - ./data:/app/data
+      - tweetbot_state:/data
+
+volumes:
+  tweetbot_state:

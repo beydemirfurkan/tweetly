@@ -1,8 +1,7 @@
-import path from 'path';
 import { chromium, type BrowserContext, type Page } from 'patchright';
 import { config } from '../config';
 
-export const USER_DATA_DIR = path.resolve(__dirname, '..', '..', 'user-data');
+export const USER_DATA_DIR = config.paths.userData;
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +

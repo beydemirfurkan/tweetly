@@ -2,8 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import type { WriteStream } from 'fs';
 import type { Logger, LogLevel } from '../types';
+import { config } from '../config';
 
-const LOG_DIR = path.resolve(__dirname, '..', '..', 'data', 'logs');
+const LOG_DIR = config.paths.logs;
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');

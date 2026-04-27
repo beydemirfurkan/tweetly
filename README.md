@@ -1,10 +1,10 @@
 # tweetly
 
-GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine yarım saatlik aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
+GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine 5 dakikalık aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
 
 ## Akış
 
-1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → 10 repo için Türkçe tweet üret → `data/queue.json`'a yaz, slot'ları 09:30'dan itibaren 30 dk arayla planla.
+1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → 10 repo için Türkçe tweet üret → `data/queue.json`'a yaz, slot'ları 09:30'dan itibaren 5 dk arayla planla.
 2. Her **5 dakika** — `dispatch`: vakti gelen 1 tweeti X'e atar, `data/posted.json`'a kaydeder.
 
 ## Kurulum
@@ -66,14 +66,22 @@ Image, gerçek Google Chrome'u içeriyor (patchright anti-detection için
 `channel: 'chrome'` kullanıyor). Container `Europe/Istanbul` saat diliminde
 node-cron orchestrator'ı çalıştırır.
 
-### Persistent volumes (zorunlu)
+### Persistent storage (zorunlu)
 
-| Konteyner yolu     | Ne tutar                              |
-|--------------------|---------------------------------------|
-| `/app/user-data`   | X session (login sonrası dosyalar)    |
-| `/app/data`        | `posted.json`, `queue.json`, `errors/`|
+Coolify'da tek persistent storage mount et:
 
-Bu volume'lar olmadan her deploy'da session kaybolur.
+| Konteyner yolu | Ne tutar                                                |
+|----------------|---------------------------------------------------------|
+| `/data`        | X session, `posted.json`, `queue.json`, logs, errors    |
+
+Uygulama Docker içinde şu path'leri kullanır:
+
+| Path             | Ne tutar                              |
+|------------------|---------------------------------------|
+| `/data/user-data`| X session (login sonrası dosyalar)    |
+| `/data/app-data` | `posted.json`, `queue.json`, `errors/`|
+
+Bu storage olmadan her deploy'da session ve queue kaybolur.
 
 ### İlk session yükleme (kritik)
 
@@ -85,7 +93,7 @@ npx patchright install chromium  # lokal'de, sadece login için
 npm run login                    # tarayıcı açılır, e-posta kodu vs. manuel girilir
 ```
 
-Oluşan `user-data/` klasörünü Coolify'daki `/app/user-data` volume'üne yükle:
+Oluşan `user-data/` klasörünü Coolify'daki `/data/user-data` storage dizinine yükle:
 - Coolify "Storage" panelinden tar.gz upload, **veya**
 - SSH ile sunucuya `scp -r user-data/ user@host:/path/to/volume/`
 
@@ -95,14 +103,14 @@ X session yenilenince (oturum süresi dolarsa) bu adımı tekrarla.
 
 1. **New Resource → Application → Public Repository → Dockerfile**
 2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
-3. **Persistent Storage**: yukarıdaki iki yolu volume olarak bağla.
+3. **Persistent Storage**: `/data` path'ini kalıcı storage olarak bağla.
 4. **Environment Variables**:
    - `X_USERNAME`, `X_PASSWORD`
    - `OPENROUTER_API_KEY`
    - `OPENROUTER_MODEL` (opsiyonel, default `google/gemini-2.5-flash`)
-   - `TWEETS_PER_DAY`, `DISPATCH_START_HOUR`, `DISPATCH_INTERVAL_MIN` (opsiyonel)
+   - `TWEETS_PER_DAY`, `DISPATCH_START_HOUR` (opsiyonel)
 5. Deploy.
-6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren tweet atılır.
+6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren 5 dk aralıkla tweet atılır.
 
 ### Lokal Docker test
 
@@ -111,4 +119,4 @@ cp .env.example .env  # değerleri doldur
 docker compose up --build
 ```
 
-`./user-data` ve `./data` host bind mount edilir; lokal session kullanılır.
+Compose, `tweetbot_state` adlı named volume'u `/data` path'ine bağlar; session ve queue bu volume'da kalıcıdır.

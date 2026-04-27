@@ -63,7 +63,7 @@ export async function login(): Promise<boolean> {
 
     log.info('Login butonuna basıldı, /home bekleniyor (max 2 dk — gerekirse e-posta kodunu manuel gir)...');
     await page.waitForURL('**/home', { timeout: 120000 });
-    log.ok('Giriş başarılı, session user-data/ içine kaydedildi.');
+    log.ok(`Giriş başarılı, session ${config.paths.userData} içine kaydedildi.`);
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
