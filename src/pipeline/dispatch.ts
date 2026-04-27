@@ -10,6 +10,12 @@ const log = make('dispatch');
 
 let running = false;
 
+function nextAllowedPostAt(): Date | null {
+  const latestSentAt = queue.summary().latestSentAt;
+  if (!latestSentAt) return null;
+  return new Date(new Date(latestSentAt).getTime() + config.pipeline.dispatchIntervalMin * 60 * 1000);
+}
+
 export async function run(): Promise<QueueItem | null> {
   if (running) {
     log.warn('Önceki dispatch hâlâ çalışıyor, atlanıyor.');
@@ -20,6 +26,12 @@ export async function run(): Promise<QueueItem | null> {
     if (control.isPaused()) {
       const state = control.load();
       log.warn(`Bot paused: ${state.reason ?? 'unknown'}${state.pauseUntil ? ` (${state.pauseUntil} kadar)` : ''}`);
+      return null;
+    }
+
+    const allowedAt = nextAllowedPostAt();
+    if (allowedAt && allowedAt > new Date()) {
+      log.info(`Son tweetten sonra minimum aralık bekleniyor. Sıradaki deneme: ${allowedAt.toISOString()}`);
       return null;
     }
 
