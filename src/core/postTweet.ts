@@ -1,5 +1,6 @@
 import path from 'path';
-import type { Locator } from 'patchright';
+import fs from 'fs';
+import type { Locator, Page } from 'patchright';
 import { launch } from './browser';
 import { config } from '../config';
 import { make } from '../utils/logger';
@@ -9,6 +10,17 @@ const log = make('postTweet');
 async function typeHuman(locator: Locator, text: string): Promise<void> {
   for (const ch of text) {
     await locator.type(ch, { delay: 30 + Math.floor(Math.random() * 60) });
+  }
+}
+
+async function saveErrorScreenshot(page: Page): Promise<string | null> {
+  try {
+    fs.mkdirSync(config.paths.errors, { recursive: true });
+    const screenshotPath = path.join(config.paths.errors, `post-${Date.now()}.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    return screenshotPath;
+  } catch {
+    return null;
   }
 }
 
@@ -31,7 +43,13 @@ export async function postTweet(text: string): Promise<boolean> {
     }
 
     const composer = page.locator('[data-testid="tweetTextarea_0"]').first();
-    await composer.waitFor({ state: 'visible', timeout: 20000 });
+    try {
+      await composer.waitFor({ state: 'visible', timeout: 20000 });
+    } catch (err) {
+      const title = await page.title().catch(() => 'unknown');
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(`Tweet composer bulunamadı. URL=${page.url()} title=${title}. ${detail}`);
+    }
     await composer.click();
     await page.waitForTimeout(400 + Math.random() * 600);
     await typeHuman(composer, text);
@@ -68,12 +86,8 @@ export async function postTweet(text: string): Promise<boolean> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`HATA: ${msg}`);
-    try {
-      await page.screenshot({
-        path: path.join(config.paths.errors, `post-${Date.now()}.png`),
-        fullPage: true,
-      });
-    } catch {}
+    const screenshotPath = await saveErrorScreenshot(page);
+    if (screenshotPath) log.error(`Screenshot: ${screenshotPath}`);
     throw err;
   } finally {
     await context.close();

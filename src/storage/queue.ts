@@ -55,7 +55,12 @@ export function enqueue(items: EnqueueInput[]): QueueItem[] {
 export function dueNext(now: Date = new Date()): QueueItem | null {
   const state = load();
   const dueItems = state.items
-    .filter((it) => it.status === 'pending' && new Date(it.scheduledAt) <= now)
+    .filter(
+      (it) =>
+        (it.status === 'pending' ||
+          (it.status === 'failed' && it.attempts < config.pipeline.maxAttempts)) &&
+        new Date(it.scheduledAt) <= now
+    )
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
   return dueItems[0] ?? null;
 }
