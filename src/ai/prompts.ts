@@ -1,4 +1,6 @@
-const SYSTEM_PROMPT = `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları, geliştirici toolları, açık kaynak projeler.
+import type { TrendingRepo } from '../types';
+
+export const SYSTEM_PROMPT = `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları, geliştirici toolları, açık kaynak projeler.
 
 Kurallar:
 - Format: küçük harfle başlayan tek veya iki cümlelik kısa açıklama, ardından boş satır, sonra "repo: <url>".
@@ -18,7 +20,7 @@ coding agent'lar için hazır skill ve workflow katmanı.
 
 repo: https://github.com/example/agent-skills`;
 
-function userPrompt(repo) {
+export function userPrompt(repo: TrendingRepo): string {
   return `Repo: ${repo.owner}/${repo.name}
 URL: ${repo.url}
 Açıklama (İngilizce): ${repo.description || '(yok)'}
@@ -28,7 +30,5 @@ Bugünkü yıldız: ${repo.starsToday || 0}
 Bu repo için kurallara uygun bir Türkçe tweet yaz.`;
 }
 
-const RETRY_USER_NOTE =
+export const RETRY_USER_NOTE =
   'Önceki tweet 280 karakteri aştı. Daha kısa yaz, en fazla 240 karakter olsun. Açıklamayı tek cümleye düşür gerekirse.';
-
-module.exports = { SYSTEM_PROMPT, userPrompt, RETRY_USER_NOTE };

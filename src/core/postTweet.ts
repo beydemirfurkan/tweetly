@@ -1,17 +1,18 @@
-const path = require('path');
-const { launch } = require('./browser');
-const { config } = require('../config');
-const { make } = require('../utils/logger');
+import path from 'path';
+import type { Locator } from 'patchright';
+import { launch } from './browser';
+import { config } from '../config';
+import { make } from '../utils/logger';
 
 const log = make('postTweet');
 
-async function typeHuman(locator, text) {
+async function typeHuman(locator: Locator, text: string): Promise<void> {
   for (const ch of text) {
     await locator.type(ch, { delay: 30 + Math.floor(Math.random() * 60) });
   }
 }
 
-async function postTweet(text) {
+export async function postTweet(text: string): Promise<boolean> {
   if (!text || typeof text !== 'string' || !text.trim()) {
     throw new Error('postTweet: boş metin');
   }
@@ -52,7 +53,7 @@ async function postTweet(text) {
         page.waitForFunction(
           () => {
             const el = document.querySelector('[data-testid="tweetTextarea_0"]');
-            return el && el.textContent.trim().length === 0;
+            return el && (el.textContent ?? '').trim().length === 0;
           },
           { timeout: 15000 }
         ),
@@ -65,7 +66,8 @@ async function postTweet(text) {
     await page.waitForTimeout(3000);
     return true;
   } catch (err) {
-    log.error(`HATA: ${err.message}`);
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`HATA: ${msg}`);
     try {
       await page.screenshot({
         path: path.join(config.paths.errors, `post-${Date.now()}.png`),
@@ -78,13 +80,13 @@ async function postTweet(text) {
   }
 }
 
+export default postTweet;
+
 if (require.main === module) {
   const text = process.argv.slice(2).join(' ');
   if (!text) {
-    log.error('Kullanım: node src/core/postTweet.js "tweet metni"');
+    log.error('Kullanım: node dist/core/postTweet.js "tweet metni"');
     process.exit(1);
   }
   postTweet(text).catch(() => process.exit(1));
 }
-
-module.exports = postTweet;

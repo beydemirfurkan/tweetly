@@ -1,14 +1,15 @@
-const { config } = require('../config');
-const queue = require('../storage/queue');
-const posted = require('../storage/posted');
-const postTweet = require('../core/postTweet');
-const { make } = require('../utils/logger');
+import { config } from '../config';
+import * as queue from '../storage/queue';
+import * as posted from '../storage/posted';
+import { postTweet } from '../core/postTweet';
+import type { QueueItem } from '../types';
+import { make } from '../utils/logger';
 
 const log = make('dispatch');
 
 let running = false;
 
-async function run() {
+export async function run(): Promise<QueueItem | null> {
   if (running) {
     log.warn('Önceki dispatch hâlâ çalışıyor, atlanıyor.');
     return null;
@@ -29,15 +30,17 @@ async function run() {
       log.ok(`Atıldı: ${item.repo}`);
       return item;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       const attempts = (item.attempts || 0) + 1;
-      const status = attempts >= config.pipeline.maxAttempts ? 'dead' : 'failed';
+      const status: 'failed' | 'dead' =
+        attempts >= config.pipeline.maxAttempts ? 'dead' : 'failed';
       queue.update(item.id, {
         status,
         attempts,
-        lastError: err.message,
+        lastError: msg,
         lastTriedAt: new Date().toISOString(),
       });
-      log.error(`Hata (${status}, deneme ${attempts}): ${err.message}`);
+      log.error(`Hata (${status}, deneme ${attempts}): ${msg}`);
       return null;
     }
   } finally {
@@ -47,9 +50,7 @@ async function run() {
 
 if (require.main === module) {
   run().catch((e) => {
-    console.error(e);
+    log.error(e);
     process.exit(1);
   });
 }
-
-module.exports = { run };

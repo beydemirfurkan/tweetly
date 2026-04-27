@@ -8,7 +8,6 @@ user-data
 data
 dist
 *.log
-README.md
 docker-compose.yml
 .dockerignore
 Dockerfile

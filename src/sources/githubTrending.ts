@@ -1,10 +1,26 @@
-const cheerio = require('cheerio');
+import * as cheerio from 'cheerio';
+import type { TrendingRepo } from '../types';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-async function fetchTrending({ since = 'daily', language = '' } = {}) {
+export interface FetchTrendingOptions {
+  since?: 'daily' | 'weekly' | 'monthly';
+  language?: string;
+}
+
+function parseIntFromText(text: string): number {
+  const match = text.match(/[\d,]+/);
+  if (!match) return 0;
+  const n = parseInt(match[0].replace(/,/g, ''), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export async function fetchTrending(
+  options: FetchTrendingOptions = {}
+): Promise<TrendingRepo[]> {
+  const { since = 'daily', language = '' } = options;
   const url = new URL('https://github.com/trending');
   if (language) url.pathname = `/trending/${language}`;
   url.searchParams.set('since', since);
@@ -23,12 +39,12 @@ async function fetchTrending({ since = 'daily', language = '' } = {}) {
 
   const html = await res.text();
   const $ = cheerio.load(html);
-  const rows = [];
+  const rows: TrendingRepo[] = [];
 
   $('article.Box-row').each((_, el) => {
     const $el = $(el);
     const $titleA = $el.find('h2 a').first();
-    const href = ($titleA.attr('href') || '').trim();
+    const href = ($titleA.attr('href') ?? '').trim();
     if (!href) return;
     const slug = href.replace(/^\//, '');
     const [owner, name] = slug.split('/');
@@ -37,7 +53,7 @@ async function fetchTrending({ since = 'daily', language = '' } = {}) {
     const description = $el.find('p').first().text().trim();
     const language = $el.find('span[itemprop="programmingLanguage"]').first().text().trim();
     const starsTodayText = $el.find('span.d-inline-block.float-sm-right').first().text().trim();
-    const starsToday = parseInt((starsTodayText.match(/[\d,]+/) || ['0'])[0].replace(/,/g, ''), 10) || 0;
+    const starsToday = parseIntFromText(starsTodayText);
 
     const totalStarsText = $el
       .find('a.Link--muted')
@@ -45,7 +61,7 @@ async function fetchTrending({ since = 'daily', language = '' } = {}) {
       .first()
       .text()
       .trim();
-    const totalStars = parseInt((totalStarsText.match(/[\d,]+/) || ['0'])[0].replace(/,/g, ''), 10) || 0;
+    const totalStars = parseIntFromText(totalStarsText);
 
     rows.push({
       owner,
@@ -61,5 +77,3 @@ async function fetchTrending({ since = 'daily', language = '' } = {}) {
 
   return rows;
 }
-
-module.exports = { fetchTrending };

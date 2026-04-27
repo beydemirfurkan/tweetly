@@ -2,13 +2,15 @@
   "name": "tweetbot",
   "version": "1.0.0",
   "description": "GitHub Trending repos için Türkçe tweet otomasyonu",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "login": "node scripts/login.js",
-    "collect": "node scripts/collect.js",
-    "dispatch": "node scripts/dispatch.js",
-    "tweet": "node src/core/postTweet.js"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "login": "tsx src/core/login.ts",
+    "collect": "tsx src/pipeline/collect.ts",
+    "dispatch": "tsx src/pipeline/dispatch.ts",
+    "tweet": "tsx src/core/postTweet.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +21,11 @@
     "dotenv": "^17.4.2",
     "node-cron": "^3.0.3",
     "patchright": "^1.59.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
   }
 }

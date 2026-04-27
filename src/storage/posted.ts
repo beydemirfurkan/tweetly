@@ -1,21 +1,22 @@
-const fs = require('fs');
-const path = require('path');
-const { config } = require('../config');
+import fs from 'fs';
+import path from 'path';
+import { config } from '../config';
+import type { PostedState } from '../types';
 
 const FILE = config.paths.posted;
 
-function ensure() {
+function ensure(): void {
   fs.mkdirSync(path.dirname(FILE), { recursive: true });
   if (!fs.existsSync(FILE)) {
     fs.writeFileSync(FILE, JSON.stringify({ items: [] }, null, 2));
   }
 }
 
-function load() {
+export function load(): PostedState {
   ensure();
   try {
     const raw = fs.readFileSync(FILE, 'utf8');
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as PostedState;
     if (!parsed || !Array.isArray(parsed.items)) return { items: [] };
     return parsed;
   } catch {
@@ -23,24 +24,22 @@ function load() {
   }
 }
 
-function save(state) {
+export function save(state: PostedState): void {
   ensure();
   const tmp = `${FILE}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
   fs.renameSync(tmp, FILE);
 }
 
-function has(repoSlug) {
+export function has(repoSlug: string): boolean {
   const slug = repoSlug.toLowerCase();
   return load().items.some((it) => it.repo.toLowerCase() === slug);
 }
 
-function add(repoSlug) {
+export function add(repoSlug: string): void {
   const state = load();
   if (!state.items.some((it) => it.repo.toLowerCase() === repoSlug.toLowerCase())) {
     state.items.push({ repo: repoSlug, postedAt: new Date().toISOString() });
     save(state);
   }
 }
-
-module.exports = { load, save, has, add };

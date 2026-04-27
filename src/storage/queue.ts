@@ -1,22 +1,23 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { config } = require('../config');
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { config } from '../config';
+import type { QueueItem, QueueState } from '../types';
 
 const FILE = config.paths.queue;
 
-function ensure() {
+function ensure(): void {
   fs.mkdirSync(path.dirname(FILE), { recursive: true });
   if (!fs.existsSync(FILE)) {
     fs.writeFileSync(FILE, JSON.stringify({ items: [] }, null, 2));
   }
 }
 
-function load() {
+export function load(): QueueState {
   ensure();
   try {
     const raw = fs.readFileSync(FILE, 'utf8');
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as QueueState;
     if (!parsed || !Array.isArray(parsed.items)) return { items: [] };
     return parsed;
   } catch {
@@ -24,20 +25,22 @@ function load() {
   }
 }
 
-function save(state) {
+export function save(state: QueueState): void {
   ensure();
   const tmp = `${FILE}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
   fs.renameSync(tmp, FILE);
 }
 
-function newId() {
+function newId(): string {
   return crypto.randomBytes(6).toString('hex');
 }
 
-function enqueue(items) {
+export type EnqueueInput = Pick<QueueItem, 'repo' | 'url' | 'text' | 'scheduledAt'>;
+
+export function enqueue(items: EnqueueInput[]): QueueItem[] {
   const state = load();
-  const enriched = items.map((it) => ({
+  const enriched: QueueItem[] = items.map((it) => ({
     id: newId(),
     status: 'pending',
     attempts: 0,
@@ -49,27 +52,25 @@ function enqueue(items) {
   return enriched;
 }
 
-function dueNext(now = new Date()) {
+export function dueNext(now: Date = new Date()): QueueItem | null {
   const state = load();
   const dueItems = state.items
     .filter((it) => it.status === 'pending' && new Date(it.scheduledAt) <= now)
-    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
-  return dueItems[0] || null;
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  return dueItems[0] ?? null;
 }
 
-function update(id, patch) {
+export function update(id: string, patch: Partial<QueueItem>): QueueItem | null {
   const state = load();
   const idx = state.items.findIndex((it) => it.id === id);
   if (idx === -1) return null;
-  state.items[idx] = { ...state.items[idx], ...patch };
+  state.items[idx] = { ...state.items[idx], ...patch } as QueueItem;
   save(state);
   return state.items[idx];
 }
 
-function pendingRepoSlugs() {
+export function pendingRepoSlugs(): string[] {
   return load()
     .items.filter((it) => it.status === 'pending' || it.status === 'failed')
     .map((it) => it.repo.toLowerCase());
 }
-
-module.exports = { load, save, enqueue, dueNext, update, pendingRepoSlugs };

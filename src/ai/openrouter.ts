@@ -1,9 +1,19 @@
-const { config, assertOpenRouter } = require('../config');
-const { SYSTEM_PROMPT, userPrompt, RETRY_USER_NOTE } = require('./prompts');
+import { config, assertOpenRouter } from '../config';
+import { SYSTEM_PROMPT, userPrompt, RETRY_USER_NOTE } from './prompts';
+import type { TrendingRepo } from '../types';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
-async function chat(messages) {
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface ChatResponse {
+  choices?: Array<{ message?: { content?: string } }>;
+}
+
+export async function chat(messages: ChatMessage[]): Promise<string> {
   assertOpenRouter();
   const res = await fetch(ENDPOINT, {
     method: 'POST',
@@ -26,7 +36,7 @@ async function chat(messages) {
     throw new Error(`OpenRouter ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
   }
 
-  const data = await res.json();
+  const data = (await res.json()) as ChatResponse;
   const content = data?.choices?.[0]?.message?.content;
   if (!content || typeof content !== 'string') {
     throw new Error(`OpenRouter cevabı boş: ${JSON.stringify(data).slice(0, 300)}`);
@@ -34,12 +44,12 @@ async function chat(messages) {
   return content.trim();
 }
 
-function clean(text) {
+function clean(text: string): string {
   return text.replace(/^["'`]+|["'`]+$/g, '').trim();
 }
 
-async function generateTweet(repo) {
-  const messages = [
+export async function generateTweet(repo: TrendingRepo): Promise<string> {
+  const messages: ChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: userPrompt(repo) },
   ];
@@ -61,5 +71,3 @@ async function generateTweet(repo) {
 
   return text;
 }
-
-module.exports = { generateTweet, chat };

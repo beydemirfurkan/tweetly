@@ -1,24 +1,25 @@
-const path = require('path');
-const { launch } = require('./browser');
-const { config, assertX } = require('../config');
-const { make } = require('../utils/logger');
+import path from 'path';
+import type { Locator, Page } from 'patchright';
+import { launch } from './browser';
+import { config, assertX } from '../config';
+import { make } from '../utils/logger';
 
 const log = make('login');
 
-async function isAlreadyLoggedIn(page) {
+async function isAlreadyLoggedIn(page: Page): Promise<boolean> {
   await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForTimeout(3000);
   const url = page.url();
   return url.includes('/home') && !url.includes('/login') && !url.includes('/i/flow');
 }
 
-async function typeHuman(locator, text) {
+async function typeHuman(locator: Locator, text: string): Promise<void> {
   for (const ch of text) {
     await locator.type(ch, { delay: 30 + Math.floor(Math.random() * 60) });
   }
 }
 
-async function login() {
+export async function login(): Promise<boolean> {
   assertX();
   const { username, password } = config.x;
 
@@ -65,7 +66,8 @@ async function login() {
     log.ok('Giriş başarılı, session user-data/ içine kaydedildi.');
     return true;
   } catch (err) {
-    log.error(`HATA: ${err.message}`);
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`HATA: ${msg}`);
     try {
       await page.screenshot({
         path: path.join(config.paths.errors, `login-${Date.now()}.png`),
@@ -84,5 +86,3 @@ if (require.main === module) {
     process.exit(1);
   });
 }
-
-module.exports = { login };

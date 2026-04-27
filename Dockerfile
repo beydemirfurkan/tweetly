@@ -1,3 +1,14 @@
+FROM node:20-bookworm-slim AS builder
+
+WORKDIR /app
+
+COPY package*.json tsconfig.json ./
+RUN npm ci
+
+COPY src ./src
+RUN npm run build
+
+
 FROM node:20-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -22,11 +33,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-COPY src ./src
-COPY scripts ./scripts
+COPY --from=builder /app/dist ./dist
 
-RUN mkdir -p /app/user-data /app/data/errors
+RUN mkdir -p /app/user-data /app/data/errors /app/data/logs
 
 VOLUME ["/app/user-data", "/app/data"]
 
-CMD ["node", "src/index.js"]
+CMD ["node", "dist/index.js"]

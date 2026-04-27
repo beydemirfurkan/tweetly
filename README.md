@@ -19,26 +19,40 @@ npm run login         # X session'ını user-data/'ya yazar (bir kez)
 ## Komutlar
 
 ```bash
-npm start         # Long-running orchestrator (cron'lar)
-npm run collect   # Manuel: trending çek + tweet üret + queue
-npm run dispatch  # Manuel: vakti gelen 1 tweeti at
-npm run login     # X session aç
+npm start          # Long-running orchestrator — derlenmiş dist'ten (prod)
+npm run dev        # Long-running orchestrator — tsx ile (lokal)
+npm run collect    # Manuel: trending çek + tweet üret + queue (tsx)
+npm run dispatch   # Manuel: vakti gelen 1 tweeti at (tsx)
+npm run login      # X session aç (tsx)
+npm run tweet -- "metin"   # Tek seferlik manuel tweet (tsx)
 ```
 
 ## Yapı
 
+Proje TypeScript (CommonJS, target ES2022). Lokal'de `tsx`, prod'da derlenmiş `dist/` çalışır.
+
 ```
 src/
   core/        browser, login, postTweet (Playwright/patchright)
-  sources/     githubTrending.js (cheerio scrape)
-  ai/          openrouter.js + prompts.js
-  pipeline/    collect.js, dispatch.js
-  storage/     posted.js, queue.js (atomic JSON)
+  sources/     githubTrending.ts (cheerio scrape)
+  ai/          openrouter.ts + prompts.ts
+  pipeline/    collect.ts, dispatch.ts
+  storage/     posted.ts, queue.ts (atomic JSON)
   config/      env validation + sabitler
-  utils/       logger
-  index.js     node-cron orchestrator
-scripts/       manuel tetikleyici entry'ler
-data/          posted.json, queue.json, errors/
+  types/       domain tipleri
+  utils/       logger (console + data/logs/YYYY-MM-DD.log)
+  index.ts     node-cron orchestrator
+data/
+  posted.json, queue.json
+  logs/        günlük rotated log dosyaları
+  errors/      hata anı tarayıcı screenshot'ları
+```
+
+## Build
+
+```bash
+npm run build   # tsc → dist/
+npm start       # node dist/index.js (Coolify/prod entry)
 ```
 
 ## Env

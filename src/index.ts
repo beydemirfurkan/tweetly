@@ -1,12 +1,12 @@
-const cron = require('node-cron');
-const collect = require('./pipeline/collect');
-const dispatch = require('./pipeline/dispatch');
-const { config } = require('./config');
-const { make } = require('./utils/logger');
+import cron from 'node-cron';
+import * as collect from './pipeline/collect';
+import * as dispatch from './pipeline/dispatch';
+import { config } from './config';
+import { make } from './utils/logger';
 
 const log = make('orchestrator');
 
-function start() {
+export function start(): void {
   log.info('Başlıyor.');
   log.info(
     `Plan: günde ${config.pipeline.tweetsPerDay} tweet, başlangıç ${config.pipeline.dispatchStartHour}:00, aralık ${config.pipeline.dispatchIntervalMin} dk.`
@@ -17,7 +17,8 @@ function start() {
     try {
       await collect.run();
     } catch (err) {
-      log.error(`collect hata: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`collect hata: ${msg}`);
     }
   });
 
@@ -25,15 +26,14 @@ function start() {
     try {
       await dispatch.run();
     } catch (err) {
-      log.error(`dispatch hata: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`dispatch hata: ${msg}`);
     }
   });
 
-  log.ok('Cron'lar kuruldu. Süreç ayakta kalıyor.');
+  log.ok("Cron'lar kuruldu. Süreç ayakta kalıyor.");
 }
 
 if (require.main === module) {
   start();
 }
-
-module.exports = { start };
