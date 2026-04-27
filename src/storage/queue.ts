@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { config } from '../config';
-import type { QueueItem, QueueState } from '../types';
+import type { QueueItem, QueueState, QueueStatus } from '../types';
 
 const FILE = config.paths.queue;
 
@@ -69,6 +69,64 @@ export function hasActiveItems(): boolean {
   return load().items.some(
     (it) => it.status === 'pending' || (it.status === 'failed' && it.attempts < config.pipeline.maxAttempts)
   );
+}
+
+export interface QueueSummary {
+  total: number;
+  active: number;
+  counts: Record<QueueStatus, number>;
+  nextScheduledAt: string | null;
+  nextDueAt: string | null;
+  latestSentAt: string | null;
+  latestErrorAt: string | null;
+}
+
+export function summary(now: Date = new Date()): QueueSummary {
+  const items = load().items;
+  const counts: Record<QueueStatus, number> = {
+    pending: 0,
+    sent: 0,
+    failed: 0,
+    dead: 0,
+  };
+
+  let active = 0;
+  let nextScheduledAt: string | null = null;
+  let nextDueAt: string | null = null;
+  let latestSentAt: string | null = null;
+  let latestErrorAt: string | null = null;
+
+  for (const item of items) {
+    counts[item.status] += 1;
+
+    const isActive = item.status === 'pending' || (item.status === 'failed' && item.attempts < config.pipeline.maxAttempts);
+    if (isActive) {
+      active += 1;
+      if (!nextScheduledAt || new Date(item.scheduledAt) < new Date(nextScheduledAt)) {
+        nextScheduledAt = item.scheduledAt;
+      }
+      if (new Date(item.scheduledAt) <= now && (!nextDueAt || new Date(item.scheduledAt) < new Date(nextDueAt))) {
+        nextDueAt = item.scheduledAt;
+      }
+    }
+
+    if (item.sentAt && (!latestSentAt || new Date(item.sentAt) > new Date(latestSentAt))) {
+      latestSentAt = item.sentAt;
+    }
+    if (item.lastTriedAt && (!latestErrorAt || new Date(item.lastTriedAt) > new Date(latestErrorAt))) {
+      latestErrorAt = item.lastTriedAt;
+    }
+  }
+
+  return {
+    total: items.length,
+    active,
+    counts,
+    nextScheduledAt,
+    nextDueAt,
+    latestSentAt,
+    latestErrorAt,
+  };
 }
 
 export function update(id: string, patch: Partial<QueueItem>): QueueItem | null {

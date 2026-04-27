@@ -46,6 +46,10 @@ export const config = {
     dispatchIntervalMin: 30,
     maxAttempts: intOr('MAX_ATTEMPTS', 3),
   },
+  server: {
+    port: intOr('PORT', 3000),
+    adminToken: process.env.ADMIN_TOKEN ?? '',
+  },
 } as const;
 
 export type AppConfig = typeof config;

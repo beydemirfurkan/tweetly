@@ -4,6 +4,8 @@ import * as dispatch from './pipeline/dispatch';
 import * as queue from './storage/queue';
 import { config } from './config';
 import { hasSessionImportEnv, importSession } from './core/importSession';
+import { startHealthServer } from './ops/healthServer';
+import * as runtime from './ops/runtime';
 import { make } from './utils/logger';
 
 const log = make('orchestrator');
@@ -20,8 +22,10 @@ async function bootstrapSession(): Promise<void> {
   log.info('X session env bulundu. Browser profiline import ediliyor.');
   try {
     await importSession();
+    runtime.markSessionImport({ ok: true, message: 'imported' });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    runtime.markSessionImport({ ok: false, message: msg });
     log.error(`session import hata: ${msg}`);
   }
 }
@@ -33,17 +37,21 @@ async function runCollect(reason: string): Promise<void> {
   }
 
   collectRunning = true;
+  runtime.setCollectRunning(true);
   try {
     log.info(`${reason} collect tetiklendi.`);
     const created = await collect.run();
+    runtime.markCollect({ ok: true, reason, created: created.length });
     if (created.length > 0) {
       lastEmptyRefillAt = 0;
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    runtime.markCollect({ ok: false, reason, created: 0, message: msg });
     log.error(`collect hata: ${msg}`);
   } finally {
     collectRunning = false;
+    runtime.setCollectRunning(false);
   }
 }
 
@@ -59,10 +67,13 @@ async function refillQueueIfEmpty(reason: string): Promise<void> {
   }
 
   lastEmptyRefillAt = now;
+  runtime.markEmptyRefillAttempt();
   await runCollect(reason);
 }
 
 export async function start(): Promise<void> {
+  startHealthServer();
+
   log.info('Başlıyor.');
   log.info(
     `Plan: günde ${config.pipeline.tweetsPerDay} tweet, başlangıç ${config.pipeline.dispatchStartHour}:00, aralık ${config.pipeline.dispatchIntervalMin} dk.`
@@ -77,10 +88,12 @@ export async function start(): Promise<void> {
 
   cron.schedule('*/5 * * * *', async () => {
     try {
-      await dispatch.run();
+      const item = await dispatch.run();
+      runtime.markDispatch({ ok: true, repo: item?.repo ?? null });
       await refillQueueIfEmpty('Havuz boş');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      runtime.markDispatch({ ok: false, repo: null, message: msg });
       log.error(`dispatch hata: ${msg}`);
     }
   });
