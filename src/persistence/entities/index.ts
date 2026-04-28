@@ -11,3 +11,4 @@ export { LikeActionEntity } from './like-action.entity';
 export { FollowActionEntity } from './follow-action.entity';
 export { QuoteActionEntity } from './quote-action.entity';
 export { BookmarkActionEntity } from './bookmark-action.entity';
+export { EngagementConfigEntity } from './engagement-config.entity';

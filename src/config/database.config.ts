@@ -12,6 +12,7 @@ import {
   FollowActionEntity,
   QuoteActionEntity,
   BookmarkActionEntity,
+  EngagementConfigEntity,
 } from '../persistence/entities';
 
 export interface DatabaseEnv {
@@ -49,6 +50,7 @@ const ENTITY_LIST: MixedList<Function | string | EntitySchema<unknown>> = [
   FollowActionEntity,
   QuoteActionEntity,
   BookmarkActionEntity,
+  EngagementConfigEntity,
 ];
 
 export function buildDataSourceOptions(env: DatabaseEnv = readDatabaseEnv()): DataSourceOptions {

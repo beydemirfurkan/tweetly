@@ -20,6 +20,9 @@ import { WorkflowDispatchService } from '../workflows/workflow-dispatch.service'
 import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES } from '../domain/types/action.types';
+import { EngagementConfigService } from '../engagement/engagement-config.service';
+import { EngagementCounterService } from '../engagement/engagement-counter.service';
+import type { EngagementConfig } from '../engagement/engagement-config.service';
 
 @Controller('admin')
 @UseGuards(AdminTokenGuard)
@@ -29,6 +32,8 @@ export class AdminApiController {
     private readonly settings: SettingsService,
     private readonly dispatch: WorkflowDispatchService,
     private readonly enqueue: ActionEnqueueService,
+    private readonly engagementConfig: EngagementConfigService,
+    private readonly engagementCounter: EngagementCounterService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -242,6 +247,38 @@ export class AdminApiController {
       metadata: { source: 'manual-test' },
     });
     return { ok: true, id: result.id };
+  }
+
+  @Get('engagement/config')
+  async getEngagementConfig(@Query('account') accountId: string) {
+    if (!accountId) throw new BadRequestException('account query param required');
+    return this.engagementConfig.get(accountId);
+  }
+
+  @Put('engagement/config')
+  async updateEngagementConfig(@Body() body: Partial<EngagementConfig> & { accountId: string }) {
+    if (!body.accountId) throw new BadRequestException('accountId is required');
+    const { accountId, ...patch } = body;
+    return this.engagementConfig.upsert(accountId, patch);
+  }
+
+  @Get('engagement/counters')
+  async getEngagementCounters(@Query('account') accountId: string) {
+    if (!accountId) throw new BadRequestException('account query param required');
+    const [counts, config] = await Promise.all([
+      this.engagementCounter.getAllDailyCounts(accountId),
+      this.engagementConfig.get(accountId),
+    ]);
+    return {
+      date: new Date().toISOString().split('T')[0],
+      counts,
+      limits: {
+        likes: config.maxLikesPerDay,
+        retweets: config.maxRetweetsPerDay,
+        quotes: config.maxQuotesPerDay,
+        bookmarks: config.maxBookmarksPerDay,
+      },
+    };
   }
 }
 
