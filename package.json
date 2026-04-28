@@ -6,6 +6,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:legacy": "tsx src/index.ts",
+    "start:nest": "tsx src-nest/main.ts",
+    "build:nest": "tsc -p tsconfig.nest.json",
+    "start:nest:prod": "node dist-nest/main.js",
     "dev": "tsx src/index.ts",
     "login": "tsx src/core/login.ts",
     "manual-login": "tsx src/core/manualLogin.ts",
@@ -14,24 +18,73 @@
     "dispatch": "tsx src/pipeline/dispatch.ts",
     "tweet": "tsx src/core/postTweet.ts",
     "migrate": "tsx src/scripts/migrateJsonToDb.ts",
-    "report": "tsx src/ops/report.ts"
+    "report": "tsx src/ops/report.ts",
+    "test": "jest",
+    "db:migrate": "npm run build:nest --silent && node dist-nest/scripts/run-migrations.js",
+    "db:migrate:revert": "npm run build:nest --silent && node dist-nest/scripts/revert-migration.js",
+    "db:migrate:legacy": "npm run build:nest --silent && node dist-nest/scripts/migrate-sqlite-to-postgres.js",
+    "smoke:engine": "npm run build:nest --silent && node dist-nest/scripts/smoke-engine.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/typeorm": "^11.0.1",
     "better-sqlite3": "^12.9.0",
     "cheerio": "^1.2.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.4",
     "dotenv": "^17.4.2",
+    "nestjs-pino": "^4.6.1",
     "node-cron": "^3.0.3",
-    "patchright": "^1.59.4"
+    "patchright": "^1.59.4",
+    "pg": "^8.20.0",
+    "pino-http": "^11.0.0",
+    "pino-pretty": "^13.1.3",
+    "prom-client": "^15.1.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.28"
   },
   "devDependencies": {
+    "@nestjs/testing": "^11.0.0",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/jest": "^29.5.14",
     "@types/node": "^25.6.0",
     "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.20.0",
+    "@types/supertest": "^6.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testRegex": ".*\\.spec\\.ts$",
+    "rootDir": ".",
+    "roots": [
+      "<rootDir>/src-nest"
+    ],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "transform": {
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.nest.json"
+        }
+      ]
+    }
   }
 }

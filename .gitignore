@@ -3,6 +3,7 @@ node_modules/
 user-data/
 data/
 dist/
+dist-nest/
 docs/
 *.log
 *.tar.gz

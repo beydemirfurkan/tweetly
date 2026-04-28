@@ -22,5 +22,24 @@ services:
     volumes:
       - tweetbot_state:/data
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: tweetly-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-tweetly}
+      POSTGRES_PASSWORD: ${DB_PASS:-tweetly}
+      POSTGRES_DB: ${DB_NAME:-tweetly}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - tweetly_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-tweetly} -d ${DB_NAME:-tweetly}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   tweetbot_state:
+  tweetly_pgdata:

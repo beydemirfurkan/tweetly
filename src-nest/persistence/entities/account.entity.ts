@@ -1,0 +1,33 @@
+import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
+import type { AccountStatus } from '../../domain/types/account.types';
+
+@Entity('accounts')
+export class AccountEntity {
+  @PrimaryColumn({ type: 'text' })
+  id!: string;
+
+  @Column({ name: 'display_name', type: 'text', nullable: true })
+  displayName!: string | null;
+
+  @Column({ name: 'auth_token', type: 'text' })
+  authToken!: string;
+
+  @Column({ name: 'auth_multi', type: 'text', nullable: true })
+  authMulti!: string | null;
+
+  @Column({ name: 'ct0', type: 'text', nullable: true })
+  ct0!: string | null;
+
+  @Column({ name: 'twid', type: 'text', nullable: true })
+  twid!: string | null;
+
+  @Index()
+  @Column({ type: 'text', default: 'active' })
+  status!: AccountStatus;
+
+  @Column({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
+  createdAt!: Date;
+
+  @Column({ name: 'last_used_at', type: 'timestamptz', nullable: true })
+  lastUsedAt!: Date | null;
+}
