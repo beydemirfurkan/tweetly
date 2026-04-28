@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { ActionEngineModule } from '../action-engine/action-engine.module';
 import { SettingsModule } from '../settings/settings.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
 import { AdminApiController } from './admin-api.controller';
@@ -7,8 +8,9 @@ import { AdminApiService } from './admin-api.service';
 import { AdminTokenGuard } from './admin-token.guard';
 
 @Module({
-  imports: [AnalyticsModule, SettingsModule, WorkflowsModule],
+  imports: [AnalyticsModule, SettingsModule, WorkflowsModule, ActionEngineModule],
   controllers: [AdminApiController],
   providers: [AdminApiService, AdminTokenGuard],
+  exports: [AdminApiService, AdminTokenGuard],
 })
 export class AdminApiModule {}
