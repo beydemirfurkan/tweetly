@@ -41,4 +41,4 @@ RUN mkdir -p /data/user-data /data/app-data/errors /data/app-data/logs
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/main.js"]
