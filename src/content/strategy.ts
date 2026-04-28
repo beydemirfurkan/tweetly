@@ -1,5 +1,5 @@
 import type { ContentFormat, EngagementObjective } from '../types';
-import { getFormatWeights, get } from '../storage/settings';
+import { getFormatWeights, get, getThreadDays } from '../storage/settings';
 import { getFormatPerformance } from '../storage/analytics';
 import { getFormatConfig, FORMATS } from '../ai/prompts';
 
@@ -72,10 +72,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 export function buildDailyMix(targetSlots: number, date: Date = new Date()): FormatSlot[] {
   const digestDay = get<number>('digest.day', 5);
-  const threadDays = get<string>('thread.days', '1,3,5')
-    .split(',')
-    .map(Number)
-    .filter((n) => Number.isFinite(n));
+  const threadDays = getThreadDays();
 
   const weights = getAdaptiveWeights();
 

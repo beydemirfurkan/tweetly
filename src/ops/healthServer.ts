@@ -12,6 +12,17 @@ import { make } from '../utils/logger';
 
 const log = make('health');
 
+export interface TriggerCallbacks {
+  collect: () => Promise<void>;
+  dispatch: () => Promise<void>;
+}
+
+let _triggers: TriggerCallbacks = { collect: () => Promise.resolve(), dispatch: () => Promise.resolve() };
+
+export function setTriggers(cb: TriggerCallbacks): void {
+  _triggers = cb;
+}
+
 function daysAgo(n: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -184,6 +195,7 @@ interface Route {
 
 const GET = 'GET';
 const PUT = 'PUT';
+const POST = 'POST';
 
 const routes: Route[] = [
   { method: GET, pattern: '/health', handler: (_req, res) => sendJson(res, 200, healthPayload()) },
@@ -222,6 +234,32 @@ const routes: Route[] = [
         sendJson(res, 200, { ok: true, updated: keys.length });
       } catch {
         sendJson(res, 400, { ok: false, error: 'invalid json' });
+      }
+    }),
+  },
+  {
+    method: POST,
+    pattern: '/collect',
+    handler: auth(async (_req, res) => {
+      try {
+        await _triggers.collect();
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, 500, { ok: false, error: msg });
+      }
+    }),
+  },
+  {
+    method: POST,
+    pattern: '/dispatch',
+    handler: auth(async (_req, res) => {
+      try {
+        await _triggers.dispatch();
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, 500, { ok: false, error: msg });
       }
     }),
   },

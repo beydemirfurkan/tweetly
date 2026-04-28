@@ -100,16 +100,21 @@ export function touchLastUsed(id: string): void {
 }
 
 export function bootstrapFromEnv(): Account[] {
-  const username = process.env.X_USERNAME?.trim();
   const authToken = process.env.X_AUTH_TOKEN?.trim();
+  const username = process.env.X_USERNAME?.trim() || `account_${authToken!.slice(-6)}`;
   const authMulti = process.env.X_AUTH_MULTI?.trim();
   const ct0 = process.env.X_CT0?.trim();
   const twid = process.env.X_TWID?.trim();
 
-  if (!username || !authToken) return [];
+  if (!authToken) return [];
 
   const existing = getById(username);
-  if (existing) return [existing];
+  if (existing) {
+    if (!existing.ct0 && ct0) update(username, { ct0 });
+    if (!existing.twid && twid) update(username, { twid });
+    if (!existing.authMulti && authMulti) update(username, { authMulti });
+    return [getById(username)!];
+  }
 
   const account = create({
     id: username,

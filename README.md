@@ -1,14 +1,15 @@
 # tweetly
 
-GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine 30+ dakikalık jitter'lı aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
+GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine zamanlanmış aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
 
 ## Akış
 
-1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → günlük en fazla 20 repo için Türkçe tweet üret → `data/queue.json`'a yaz, slot'ları 09:30'dan itibaren 30 dk + 5-12 dk jitter ile planla.
-2. Her **5 dakika** — `dispatch`: vakti gelen 1 tweeti X'e atar, `data/posted.json`'a kaydeder.
+1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → scoring → günlük limite (default 13) göre Türkçe tweet üret → SQLite kuyruğuna yaz. Tweet'ler ağırlıklı saat dağılımına göre 45 dk + 15-45 dk jitter ile planlanır.
+2. Her **5 dakika** — `dispatch`: vakti gelen 1 tweeti X'e atar, `tweets` tablosunda `status='sent'` olarak işaretler.
 3. Queue'da gönderilecek tweet kalmazsa orchestrator otomatik refill yapar; boş/başarısız refill sonrası 30 dk cooldown uygular.
 4. Arka arkaya 3 post hatası olursa circuit breaker 60 dk pause eder.
-5. `content-memory.json`, aynı/çok benzer tweet kalıplarını tekrar üretmeyi engeller.
+5. `content_memory` tablosu aynı/çok benzer tweet kalıplarını tekrar üretmeyi engeller (Jaccard similarity + hash dedup).
+6. **Adaptive format**: Son 14 günlük başarı oranına göre format ağırlıkları otomatik ayarlanır.
 
 ## Kurulum
 
@@ -26,29 +27,39 @@ npm start          # Long-running orchestrator — derlenmiş dist'ten (prod)
 npm run dev        # Long-running orchestrator — tsx ile (lokal)
 npm run collect    # Manuel: trending çek + tweet üret + queue (tsx)
 npm run dispatch   # Manuel: vakti gelen 1 tweeti at (tsx)
+npm run login      # X'e password ile login (headful browser)
+npm run manual-login # X'e manuel login (kullanıcı browser'da login olur)
 npm run import-session # X cookie'lerini browser profiline import et (tsx)
 npm run tweet -- "metin"   # Tek seferlik manuel tweet (tsx)
+npm run report     # Haftalık analytics raporu (tsx)
+npm run migrate    # Eski JSON verilerini SQLite'a taşır (tsx)
 ```
 
 ## Yapı
 
-Proje TypeScript (CommonJS, target ES2022). Lokal'de `tsx`, prod'da derlenmiş `dist/` çalışır.
+Proje TypeScript (CommonJS, target ES2022). Lokal'de `tsx`, prod'da derlenmiş `dist/` çalışır. Veri saklama: **SQLite** (better-sqlite3, WAL mode).
 
 ```
 src/
-  core/        browser, login, postTweet (Playwright/patchright)
+  core/        browser, login, postTweet (patchright anti-detection)
   sources/     githubTrending.ts (cheerio scrape)
-  ai/          openrouter.ts + prompts.ts
+  ai/          openrouter.ts + prompts.ts (AI tweet generation)
   pipeline/    collect.ts, dispatch.ts
-  storage/     posted.ts, queue.ts (atomic JSON)
+  storage/     SQLite tables: tweets, content_memory, control_state,
+               analytics_events, settings, accounts
+  content/     strategy.ts (format mix), scoring.ts (repo scoring),
+               topics.ts (topic inference)
+  ops/         healthServer.ts (HTTP API), runtime.ts (state), report.ts
   config/      env validation + sabitler
   types/       domain tipleri
   utils/       logger (console + data/logs/YYYY-MM-DD.log)
+  scripts/     migrateJsonToDb.ts
   index.ts     node-cron orchestrator
 data/
-  posted.json, queue.json, control.json, content-memory.json
-  logs/        günlük rotated log dosyaları
-  errors/      hata anı tarayıcı screenshot'ları
+  tweetly.db         SQLite veritabanı (tweets, settings, analytics, etc.)
+  media/             İndirilen OG image dosyaları
+  logs/              Günlük rotated log dosyaları
+  errors/            Hata anı tarayıcı screenshot'ları
 ```
 
 ## Build
@@ -63,22 +74,58 @@ npm start       # node dist/index.js (Coolify/prod entry)
 Bkz. `.env.example`. Kritik: `OPENROUTER_API_KEY` ve X session için `X_AUTH_TOKEN`.
 Default model: `google/gemini-2.5-flash`.
 
-## Health
+### X Session (Cookie-based)
+
+| Env             | Zorunlu mu | Açıklama                                      |
+|-----------------|------------|-----------------------------------------------|
+| `X_USERNAME`    | Evet       | X kullanıcı adı                              |
+| `X_AUTH_TOKEN`  | Evet       | X `auth_token` cookie değeri                  |
+| `X_AUTH_MULTI`  | Hayır      | X `auth_multi` cookie değeri                  |
+| `X_CT0`         | Hayır      | CSRF cookie; varsa ekle                       |
+| `X_TWID`        | Hayır      | Kullanıcı id cookie; varsa ekle               |
+| `X_PASSWORD`    | Hayır      | Password-based login için (npm run login)     |
+
+### Pipeline Tuning (Opsiyonel)
+
+| Env                  | Default | Açıklama                        |
+|----------------------|---------|----------------------------------|
+| `TWEETS_PER_DAY`     | 13      | Günlük tweet sayısı             |
+| `DISPATCH_START_HOUR`| 9       | Sabah collect saati (24h)       |
+| `MAX_ATTEMPTS`       | 3       | Maks. dispatch deneme sayısı    |
+| `PORT`               | 3000    | Health server port              |
+| `HEADLESS`           | false   | Browser headless modu           |
+
+## Health & Admin API
 
 Bot built-in HTTP server açar:
 
 ```bash
+# Public
 curl http://localhost:3000/health
+
+# Admin (requires ADMIN_TOKEN)
 curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/status
+curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/accounts
+curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/settings
+
+# Manual triggers (requires ADMIN_TOKEN)
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/collect
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/dispatch
+
+# Update settings
+curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tweets_per_day": 15}' \
+  http://localhost:3000/settings
 ```
 
-`/health` temel queue/runtime bilgisini döner. `/status` detaylı path/config özetini döner ve `ADMIN_TOKEN` ister.
+## Çoklu Hesap Desteği
+
+Birden fazla X hesabından tweet atmak için her hesap ayrı cookie set ile tanımlanır. Hesaplar `accounts` tablosunda tutulur, her biri bağımsız queue/control state'e sahiptir.
 
 ## Docker / Coolify Deploy
 
-Image, gerçek Google Chrome'u içeriyor (patchright anti-detection için
-`channel: 'chrome'` kullanıyor). Container `Europe/Istanbul` saat diliminde
-node-cron orchestrator'ı çalıştırır.
+Image, gerçek Google Chrome'u içeriyor (patchright anti-detection için `channel: 'chrome'` kullanıyor). Container `Europe/Istanbul` saat diliminde node-cron orchestrator'ı çalıştırır.
 
 ### Persistent storage (zorunlu)
 
@@ -86,31 +133,14 @@ Coolify'da tek persistent storage mount et:
 
 | Konteyner yolu | Ne tutar                                                |
 |----------------|---------------------------------------------------------|
-| `/data`        | X session, `posted.json`, `queue.json`, logs, errors    |
+| `/data`        | X session, SQLite DB, logs, errors, media               |
 
 Uygulama Docker içinde şu path'leri kullanır:
 
 | Path             | Ne tutar                              |
 |------------------|---------------------------------------|
 | `/data/user-data`| X session (login sonrası dosyalar)    |
-| `/data/app-data` | `posted.json`, `queue.json`, `errors/`|
-
-Bu storage olmadan her deploy'da session ve queue kaybolur.
-
-### X session yönetimi (kritik)
-
-Önerilen yöntem: kendi tarayıcında login olmuş X cookie'lerini Coolify env'e ekle. App her startup'ta bu cookie'leri `/data/user-data` browser profiline otomatik import eder.
-
-| Env             | Zorunlu mu | Açıklama                                      |
-|-----------------|------------|-----------------------------------------------|
-| `X_AUTH_TOKEN`  | Evet       | X `auth_token` cookie değeri                  |
-| `X_AUTH_MULTI`  | Hayır      | X `auth_multi` cookie değeri                  |
-| `X_CT0`         | Hayır      | CSRF cookie; varsa ekle                       |
-| `X_TWID`        | Hayır      | Kullanıcı id cookie; varsa ekle               |
-
-Bu değerler secret'tır; repoya commit edilmez, sadece `.env` veya Coolify env içinde tutulur. Session yenilenirse cookie değerlerini güncelle ve redeploy/restart et.
-
-Fallback yöntem: lokal profili oluşturup `/data/user-data` içine taşımak için `npm run import-session` çalıştır, sonra `user-data/` klasörünü storage'a kopyala.
+| `/data/app-data` | SQLite DB, logs, errors, media        |
 
 ### Coolify adımları
 
@@ -118,11 +148,10 @@ Fallback yöntem: lokal profili oluşturup `/data/user-data` içine taşımak i�
 2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
 3. **Persistent Storage**: `/data` path'ini kalıcı storage olarak bağla.
 4. **Environment Variables**:
-   - `X_AUTH_TOKEN`
+   - `X_USERNAME`, `X_AUTH_TOKEN`, `X_AUTH_MULTI`, `X_CT0`, `X_TWID`
    - `OPENROUTER_API_KEY`
    - `ADMIN_TOKEN`
 5. Deploy.
-6. Logları izle: ilk dispatch tick'inde "Vakti gelen tweet yok." normal — `09:00` collect tetiklenince queue dolar, `09:30`'dan itibaren jitter'lı 30+ dk aralıkla tweet atılır.
 
 ### Lokal Docker test
 
@@ -131,4 +160,4 @@ cp .env.example .env  # değerleri doldur
 docker compose up --build
 ```
 
-Compose, `tweetbot_state` adlı named volume'u `/data` path'ine bağlar; session ve queue bu volume'da kalıcıdır.
+Compose, `tweetbot_state` adlı named volume'u `/data` path'ine bağlar; session ve DB bu volume'da kalıcıdır.

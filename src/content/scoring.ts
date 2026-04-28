@@ -44,14 +44,13 @@ export function scoreRepo(
   const clarity = calcClarity(desc, w);
   const freshness = calcFreshness(repo.starsToday, repo.totalStars, w);
   const novelty = calcNovelty(recentTopicCounts, recentOwnerCount, w);
-  const penalty = calcPenalty(desc, w);
 
-  const total = relevance + popularity + trust + clarity + freshness + novelty + penalty;
+  const total = relevance + popularity + trust + clarity + freshness + novelty;
 
   return {
     repo: repo.slug,
     total: Math.max(0, total),
-    breakdown: { relevance, popularity, trust, clarity, freshness, novelty, penalty },
+    breakdown: { relevance, popularity, trust, clarity, freshness, novelty, penalty: 0 },
   };
 }
 
@@ -99,13 +98,6 @@ function calcNovelty(topicCounts: Record<string, number>, ownerCount: number, w:
   if (totalTopics > 5) score += w.noveltyTopicRepeat;
   if (ownerCount >= 3) score += w.noveltyOwnerRepeat;
   return score;
-}
-
-function calcPenalty(desc: string, w: Record<string, number>): number {
-  let penalty = 0;
-  if (!desc || desc.trim().length === 0) penalty += w.clarityNoDesc;
-  else if (GENERIC_DESC.test(desc)) penalty += w.clarityGeneric;
-  return penalty;
 }
 
 export function isQualityRepo(score: RepoScore): boolean {

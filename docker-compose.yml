@@ -8,9 +8,15 @@ services:
       TZ: Europe/Istanbul
       DATA_DIR: /data/app-data
       USER_DATA_DIR: /data/user-data
+      X_USERNAME: ${X_USERNAME:-}
       X_AUTH_TOKEN: ${X_AUTH_TOKEN:-}
+      X_AUTH_MULTI: ${X_AUTH_MULTI:-}
+      X_CT0: ${X_CT0:-}
+      X_TWID: ${X_TWID:-}
+      X_PASSWORD: ${X_PASSWORD:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      HEADLESS: "true"
     ports:
       - "3000:3000"
     volumes:

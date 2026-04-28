@@ -5,7 +5,7 @@ import * as queue from './storage/queue';
 import * as accounts from './storage/accounts';
 import { config } from './config';
 import { hasSessionImportEnv, importSession, bootstrapAllSessions } from './core/importSession';
-import { startHealthServer } from './ops/healthServer';
+import { startHealthServer, setTriggers } from './ops/healthServer';
 import * as runtime from './ops/runtime';
 import { make } from './utils/logger';
 
@@ -108,6 +108,10 @@ async function refillQueueIfEmpty(reason: string): Promise<void> {
 
 export async function start(): Promise<void> {
   startHealthServer();
+  setTriggers({
+    collect: () => runCollectForAllAccounts('Manual trigger'),
+    dispatch: async () => { await dispatch.run(); },
+  });
 
   log.info('Başlıyor.');
   log.info(

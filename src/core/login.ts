@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import type { Locator, Page } from 'patchright';
 import { launch } from './browser';
@@ -94,8 +95,6 @@ export async function login(accountId?: string): Promise<boolean> {
     await context.close();
   }
 }
-
-import fs from 'fs';
 
 if (require.main === module) {
   login().catch((e) => {

@@ -81,6 +81,22 @@ export async function importSession(accountId?: string): Promise<boolean> {
       throw new Error(`Cookie import basarisiz. URL=${page.url()}`);
     }
 
+    const browserCookies = await context.cookies(['https://x.com', 'https://twitter.com']);
+    const ct0Cookie = browserCookies.find((c) => c.name === 'ct0');
+    const twidCookie = browserCookies.find((c) => c.name === 'twid');
+    const authMultiCookie = browserCookies.find((c) => c.name === 'auth_multi');
+
+    if (ct0Cookie || twidCookie || authMultiCookie) {
+      const patch: Partial<Pick<accounts.Account, 'ct0' | 'twid' | 'authMulti'>> = {};
+      if (ct0Cookie && !account.ct0) patch.ct0 = ct0Cookie.value;
+      if (twidCookie && !account.twid) patch.twid = twidCookie.value;
+      if (authMultiCookie && !account.authMulti) patch.authMulti = authMultiCookie.value;
+      if (Object.keys(patch).length > 0) {
+        accounts.update(account.id, patch);
+        log.info(`Otomatik yakalanan cookie'ler: ${Object.keys(patch).join(', ')}`);
+      }
+    }
+
     const profileDir = accountId ? `user-data/${accountId}` : 'user-data';
     log.ok(`Session kaydedildi: ${profileDir}`);
     log.info(`Kontrol URL: ${page.url()}`);

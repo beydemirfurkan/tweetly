@@ -3,6 +3,8 @@ import { getSystemPrompt, userPromptForFormat, userPromptForDigest, RETRY_USER_N
 import type { TrendingRepo, ContentFormat } from '../types';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+const DEFAULT_MAX_TOKENS = 400;
+const THREAD_MAX_TOKENS = 800;
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -13,7 +15,7 @@ interface ChatResponse {
   choices?: Array<{ message?: { content?: string } }>;
 }
 
-export async function chat(messages: ChatMessage[]): Promise<string> {
+export async function chat(messages: ChatMessage[], maxTokens: number = DEFAULT_MAX_TOKENS): Promise<string> {
   assertOpenRouter();
   const res = await fetch(ENDPOINT, {
     method: 'POST',
@@ -27,7 +29,7 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
       model: config.openrouter.model,
       messages,
       temperature: 0.7,
-      max_tokens: 400,
+      max_tokens: maxTokens,
     }),
   });
 
@@ -91,14 +93,14 @@ export async function generateThread(
     { role: 'user', content: userPrompt },
   ];
 
-  let raw = clean(await chat(messages));
+  let raw = clean(await chat(messages, THREAD_MAX_TOKENS));
 
   let tweets = raw.split(/\n*---\n*/).map((t) => t.trim()).filter(Boolean);
 
   if (tweets.length === 0 || tweets.some((t) => t.length > 280)) {
     messages.push({ role: 'assistant', content: raw });
     messages.push({ role: 'user', content: RETRY_THREAD_NOTE });
-    raw = clean(await chat(messages));
+    raw = clean(await chat(messages, THREAD_MAX_TOKENS));
     tweets = raw.split(/\n*---\n*/).map((t) => t.trim()).filter(Boolean);
   }
 

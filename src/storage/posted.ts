@@ -18,6 +18,7 @@ export function has(repoSlug: string, accountId?: string): boolean {
 }
 
 export function add(_repoSlug: string): void {
+  // Posting is tracked via tweets table status='sent'; this is kept for API compat.
 }
 
 export function countSince(date: Date, accountId?: string): number {

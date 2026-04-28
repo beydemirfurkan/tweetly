@@ -208,6 +208,8 @@ hangi repo'yu incelememi istersiniz?`,
   sponsor_native: {
     format: 'sponsor_native',
     objective: 'link_click',
+    // TODO: Sponsor info currently not wired. Add sponsor product data to the prompt
+    // when implementing sponsored content workflow.
     systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: Sponsorlu ürün tanıtımı (doğal dilde).
 
 ${BASE_RULES}

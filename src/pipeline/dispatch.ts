@@ -5,6 +5,7 @@ import * as analytics from '../storage/analytics';
 import * as accounts from '../storage/accounts';
 import { get } from '../storage/settings';
 import { isAuthRequiredError, postTweet, postReply, type PostResult } from '../core/postTweet';
+import { cleanupMediaFile } from '../core/media';
 import type { QueueItem } from '../types';
 import type { AnalyticsEvent } from '../storage/analytics';
 import { make } from '../utils/logger';
@@ -52,6 +53,7 @@ function markSent(item: QueueItem, tweetId: string, tweetUrl: string): void {
     tweetUrl: tweetUrl || undefined,
   });
   posted.add(item.repo);
+  cleanupMediaFile(item.mediaPath);
 }
 
 function markFailed(item: QueueItem, errorMsg: string, overrideStatus?: 'failed' | 'dead'): void {
@@ -200,7 +202,7 @@ function handleGenericError(item: QueueItem, msg: string, accountId?: string): v
   if (state.paused) {
     log.error(`@${label(accountId)} Circuit breaker: ${state.reason}. ${state.pauseUntil} kadar duraklatildi.`);
   } else {
-    log.error(`@${label(accountId)} Hata (${item.attempts ?? 0 + 1}): ${msg}`);
+    log.error(`@${label(accountId)} Hata (${(item.attempts ?? 0) + 1}): ${msg}`);
   }
 }
 
