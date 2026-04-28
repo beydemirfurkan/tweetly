@@ -13,6 +13,7 @@ import { ContentGenerationModule } from './content-generation/content-generation
 import { AnalyticsModule } from './analytics/analytics.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 import { AdminApiModule } from './admin-api/admin-api.module';
+import { EngagementModule } from './engagement/engagement.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AdminApiModule } from './admin-api/admin-api.module';
     AnalyticsModule,
     WorkflowsModule,
     AdminApiModule,
+    EngagementModule,
     HealthModule,
   ],
 })

@@ -152,6 +152,19 @@ export class AdminApiController {
     return { ok: true };
   }
 
+  @Post('test/post')
+  @HttpCode(HttpStatus.OK)
+  async testPost(@Body() body: { text: string; account?: string }) {
+    if (!body.text) throw new BadRequestException('text is required');
+    const result = await this.enqueue.enqueuePost({
+      accountId: body.account ?? '',
+      text: body.text,
+      scheduledAt: new Date(),
+      metadata: { source: 'test-post-hook' },
+    });
+    return { ok: true, id: result.id };
+  }
+
   @Post('test/like')
   @HttpCode(HttpStatus.OK)
   async testLike(@Body() body: { targetTweetUrl: string; account?: string }) {

@@ -33,7 +33,7 @@ export class NoOpPostExecutor implements IXActionExecutor<PostPayload>, OnApplic
 
   async execute(action: ActionContext<PostPayload>, _session: XSession): Promise<ExecutionResult> {
     this.log.log(`[noop-post] ${action.accountId}: "${action.payload.text.slice(0, 40)}..."`);
-    const tweetId = `noop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tweetId = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
     return {
       ok: true,
       result: {

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { ExecutorRegistry } from './executor-registry.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
@@ -6,6 +7,8 @@ import { RetryPolicy } from '../domain/services/retry-policy';
 import { ACTION_TABLE_CONFIG, ClaimedActionRow, GenericActionRepository } from './repositories/action-repository';
 import type { ActionType } from '../domain/types/action.types';
 import type { ActionContext, ExecutionResult } from '../domain/ports/x-action-executor.port';
+import { PostActionHook } from '../engagement/post-action-hook.service';
+import type { PostSucceededPayload } from '../engagement/post-action-hook.service';
 
 interface WorkerOptions {
   pollIntervalMs?: number;
@@ -28,6 +31,7 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly registry: ExecutorRegistry,
     private readonly circuitBreaker: CircuitBreakerService,
     private readonly retry: RetryPolicy,
+    private readonly moduleRef: ModuleRef,
   ) {
     this.options = {
       pollIntervalMs: parseInt(process.env.WORKER_POLL_MS ?? '3000', 10),
@@ -150,6 +154,19 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
         });
       }
       await this.circuitBreaker.recordSuccess(row.account_id);
+
+      if (type === 'post' && payload.kind === 'tweet') {
+        this.triggerPostActionHook({
+          actionId: row.id,
+          accountId: row.account_id,
+          tweetId: payload.tweetId,
+          tweetUrl: payload.tweetUrl,
+          metadata: row.metadata ?? {},
+        }).catch((err) =>
+          this.log.warn(`PostActionHook error: ${err instanceof Error ? err.message : String(err)}`),
+        );
+      }
+
       return;
     }
 
@@ -172,6 +189,15 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
       });
     }
     await this.circuitBreaker.recordFailure(row.account_id, result.message);
+  }
+
+  private async triggerPostActionHook(params: PostSucceededPayload): Promise<void> {
+    try {
+      const hook = this.moduleRef.get(PostActionHook, { strict: false });
+      if (hook) await hook.onPostSucceeded(params);
+    } catch {
+      // EngagementModule not loaded — skip
+    }
   }
 
   private extractPayload(type: ActionType, row: ClaimedActionRow): Record<string, unknown> {
