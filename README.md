@@ -1,163 +1,227 @@
 # tweetly
 
-GitHub Trending'den AI/coding odaklı repoları çekip OpenRouter ile Türkçe tweet metni üreten ve gün içine zamanlanmış aralıklarla X'e (Twitter) yayınlayan otomasyon botu.
+X (Twitter) otomasyon botu. GitHub Trending repo'larından AI ile Türkçe tweet üretir ve gün içine zamanlanmış aralıklarla yayınlar. Çoklu hesap ve çoklu senaryo (GitHub Trending, Wallpaper, vb.) desteği vardır.
 
-## Akış
+## Mimari
 
-1. Her gün **09:00** — `collect`: GitHub Trending scrape → dedup → scoring → günlük limite (default 13) göre Türkçe tweet üret → SQLite kuyruğuna yaz. Tweet'ler ağırlıklı saat dağılımına göre 45 dk + 15-45 dk jitter ile planlanır.
-2. Her **5 dakika** — `dispatch`: vakti gelen 1 tweeti X'e atar, `tweets` tablosunda `status='sent'` olarak işaretler.
-3. Queue'da gönderilecek tweet kalmazsa orchestrator otomatik refill yapar; boş/başarısız refill sonrası 30 dk cooldown uygular.
-4. Arka arkaya 3 post hatası olursa circuit breaker 60 dk pause eder.
-5. `content_memory` tablosu aynı/çok benzer tweet kalıplarını tekrar üretmeyi engeller (Jaccard similarity + hash dedup).
-6. **Adaptive format**: Son 14 günlük başarı oranına göre format ağırlıkları otomatik ayarlanır.
+**Stack:** NestJS 11, TypeScript, PostgreSQL + TypeORM, Patchright (anti-detection browser), OpenRouter (AI).
+
+```
+src/
+  accounts/          Hesap yönetimi
+  action-engine/     ClaimWorker, ExecutorRegistry, CircuitBreaker, RetryPolicy
+                     GenericActionRepository (FOR UPDATE SKIP LOCKED)
+  admin-api/         AdminApiController, AdminTokenGuard, AdminApiService
+  analytics/         Analytics event store ve format performans sorguları
+  content-generation/ OpenRouterService (AI), MediaService, PromptRegistry (8 format)
+  content-memory/    Jaccard similarity + hash dedup (tekrar içerik engeli)
+  domain/            Port interface'leri, domain service'leri, action/content tipleri
+  observability/     HealthController, MetricsController (Prometheus), MetricsService
+  persistence/       TypeORM DataSource, Entity'ler (7 action tablosu), Migrations
+  settings/          Per-account override destekli anahtar-değer ayar servisi
+  trending-source/   GithubTrendingSource (cheerio scraper)
+  workflows/         GithubTrendingWorkflow, WallpaperWorkflow, WorkflowDispatchService
+  x-automation/      XBrowserService, XPostFlowService, SelectorRegistry
+                     7 NoOp + 7 Patchright executor (post/reply/like/bookmark/retweet/quote/follow)
+  app.module.ts
+  main.ts
+```
+
+### Action Engine
+
+Her action tipi (`post`, `reply`, `like`, `bookmark`, `retweet`, `quote`, `follow`) ayrı bir Postgres tablosunda tutulur. `ClaimWorker` polling loop'u `FOR UPDATE SKIP LOCKED` ile claim alır; `ExecutorRegistry` doğru executor'a yönlendirir.
+
+```
+pending → claimed → running → succeeded
+                           ↘ failed → pending (retry)
+                                    ↘ dead
+         ↘ cancelled (admin)
+```
+
+### Senaryo Sistemi
+
+Her hesap `scenario.type` ayarıyla farklı bir içerik pipeline'ına bağlanır.
+
+| Senaryo | Açıklama |
+|---|---|
+| `github_trending` | GitHub Trending → AI tweet (8 format, adaptive ağırlık) |
+| `wallpaper` | Reddit top image → media_path dolu post (caption opsiyonel) |
+
+Aynı senaryo birden fazla hesapta kullanılabilir; per-account ayarlar birbirini etkilemez.
+
+---
 
 ## Kurulum
 
 ```bash
 npm install
 npx patchright install chromium
-cp .env.example .env  # değerleri doldur
-npm run import-session # X cookie'lerini user-data/'ya import eder
+cp .env.example .env   # değerleri doldur
+
+# Postgres başlat (Docker Compose)
+docker compose up -d postgres
+
+# Şema migration'larını uygula
+npm run db:migrate
+
+# X session import (ilk çalıştırma)
+# Tarayıcıdan auth_token cookie'sini .env içine X_AUTH_TOKEN olarak yaz.
 ```
+
+---
 
 ## Komutlar
 
 ```bash
-npm start          # Long-running orchestrator — derlenmiş dist'ten (prod)
-npm run dev        # Long-running orchestrator — tsx ile (lokal)
-npm run collect    # Manuel: trending çek + tweet üret + queue (tsx)
-npm run dispatch   # Manuel: vakti gelen 1 tweeti at (tsx)
-npm run login      # X'e password ile login (headful browser)
-npm run manual-login # X'e manuel login (kullanıcı browser'da login olur)
-npm run import-session # X cookie'lerini browser profiline import et (tsx)
-npm run tweet -- "metin"   # Tek seferlik manuel tweet (tsx)
-npm run report     # Haftalık analytics raporu (tsx)
-npm run migrate    # Eski JSON verilerini SQLite'a taşır (tsx)
+npm run build          # tsc → dist/
+npm start              # node dist/main.js  (prod)
+npm run dev            # tsx src/main.ts    (lokal geliştirme)
+npm test               # jest
+
+# Veritabanı
+npm run db:migrate         # Migration'ları uygula
+npm run db:migrate:revert  # Son migration'ı geri al
+npm run db:migrate:legacy  # SQLite → Postgres veri taşıma (tek seferlik)
+
+# Debug / Smoke
+npm run smoke:engine       # Action engine smoke testi
 ```
 
-## Yapı
+---
 
-Proje TypeScript (CommonJS, target ES2022). Lokal'de `tsx`, prod'da derlenmiş `dist/` çalışır. Veri saklama: **SQLite** (better-sqlite3, WAL mode).
+## Env Değişkenleri
 
-```
-src/
-  core/        browser, login, postTweet (patchright anti-detection)
-  sources/     githubTrending.ts (cheerio scrape)
-  ai/          openrouter.ts + prompts.ts (AI tweet generation)
-  pipeline/    collect.ts, dispatch.ts
-  storage/     SQLite tables: tweets, content_memory, control_state,
-               analytics_events, settings, accounts
-  content/     strategy.ts (format mix), scoring.ts (repo scoring),
-               topics.ts (topic inference)
-  ops/         healthServer.ts (HTTP API), runtime.ts (state), report.ts
-  config/      env validation + sabitler
-  types/       domain tipleri
-  utils/       logger (console + data/logs/YYYY-MM-DD.log)
-  scripts/     migrateJsonToDb.ts
-  index.ts     node-cron orchestrator
-data/
-  tweetly.db         SQLite veritabanı (tweets, settings, analytics, etc.)
-  media/             İndirilen OG image dosyaları
-  logs/              Günlük rotated log dosyaları
-  errors/            Hata anı tarayıcı screenshot'ları
-```
+Bkz. `.env.example`. Kritik olanlar:
 
-## Build
+| Değişken | Zorunlu | Açıklama |
+|---|---|---|
+| `X_AUTH_TOKEN` | Evet | X `auth_token` cookie değeri |
+| `OPENROUTER_API_KEY` | Evet | AI üretimi için |
+| `ADMIN_TOKEN` | Evet | Admin API Bearer token |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASS` / `DB_NAME` | Evet | PostgreSQL bağlantısı |
+| `OPENROUTER_MODEL` | Hayır | Default: `google/gemini-2.5-flash` |
+| `NEST_PORT` | Hayır | Default: `3001` (Docker'da `3000`) |
+| `X_USERNAME` | Hayır | Çok hesaplı kurulumda account ID olarak kullanılır |
+| `HEADLESS` | Hayır | Default: `true` |
 
-```bash
-npm run build   # tsc → dist/
-npm start       # node dist/index.js (Coolify/prod entry)
-```
-
-## Env
-
-Bkz. `.env.example`. Kritik: `OPENROUTER_API_KEY` ve X session için `X_AUTH_TOKEN`.
-Default model: `google/gemini-2.5-flash`.
-
-### X Session (Cookie-based)
-
-| Env             | Zorunlu mu | Açıklama                                      |
-|-----------------|------------|-----------------------------------------------|
-| `X_USERNAME`    | Evet       | X kullanıcı adı                              |
-| `X_AUTH_TOKEN`  | Evet       | X `auth_token` cookie değeri                  |
-| `X_AUTH_MULTI`  | Hayır      | X `auth_multi` cookie değeri                  |
-| `X_CT0`         | Hayır      | CSRF cookie; varsa ekle                       |
-| `X_TWID`        | Hayır      | Kullanıcı id cookie; varsa ekle               |
-| `X_PASSWORD`    | Hayır      | Password-based login için (npm run login)     |
-
-### Pipeline Tuning (Opsiyonel)
-
-| Env                  | Default | Açıklama                        |
-|----------------------|---------|----------------------------------|
-| `TWEETS_PER_DAY`     | 13      | Günlük tweet sayısı             |
-| `DISPATCH_START_HOUR`| 9       | Sabah collect saati (24h)       |
-| `MAX_ATTEMPTS`       | 3       | Maks. dispatch deneme sayısı    |
-| `PORT`               | 3000    | Health server port              |
-| `HEADLESS`           | false   | Browser headless modu           |
+---
 
 ## Health & Admin API
 
-Bot built-in HTTP server açar:
+Tüm `/admin/*` endpoint'leri `Authorization: Bearer $ADMIN_TOKEN` veya `X-Admin-Token: $ADMIN_TOKEN` header'ı gerektirir.
 
 ```bash
 # Public
-curl http://localhost:3000/health
+curl http://localhost:3001/health
+curl http://localhost:3001/metrics   # Prometheus scrape endpoint
 
-# Admin (requires ADMIN_TOKEN)
-curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/status
-curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/accounts
-curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/settings
+# Durum
+curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/status
+curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/queue/depth
 
-# Manual triggers (requires ADMIN_TOKEN)
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/collect
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3000/dispatch
+# Collect tetikleme
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/collect
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:3001/admin/collect?account=acc-id"
 
-# Update settings
+# Action yönetimi
+curl -H "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:3001/admin/actions?type=post&status=dead"
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/actions/post/UUID/replay
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/actions/post/UUID/cancel
+
+# Ayarlar (global)
+curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/settings
 curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"tweets_per_day": 15}' \
-  http://localhost:3000/settings
+  http://localhost:3001/admin/settings
+
+# Ayarlar (hesap bazlı)
+curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"scenario.type": "wallpaper", "_accountId": "acc-id"}' \
+  http://localhost:3001/admin/settings
 ```
 
-## Çoklu Hesap Desteği
+---
 
-Birden fazla X hesabından tweet atmak için her hesap ayrı cookie set ile tanımlanır. Hesaplar `accounts` tablosunda tutulur, her biri bağımsız queue/control state'e sahiptir.
+## Çoklu Hesap & Senaryo
+
+Her hesap bağımsız çalışır: ayrı slot limiti, ayrı content memory, ayrı circuit breaker.
+
+**Hesap senaryosu atama:**
+```bash
+# Hesabı wallpaper senaryosuna al
+curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"scenario.type": "wallpaper", "scenario.wallpaper.subreddit": "earthporn", "_accountId": "acc-id"}' \
+  http://localhost:3001/admin/settings
+
+# Tüm hesapları tetikle (her biri kendi senaryosunu çalıştırır)
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/collect
+```
+
+**Ayarlanabilir senaryo parametreleri:**
+
+| Anahtar | Default | Açıklama |
+|---|---|---|
+| `scenario.type` | `github_trending` | Hesap senaryosu |
+| `scenario.wallpaper.subreddit` | `wallpaper` | Reddit subreddit |
+| `scenario.wallpaper.per_day` | `3` | Günlük paylaşım sayısı |
+| `scenario.wallpaper.caption_template` | `''` | Post caption (boş = caption'sız) |
+| `tweets_per_day` | `13` | GitHub trending günlük tweet sayısı |
+
+---
 
 ## Docker / Coolify Deploy
 
-Image, gerçek Google Chrome'u içeriyor (patchright anti-detection için `channel: 'chrome'` kullanıyor). Container `Europe/Istanbul` saat diliminde node-cron orchestrator'ı çalıştırır.
+### docker compose (lokal)
 
-### Persistent storage (zorunlu)
+```bash
+cp .env.example .env   # DB_* ve diğer değerleri doldur
+docker compose up --build
+```
 
-Coolify'da tek persistent storage mount et:
+`tweetbot` servisi `postgres` servisinin sağlıklı olmasını bekler (`depends_on: condition: service_healthy`). Kalıcı volume'lar:
 
-| Konteyner yolu | Ne tutar                                                |
-|----------------|---------------------------------------------------------|
-| `/data`        | X session, SQLite DB, logs, errors, media               |
-
-Uygulama Docker içinde şu path'leri kullanır:
-
-| Path             | Ne tutar                              |
-|------------------|---------------------------------------|
-| `/data/user-data`| X session (login sonrası dosyalar)    |
-| `/data/app-data` | SQLite DB, logs, errors, media        |
+| Volume | İçerik |
+|---|---|
+| `tweetbot_state` | `/data` — session, media, logs |
+| `tweetly_pgdata` | PostgreSQL veri dizini |
 
 ### Coolify adımları
 
 1. **New Resource → Application → Public Repository → Dockerfile**
 2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
-3. **Persistent Storage**: `/data` path'ini kalıcı storage olarak bağla.
-4. **Environment Variables**:
-   - `X_USERNAME`, `X_AUTH_TOKEN`, `X_AUTH_MULTI`, `X_CT0`, `X_TWID`
-   - `OPENROUTER_API_KEY`
-   - `ADMIN_TOKEN`
-5. Deploy.
+3. **Persistent Storage**: `/data`
+4. **Environment Variables**: `X_AUTH_TOKEN`, `OPENROUTER_API_KEY`, `ADMIN_TOKEN`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`
+5. Ayrıca bir **PostgreSQL resource** ekle; `DB_*` değişkenlerini ona göre ayarla.
+6. Deploy.
 
-### Lokal Docker test
+---
+
+## Prometheus Metrikleri
+
+`GET /metrics` endpoint'i (Bearer auth gerektirir) şu metrikleri döküyor:
+
+| Metrik | Tür | Açıklama |
+|---|---|---|
+| `tweetly_action_total` | Counter | Tip ve durum bazlı action sayısı |
+| `tweetly_action_duration_ms` | Histogram | Executor çalışma süresi |
+| `tweetly_queue_depth` | Gauge | Tip ve status bazlı kuyruk derinliği |
+| `tweetly_circuit_breaker_paused` | Gauge | Pause'daki hesap sayısı |
+
+---
+
+## Geliştirme
 
 ```bash
-cp .env.example .env  # değerleri doldur
-docker compose up --build
-```
+# Test
+npx jest
+npx jest --watch
 
-Compose, `tweetbot_state` adlı named volume'u `/data` path'ine bağlar; session ve DB bu volume'da kalıcıdır.
+# Yeni senaryo eklemek
+# 1. src/workflows/<isim>.workflow.ts → implements IContentWorkflow
+# 2. src/workflows/workflows.module.ts → providers + exports'a ekle
+# 3. src/workflows/workflow-dispatch.service.ts → constructor'daki Map'e kaydet
+# 4. src/settings/settings.service.ts → DEFS'e senaryo ayarlarını ekle
+```
