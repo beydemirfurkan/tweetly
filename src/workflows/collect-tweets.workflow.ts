@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type { IContentWorkflow } from './content-workflow.interface';
 import type { ContentFormat, EngagementObjective, TrendingRepo, Topic, FormatSlot } from '../domain/types/content.types';
 import { inferTopic } from '../domain/services/topic-inference';
 import { scoreRepo, isQualityRepo } from '../domain/services/repo-scoring';
@@ -41,8 +42,9 @@ interface EnqueueItem {
 }
 
 @Injectable()
-export class CollectTweetsWorkflow {
-  private readonly log = new Logger(CollectTweetsWorkflow.name);
+export class GithubTrendingWorkflow implements IContentWorkflow {
+  readonly scenarioType = 'github_trending';
+  private readonly log = new Logger(GithubTrendingWorkflow.name);
 
   constructor(
     private readonly trending: GithubTrendingSource,

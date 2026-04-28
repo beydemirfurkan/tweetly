@@ -16,7 +16,7 @@ import { DataSource } from 'typeorm';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
 import { SettingsService } from '../settings/settings.service';
-import { CollectTweetsWorkflow } from '../workflows/collect-tweets.workflow';
+import { WorkflowDispatchService } from '../workflows/workflow-dispatch.service';
 import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES } from '../domain/types/action.types';
 
@@ -26,7 +26,7 @@ export class AdminApiController {
   constructor(
     private readonly service: AdminApiService,
     private readonly settings: SettingsService,
-    private readonly workflow: CollectTweetsWorkflow,
+    private readonly dispatch: WorkflowDispatchService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -142,7 +142,11 @@ export class AdminApiController {
   @Post('collect')
   @HttpCode(HttpStatus.OK)
   async triggerCollect(@Query('account') accountId: string) {
-    await this.workflow.run(accountId || undefined);
+    if (accountId) {
+      await this.dispatch.runForAccount(accountId);
+    } else {
+      await this.dispatch.runAll();
+    }
     return { ok: true };
   }
 }

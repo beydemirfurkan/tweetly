@@ -61,6 +61,10 @@ const DEFS: SettingDef[] = [
   { key: 'format.adaptive.cut_factor', defaultValue: 0.5, type: 'number' },
   { key: 'digest.day', defaultValue: 5, type: 'number' },
   { key: 'thread.days', defaultValue: '1,3,5', type: 'string' },
+  { key: 'scenario.type', defaultValue: 'github_trending', type: 'string' },
+  { key: 'scenario.wallpaper.subreddit', defaultValue: 'wallpaper', type: 'string' },
+  { key: 'scenario.wallpaper.per_day', defaultValue: 3, type: 'number' },
+  { key: 'scenario.wallpaper.caption_template', defaultValue: '', type: 'string' },
 ];
 
 const CACHE_TTL_MS = 60_000;
