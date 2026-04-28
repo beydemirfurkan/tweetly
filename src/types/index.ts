@@ -11,6 +11,38 @@ export interface TrendingRepo {
 
 export type QueueStatus = 'pending' | 'sent' | 'failed' | 'dead';
 
+export type ContentFormat =
+  | 'repo_drop'
+  | 'no_link_hook'
+  | 'question'
+  | 'comparison'
+  | 'mini_thread'
+  | 'bookmark_bait'
+  | 'hot_take'
+  | 'weekly_digest'
+  | 'sponsor_native';
+
+export type EngagementObjective =
+  | 'reply'
+  | 'bookmark'
+  | 'profile_click'
+  | 'retweet'
+  | 'link_click'
+  | 'dwell';
+
+export type Topic =
+  | 'ai-agents'
+  | 'ai-coding'
+  | 'ai-models'
+  | 'dev-tools'
+  | 'dev-infra'
+  | 'frontend'
+  | 'backend'
+  | 'data'
+  | 'security'
+  | 'open-source'
+  | 'other';
+
 export interface QueueItem {
   id: string;
   status: QueueStatus;
@@ -20,9 +52,21 @@ export interface QueueItem {
   repo: string;
   url: string;
   text: string;
+  format?: ContentFormat;
+  objective?: EngagementObjective;
+  topic?: Topic;
+  source?: string;
+  score?: number;
+  parentId?: string;
+  threadGroupId?: string;
+  tweetId?: string;
+  tweetUrl?: string;
   sentAt?: string;
   lastError?: string;
   lastTriedAt?: string;
+  campaignId?: string;
+  accountId?: string;
+  mediaPath?: string;
 }
 
 export interface PostedItem {

@@ -1,50 +1,54 @@
-import fs from 'fs';
-import path from 'path';
 import { config } from '../config';
-import type { PostedState } from '../types';
+import { getDb } from './db';
+import { getDefaultAccountId } from './accounts';
 
-const FILE = config.paths.posted;
-
-function ensure(): void {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  if (!fs.existsSync(FILE)) {
-    fs.writeFileSync(FILE, JSON.stringify({ items: [] }, null, 2));
-  }
+function resolveAccountId(accountId?: string): string | null {
+  return accountId ?? getDefaultAccountId();
 }
 
-export function load(): PostedState {
-  ensure();
-  try {
-    const raw = fs.readFileSync(FILE, 'utf8');
-    const parsed = JSON.parse(raw) as PostedState;
-    if (!parsed || !Array.isArray(parsed.items)) return { items: [] };
-    return parsed;
-  } catch {
-    return { items: [] };
-  }
+export function has(repoSlug: string, accountId?: string): boolean {
+  const db = getDb(config.paths.db);
+  const acctId = resolveAccountId(accountId);
+  const sql = acctId
+    ? `SELECT 1 FROM tweets WHERE LOWER(repo) = LOWER(?) AND status = 'sent' AND (account_id = ? OR account_id IS NULL) LIMIT 1`
+    : `SELECT 1 FROM tweets WHERE LOWER(repo) = LOWER(?) AND status = 'sent' LIMIT 1`;
+  const params = acctId ? [repoSlug, acctId] : [repoSlug];
+  const row = db.prepare(sql).get(...params);
+  return row != null;
 }
 
-export function save(state: PostedState): void {
-  ensure();
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
-  fs.renameSync(tmp, FILE);
+export function add(_repoSlug: string): void {
 }
 
-export function has(repoSlug: string): boolean {
-  const slug = repoSlug.toLowerCase();
-  return load().items.some((it) => it.repo.toLowerCase() === slug);
+export function countSince(date: Date, accountId?: string): number {
+  const db = getDb(config.paths.db);
+  const acctId = resolveAccountId(accountId);
+  const sql = acctId
+    ? `SELECT COUNT(*) as cnt FROM tweets WHERE status = 'sent' AND sent_at >= ? AND (account_id = ? OR account_id IS NULL)`
+    : `SELECT COUNT(*) as cnt FROM tweets WHERE status = 'sent' AND sent_at >= ?`;
+  const params = acctId ? [date.toISOString(), acctId] : [date.toISOString()];
+  const row = db.prepare(sql).get(...params) as { cnt: number };
+  return row.cnt;
 }
 
-export function add(repoSlug: string): void {
-  const state = load();
-  if (!state.items.some((it) => it.repo.toLowerCase() === repoSlug.toLowerCase())) {
-    state.items.push({ repo: repoSlug, postedAt: new Date().toISOString() });
-    save(state);
-  }
+export function total(accountId?: string): number {
+  const db = getDb(config.paths.db);
+  const acctId = resolveAccountId(accountId);
+  const sql = acctId
+    ? `SELECT COUNT(*) as cnt FROM tweets WHERE status = 'sent' AND (account_id = ? OR account_id IS NULL)`
+    : `SELECT COUNT(*) as cnt FROM tweets WHERE status = 'sent'`;
+  const params = acctId ? [acctId] : [];
+  const row = db.prepare(sql).get(...params) as { cnt: number };
+  return row.cnt;
 }
 
-export function countSince(date: Date): number {
-  const start = date.getTime();
-  return load().items.filter((it) => new Date(it.postedAt).getTime() >= start).length;
+export function allRepos(accountId?: string): string[] {
+  const db = getDb(config.paths.db);
+  const acctId = resolveAccountId(accountId);
+  const sql = acctId
+    ? `SELECT DISTINCT repo FROM tweets WHERE status = 'sent' AND (account_id = ? OR account_id IS NULL)`
+    : `SELECT DISTINCT repo FROM tweets WHERE status = 'sent'`;
+  const params = acctId ? [acctId] : [];
+  const rows = db.prepare(sql).all(...params) as Array<{ repo: string }>;
+  return rows.map((r) => r.repo);
 }

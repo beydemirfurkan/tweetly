@@ -1,28 +1,12 @@
 import type { BrowserContext, Page } from 'patchright';
 import { launch } from './browser';
 import { config } from '../config';
+import * as accounts from '../storage/accounts';
 import { make } from '../utils/logger';
 
 const log = make('importSession');
 
 type CookieInput = Parameters<BrowserContext['addCookies']>[0][number];
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value || !value.trim()) {
-    throw new Error(`${name} env içinde tanımlı olmalı`);
-  }
-  return value.trim();
-}
-
-function optionalEnv(name: string): string | null {
-  const value = process.env[name];
-  return value && value.trim() ? value.trim() : null;
-}
-
-export function hasSessionImportEnv(): boolean {
-  return Boolean(optionalEnv('X_AUTH_TOKEN'));
-}
 
 function sessionCookie(name: string, value: string, domain: string): CookieInput {
   return {
@@ -54,7 +38,7 @@ async function gotoHomeWithRetry(page: Page): Promise<void> {
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
-      log.warn(`X home açılamadı, tekrar denenecek (${attempt}/3): ${msg}`);
+      log.warn(`X home acilamadi, tekrar denenecek (${attempt}/3): ${msg}`);
       await page.waitForTimeout(2000 * attempt);
     }
   }
@@ -62,21 +46,30 @@ async function gotoHomeWithRetry(page: Page): Promise<void> {
   throw lastError;
 }
 
-export async function importSession(): Promise<boolean> {
-  const authToken = requiredEnv('X_AUTH_TOKEN');
-  const authMulti = optionalEnv('X_AUTH_MULTI');
-  const csrfToken = optionalEnv('X_CT0');
-  const twid = optionalEnv('X_TWID');
+export function hasSessionImportEnv(): boolean {
+  return Boolean(process.env.X_AUTH_TOKEN?.trim());
+}
 
-  const { context, page } = await launch();
+export async function importSession(accountId?: string): Promise<boolean> {
+  const account = accountId
+    ? accounts.getById(accountId)
+    : accounts.list()[0];
+
+  if (!account) {
+    throw new Error('Aktif hesap bulunamadi');
+  }
+
+  log.info(`Session import: @${account.id}`);
+
+  const { context, page } = await launch(account.id);
   const domains = ['.x.com', '.twitter.com'];
   const cookies: CookieInput[] = [];
 
   for (const domain of domains) {
-    cookies.push(sessionCookie('auth_token', authToken, domain));
-    if (authMulti) cookies.push(sessionCookie('auth_multi', authMulti, domain));
-    if (csrfToken) cookies.push(visibleCookie('ct0', csrfToken, domain));
-    if (twid) cookies.push(visibleCookie('twid', twid, domain));
+    cookies.push(sessionCookie('auth_token', account.authToken, domain));
+    if (account.authMulti) cookies.push(sessionCookie('auth_multi', account.authMulti, domain));
+    if (account.ct0) cookies.push(visibleCookie('ct0', account.ct0, domain));
+    if (account.twid) cookies.push(visibleCookie('twid', account.twid, domain));
   }
 
   try {
@@ -85,14 +78,31 @@ export async function importSession(): Promise<boolean> {
     await page.waitForTimeout(5000);
 
     if (page.url().includes('/login') || page.url().includes('/i/flow')) {
-      throw new Error(`Cookie import başarısız. URL=${page.url()}`);
+      throw new Error(`Cookie import basarisiz. URL=${page.url()}`);
     }
 
-    log.ok(`Session kaydedildi: ${config.paths.userData}`);
+    const profileDir = accountId ? `user-data/${accountId}` : 'user-data';
+    log.ok(`Session kaydedildi: ${profileDir}`);
     log.info(`Kontrol URL: ${page.url()}`);
+    accounts.touchLastUsed(account.id);
     return true;
   } finally {
     await context.close().catch(() => undefined);
+  }
+}
+
+export async function bootstrapAllSessions(): Promise<void> {
+  const active = accounts.getActive();
+  log.info(`${active.length} aktif hesap icin session import basliyor.`);
+
+  for (const account of active) {
+    try {
+      await importSession(account.id);
+      log.ok(`@${account.id} session import basarili.`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`@${account.id} session import basarisiz: ${msg}`);
+    }
   }
 }
 

@@ -12,19 +12,23 @@
     "import-session": "tsx src/core/importSession.ts",
     "collect": "tsx src/pipeline/collect.ts",
     "dispatch": "tsx src/pipeline/dispatch.ts",
-    "tweet": "tsx src/core/postTweet.ts"
+    "tweet": "tsx src/core/postTweet.ts",
+    "migrate": "tsx src/scripts/migrateJsonToDb.ts",
+    "report": "tsx src/ops/report.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "better-sqlite3": "^12.9.0",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "node-cron": "^3.0.3",
     "patchright": "^1.59.4"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.6.0",
     "@types/node-cron": "^3.0.11",
     "tsx": "^4.21.0",

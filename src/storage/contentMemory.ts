@@ -1,37 +1,13 @@
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import { config } from '../config';
-import type { ContentMemoryItem, ContentMemoryState } from '../types';
+import { getDb } from './db';
+import { getDefaultAccountId } from './accounts';
 
-const FILE = config.paths.contentMemory;
-const MAX_ITEMS = 500;
 const SIMILARITY_THRESHOLD = 0.72;
+const MAX_RECENT = 150;
 
-function ensure(): void {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  if (!fs.existsSync(FILE)) {
-    fs.writeFileSync(FILE, JSON.stringify({ items: [] }, null, 2));
-  }
-}
-
-export function load(): ContentMemoryState {
-  ensure();
-  try {
-    const raw = fs.readFileSync(FILE, 'utf8');
-    const parsed = JSON.parse(raw) as ContentMemoryState;
-    if (!parsed || !Array.isArray(parsed.items)) return { items: [] };
-    return parsed;
-  } catch {
-    return { items: [] };
-  }
-}
-
-function save(state: ContentMemoryState): void {
-  ensure();
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ items: state.items.slice(-MAX_ITEMS) }, null, 2));
-  fs.renameSync(tmp, FILE);
+function resolveAccountId(accountId?: string): string | null {
+  return accountId ?? getDefaultAccountId();
 }
 
 function hash(value: string): string {
@@ -69,38 +45,54 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return intersection / (a.size + b.size - intersection);
 }
 
-export function similarityReason(text: string): string | null {
-  const state = load();
-  const normalized = normalize(text);
-  const textHash = hash(normalized);
+export function similarityReason(text: string, accountId?: string): string | null {
+  const db = getDb(config.paths.db);
+  const acctId = resolveAccountId(accountId);
+  const textHash = hash(normalize(text));
   const sig = signature(text);
   const textTokens = tokens(text);
 
-  for (const item of state.items.slice(-150)) {
-    if (item.textHash === textHash) return `exact hash match: ${item.repo}`;
-    if (item.signature === sig) return `same opening signature: ${item.repo}`;
-    if (jaccard(textTokens, tokens(item.text)) >= SIMILARITY_THRESHOLD) {
-      return `high keyword overlap: ${item.repo}`;
+  let sql = `SELECT repo, text_hash, text FROM content_memory ORDER BY id DESC LIMIT ?`;
+  const params: unknown[] = [MAX_RECENT];
+
+  if (acctId) {
+    sql = `SELECT repo, text_hash, text FROM content_memory WHERE account_id = ? OR account_id IS NULL ORDER BY id DESC LIMIT ?`;
+    params.unshift(acctId);
+  }
+
+  const rows = db.prepare(sql).all(...params) as Array<{ repo: string; text_hash: string; text: string }>;
+
+  for (const row of rows) {
+    if (row.text_hash === textHash) return `exact hash match: ${row.repo}`;
+    if (signature(row.text) === sig) return `same opening signature: ${row.repo}`;
+    if (jaccard(textTokens, tokens(row.text)) >= SIMILARITY_THRESHOLD) {
+      return `high keyword overlap: ${row.repo}`;
     }
   }
 
   return null;
 }
 
-export function add(repo: string, text: string): void {
-  const state = load();
+export function add(repo: string, text: string, accountId?: string): void {
+  const db = getDb(config.paths.db);
+  const acctId = resolveAccountId(accountId);
   const normalized = normalize(text);
-  const item: ContentMemoryItem = {
-    repo,
-    text,
-    textHash: hash(normalized),
-    signature: signature(text),
-    createdAt: new Date().toISOString(),
-  };
-  state.items.push(item);
-  save(state);
+  db.prepare(
+    `INSERT INTO content_memory (repo, text_hash, signature, text, created_at, account_id) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(repo, hash(normalized), signature(text), text, new Date().toISOString(), acctId);
 }
 
-export function count(): number {
-  return load().items.length;
+export function count(accountId?: string): number {
+  const db = getDb(config.paths.db);
+  const acctId = resolveAccountId(accountId);
+
+  if (acctId) {
+    const row = db.prepare(
+      'SELECT COUNT(*) as cnt FROM content_memory WHERE account_id = ? OR account_id IS NULL'
+    ).get(acctId) as { cnt: number };
+    return row.cnt;
+  }
+
+  const row = db.prepare('SELECT COUNT(*) as cnt FROM content_memory').get() as { cnt: number };
+  return row.cnt;
 }

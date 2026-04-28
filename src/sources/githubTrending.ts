@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { TrendingRepo } from '../types';
+import type { SourcedItem } from './types';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -76,4 +77,18 @@ export async function fetchTrending(
   });
 
   return rows;
+}
+
+export function toSourcedItems(repos: TrendingRepo[]): SourcedItem[] {
+  return repos.map((r) => ({
+    title: `${r.owner}/${r.name}`,
+    url: r.url,
+    description: r.description,
+    source: 'github-trending',
+    owner: r.owner,
+    name: r.name,
+    language: r.language,
+    starsToday: r.starsToday,
+    totalStars: r.totalStars,
+  }));
 }

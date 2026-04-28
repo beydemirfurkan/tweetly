@@ -2,8 +2,9 @@ import cron from 'node-cron';
 import * as collect from './pipeline/collect';
 import * as dispatch from './pipeline/dispatch';
 import * as queue from './storage/queue';
+import * as accounts from './storage/accounts';
 import { config } from './config';
-import { hasSessionImportEnv, importSession } from './core/importSession';
+import { hasSessionImportEnv, importSession, bootstrapAllSessions } from './core/importSession';
 import { startHealthServer } from './ops/healthServer';
 import * as runtime from './ops/runtime';
 import { make } from './utils/logger';
@@ -14,12 +15,33 @@ const EMPTY_QUEUE_REFILL_COOLDOWN_MS = 30 * 60 * 1000;
 let collectRunning = false;
 let lastEmptyRefillAt = 0;
 
-async function bootstrapSession(): Promise<void> {
-  if (!hasSessionImportEnv()) {
+async function bootstrapSessions(): Promise<void> {
+  accounts.bootstrapFromEnv();
+
+  const active = accounts.getActive();
+  if (active.length === 0) {
+    log.warn('Aktif hesap yok. Tek hesapli modda devam ediliyor.');
+    if (hasSessionImportEnv()) {
+      await importSingleSession();
+    }
     return;
   }
 
-  log.info('X session env bulundu. Browser profiline import ediliyor.');
+  log.info(`${active.length} hesap bulundu: ${active.map((a) => `@${a.id}`).join(', ')}`);
+
+  for (const account of active) {
+    try {
+      await importSession(account.id);
+      runtime.markSessionImport({ ok: true, message: `@${account.id} imported` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      runtime.markSessionImport({ ok: false, message: `@${account.id}: ${msg}` });
+      log.error(`@${account.id} session import hata: ${msg}`);
+    }
+  }
+}
+
+async function importSingleSession(): Promise<void> {
   try {
     await importSession();
     runtime.markSessionImport({ ok: true, message: 'imported' });
@@ -30,7 +52,7 @@ async function bootstrapSession(): Promise<void> {
   }
 }
 
-async function runCollect(reason: string): Promise<void> {
+async function runCollect(reason: string, accountId?: string): Promise<void> {
   if (collectRunning) {
     log.warn(`collect zaten çalışıyor, atlanıyor. Sebep: ${reason}`);
     return;
@@ -39,8 +61,8 @@ async function runCollect(reason: string): Promise<void> {
   collectRunning = true;
   runtime.setCollectRunning(true);
   try {
-    log.info(`${reason} collect tetiklendi.`);
-    const created = await collect.run();
+    log.info(`${reason} collect tetiklendi${accountId ? ` (@${accountId})` : ''}.`);
+    const created = await collect.run(accountId);
     runtime.markCollect({ ok: true, reason, created: created.length });
     if (created.length > 0) {
       lastEmptyRefillAt = 0;
@@ -52,6 +74,19 @@ async function runCollect(reason: string): Promise<void> {
   } finally {
     collectRunning = false;
     runtime.setCollectRunning(false);
+  }
+}
+
+async function runCollectForAllAccounts(reason: string): Promise<void> {
+  const active = accounts.getActive();
+
+  if (active.length <= 1) {
+    await runCollect(reason, active[0]?.id);
+    return;
+  }
+
+  for (const account of active) {
+    await runCollect(`${reason} (@${account.id})`, account.id);
   }
 }
 
@@ -68,7 +103,7 @@ async function refillQueueIfEmpty(reason: string): Promise<void> {
 
   lastEmptyRefillAt = now;
   runtime.markEmptyRefillAttempt();
-  await runCollect(reason);
+  await runCollectForAllAccounts(reason);
 }
 
 export async function start(): Promise<void> {
@@ -79,11 +114,11 @@ export async function start(): Promise<void> {
     `Plan: günde ${config.pipeline.tweetsPerDay} tweet, başlangıç ${config.pipeline.dispatchStartHour}:00, aralık ${config.pipeline.dispatchIntervalMin} dk.`
   );
 
-  await bootstrapSession();
+  await bootstrapSessions();
   await refillQueueIfEmpty('Startup havuz kontrolü');
 
   cron.schedule(`0 ${config.pipeline.dispatchStartHour} * * *`, async () => {
-    await runCollect('Sabah');
+    await runCollectForAllAccounts('Sabah');
   });
 
   cron.schedule('*/5 * * * *', async () => {

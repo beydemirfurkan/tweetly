@@ -1,10 +1,8 @@
 node_modules/
 .env
 user-data/
-data/posted.json
-data/queue.json
-data/errors/
-data/logs/
+data/
 dist/
+docs/
 *.log
 *.tar.gz

@@ -3,8 +3,6 @@ import path from 'path';
 import { chromium, type BrowserContext, type Page } from 'patchright';
 import { config } from '../config';
 
-export const USER_DATA_DIR = config.paths.userData;
-
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -14,18 +12,27 @@ export interface LaunchResult {
   page: Page;
 }
 
-function clearStaleProfileLocks(): void {
-  fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+function clearStaleProfileLocks(profileDir: string): void {
+  fs.mkdirSync(profileDir, { recursive: true });
   for (const name of ['SingletonCookie', 'SingletonLock', 'SingletonSocket']) {
     try {
-      fs.rmSync(path.join(USER_DATA_DIR, name), { force: true, recursive: true });
+      fs.rmSync(path.join(profileDir, name), { force: true, recursive: true });
     } catch {}
   }
 }
 
-export async function launch(): Promise<LaunchResult> {
-  clearStaleProfileLocks();
-  const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+function resolveProfileDir(accountId?: string): string {
+  if (accountId) {
+    return path.join(config.paths.root, 'user-data', accountId);
+  }
+  return config.paths.userData;
+}
+
+export async function launch(accountId?: string): Promise<LaunchResult> {
+  const profileDir = resolveProfileDir(accountId);
+  clearStaleProfileLocks(profileDir);
+
+  const context = await chromium.launchPersistentContext(profileDir, {
     headless: config.x.headless,
     channel: 'chrome',
     viewport: null,

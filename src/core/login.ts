@@ -1,7 +1,8 @@
 import path from 'path';
 import type { Locator, Page } from 'patchright';
 import { launch } from './browser';
-import { config, assertX } from '../config';
+import { config } from '../config';
+import * as accounts from '../storage/accounts';
 import { make } from '../utils/logger';
 
 const log = make('login');
@@ -19,19 +20,31 @@ async function typeHuman(locator: Locator, text: string): Promise<void> {
   }
 }
 
-export async function login(): Promise<boolean> {
-  assertX();
-  const { username, password } = config.x;
+export async function login(accountId?: string): Promise<boolean> {
+  const account = accountId
+    ? accounts.getById(accountId)
+    : accounts.list()[0];
 
-  const { context, page } = await launch();
+  if (!account) {
+    throw new Error('Hesap bulunamadi');
+  }
+
+  if (!config.x.password) {
+    throw new Error('X_PASSWORD .env icinde tanimli olmali');
+  }
+
+  const username = account.id;
+  log.info(`Login: @${username}`);
+
+  const { context, page } = await launch(account.id);
 
   try {
     if (await isAlreadyLoggedIn(page)) {
-      log.info('Zaten giriş yapılmış. Çıkıyorum.');
+      log.info(`@${username} zaten giris yapilmis.`);
       return true;
     }
 
-    log.info('Giriş akışı başlıyor...');
+    log.info('Giris akisi basliyor...');
     await page.goto('https://x.com/i/flow/login', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2500);
 
@@ -46,7 +59,7 @@ export async function login(): Promise<boolean> {
 
     const challenge = page.locator('input[data-testid="ocfEnterTextTextInput"]').first();
     if (await challenge.isVisible({ timeout: 3000 }).catch(() => false)) {
-      log.info('Ek doğrulama soruluyor — username tekrar yazılıyor');
+      log.info('Ek dogrulama soruluyor — username tekrar yaziliyor');
       await challenge.click();
       await typeHuman(challenge, username);
       await page.waitForTimeout(400);
@@ -57,20 +70,22 @@ export async function login(): Promise<boolean> {
     const passwordInput = page.locator('input[name="password"]').first();
     await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
     await passwordInput.click();
-    await typeHuman(passwordInput, password);
+    await typeHuman(passwordInput, config.x.password);
     await page.waitForTimeout(500 + Math.random() * 800);
     await page.keyboard.press('Enter');
 
-    log.info('Login butonuna basıldı, /home bekleniyor (max 2 dk — gerekirse e-posta kodunu manuel gir)...');
+    log.info('Login butonuna basildi, /home bekleniyor...');
     await page.waitForURL('**/home', { timeout: 120000 });
-    log.ok(`Giriş başarılı, session ${config.paths.userData} içine kaydedildi.`);
+    log.ok(`@${username} giris basarili.`);
+    accounts.touchLastUsed(account.id);
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    log.error(`HATA: ${msg}`);
+    log.error(`@${username} HATA: ${msg}`);
     try {
+      fs.mkdirSync(config.paths.errors, { recursive: true });
       await page.screenshot({
-        path: path.join(config.paths.errors, `login-${Date.now()}.png`),
+        path: path.join(config.paths.errors, `login-${username}-${Date.now()}.png`),
         fullPage: true,
       });
     } catch {}
@@ -79,6 +94,8 @@ export async function login(): Promise<boolean> {
     await context.close();
   }
 }
+
+import fs from 'fs';
 
 if (require.main === module) {
   login().catch((e) => {
