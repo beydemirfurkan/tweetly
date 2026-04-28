@@ -31,6 +31,7 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
     }
 
     try {
+      this.log.log(`Quote execute başlıyor: ${targetTweetUrl}`);
       const result = await this.flow.execute({
         text,
         username: session.accountId,
@@ -39,11 +40,11 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
           await page.goto(targetTweetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
           await page.waitForSelector(this.sel.tweetArticle, { timeout: 15_000 });
 
-          const retweetBtn = page.locator(this.sel.retweetButton).first();
+          const retweetBtn = page.locator('[data-testid="retweet"], [data-testid="unretweet"]').first();
           await retweetBtn.waitFor({ timeout: 10_000 });
           await retweetBtn.click();
 
-          const quoteItem = page.locator(this.sel.quoteMenuItem);
+          const quoteItem = page.getByRole('menuitem', { name: 'Quote' });
           await quoteItem.waitFor({ timeout: 5_000 });
           await quoteItem.click();
 
