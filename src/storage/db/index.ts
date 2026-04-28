@@ -216,7 +216,9 @@ export function open(dbPath: string): Database.Database {
 
   for (const migration of MIGRATIONS) {
     if (migration.version > applied) {
-      db.exec(migration.sql);
+      db.transaction(() => {
+        db.exec(migration.sql);
+      })();
     }
   }
 

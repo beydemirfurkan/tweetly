@@ -71,6 +71,8 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 export function buildDailyMix(targetSlots: number, date: Date = new Date()): FormatSlot[] {
+  if (targetSlots <= 0) return [];
+
   const digestDay = get<number>('digest.day', 5);
   const threadDays = getThreadDays();
 
@@ -98,6 +100,15 @@ export function buildDailyMix(targetSlots: number, date: Date = new Date()): For
   }
 
   const totalWeight = mix.reduce((sum, r) => sum + r.weight, 0);
+  if (mix.length === 0 || totalWeight <= 0) {
+    const fallback = getFormatConfig('repo_drop');
+    return Array.from({ length: targetSlots }, () => ({
+      format: 'repo_drop',
+      objective: fallback.objective,
+      isThread: fallback.isThread,
+      threadCount: fallback.threadCount,
+    }));
+  }
 
   const slots: FormatSlot[] = [];
   for (const rule of mix) {

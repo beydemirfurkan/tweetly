@@ -21,6 +21,7 @@ const SIMILARITY_MAX_ATTEMPTS = 3;
 const FALLBACK_INTERVAL_MS = 30 * 60 * 1000;
 const SOURCE_DAILY = 'github-trending';
 const SOURCE_WEEKLY = 'github-trending-weekly';
+const WEEKLY_TRENDING_URL = 'https://github.com/trending?since=weekly';
 
 function label(accountId?: string): string {
   return accountId ?? 'default';
@@ -219,6 +220,62 @@ export function buildSchedule(count: number, baseDate: Date = new Date()): Date[
   return slots;
 }
 
+function estimateScheduleCount(mix: FormatSlot[]): number {
+  return mix.reduce((total, slot) => {
+    const cfg = getFormatConfig(slot.format);
+    if (slot.isThread) return total + Math.max(cfg.threadCount, 1);
+    const linkAsReply = slot.format === 'repo_drop' && (cfg.linkAsReply ?? false)
+      ? get<boolean>('format.repo_drop.link_as_reply', true)
+      : false;
+    return total + (linkAsReply ? 2 : 1);
+  }, 0);
+}
+
+function scoreCandidates(candidates: TrendingRepo[]): Array<{ repo: TrendingRepo; score: number }> {
+  const baseRanked = candidates
+    .map((repo) => ({ repo, score: scoreRepo(repo) }))
+    .sort((a, b) => b.score.total - a.score.total);
+  const topicCounts: Partial<Record<Topic, number>> = {};
+  const ownerCounts = new Map<string, number>();
+
+  return baseRanked.map(({ repo }) => {
+    const topic = inferTopic(repo);
+    const owner = repo.owner.toLowerCase();
+    const rescored = scoreRepo(repo, topicCounts, ownerCounts.get(owner) ?? 0);
+
+    topicCounts[topic] = (topicCounts[topic] ?? 0) + 1;
+    ownerCounts.set(owner, (ownerCounts.get(owner) ?? 0) + 1);
+
+    return { repo, score: rescored.total };
+  }).sort((a, b) => b.score - a.score);
+}
+
+async function runDaily(accountId?: string): Promise<QueueItem[]> {
+  const candidates = await loadFreshCandidates('daily', accountId);
+  const scored = scoreCandidates(candidates)
+    .filter((item) => isQualityRepo({ repo: item.repo.slug, total: item.score, breakdown: { relevance: 0, popularity: 0, trust: 0, clarity: 0, freshness: 0, novelty: 0, penalty: 0 } }))
+    .sort((a, b) => b.score - a.score);
+  log.info(`Scoring sonrasi: ${scored.length} kaliteli aday`);
+
+  const { count: remaining } = logAndCheckRemaining(accountId);
+  if (remaining === 0 || scored.length === 0) {
+    log.warn('Tweet uretilecek slot veya yeni repo yok.');
+    return [];
+  }
+
+  const target = Math.min(remaining, scored.length);
+  const mix = buildDailyMix(target, new Date());
+  const schedule = buildSchedule(estimateScheduleCount(mix));
+
+  const pairs: CandidatePair[] = [];
+  for (let i = 0; i < mix.length && i < scored.length; i++) {
+    pairs.push({ repo: scored[i].repo, score: scored[i].score, slot: mix[i] });
+  }
+
+  const items = await generateItemsForCandidates(pairs, schedule, accountId);
+  return commit(items, accountId);
+}
+
 async function processSlot(
   repo: TrendingRepo,
   score: number,
@@ -345,31 +402,7 @@ export async function run(accountId?: string): Promise<QueueItem[]> {
   if (isDigestDay(new Date())) {
     return runDigestDay(accountId);
   }
-
-  const candidates = await loadFreshCandidates('daily', accountId);
-  const scored = candidates
-    .map((repo) => ({ repo, score: scoreRepo(repo) }))
-    .filter((item) => isQualityRepo(item.score))
-    .sort((a, b) => b.score.total - a.score.total);
-  log.info(`Scoring sonrasi: ${scored.length} kaliteli aday`);
-
-  const { count: remaining } = logAndCheckRemaining(accountId);
-  if (remaining === 0 || scored.length === 0) {
-    log.warn('Tweet uretilecek slot veya yeni repo yok.');
-    return [];
-  }
-
-  const target = Math.min(remaining, scored.length);
-  const mix = buildDailyMix(target, new Date());
-  const schedule = buildSchedule(target + mix.filter((s) => s.isThread).length * 2);
-
-  const pairs: CandidatePair[] = [];
-  for (let i = 0; i < mix.length && i < scored.length; i++) {
-    pairs.push({ repo: scored[i].repo, score: scored[i].score.total, slot: mix[i] });
-  }
-
-  const items = await generateItemsForCandidates(pairs, schedule, accountId);
-  return commit(items, accountId);
+  return runDaily(accountId);
 }
 
 async function buildDigestItem(
@@ -383,7 +416,7 @@ async function buildDigestItem(
     log.ok(`Digest tweet: ${digestText.length} char`);
     return {
       repo: 'weekly-digest',
-      url: repos[0].url,
+      url: WEEKLY_TRENDING_URL,
       text: digestText,
       scheduledAt,
       format: 'weekly_digest',
@@ -404,7 +437,7 @@ async function runDigestDay(accountId?: string): Promise<QueueItem[]> {
   const fresh = await loadFreshCandidates('weekly', accountId);
   if (fresh.length < DIGEST_MIN_REPOS) {
     log.warn('Digest icin yeterli yeni repo yok, normal moda donuluyor.');
-    return run(accountId);
+    return runDaily(accountId);
   }
 
   const { count: remaining } = logAndCheckRemaining(accountId);
@@ -425,10 +458,13 @@ async function runDigestDay(accountId?: string): Promise<QueueItem[]> {
 
   if (normalCount > 0) {
     const normalMix = buildDailyMix(normalCount, new Date());
-    const normalSchedule = buildSchedule(normalCount + items.length);
-    const pairs: CandidatePair[] = normalRepos.slice(0, normalCount).map((repo, i) => ({
-      repo,
-      score: 0,
+    const normalSchedule = buildSchedule(items.length + estimateScheduleCount(normalMix));
+    const scoredNormalRepos = scoreCandidates(normalRepos)
+      .filter((item) => isQualityRepo({ repo: item.repo.slug, total: item.score, breakdown: { relevance: 0, popularity: 0, trust: 0, clarity: 0, freshness: 0, novelty: 0, penalty: 0 } }))
+      .slice(0, normalCount);
+    const pairs: CandidatePair[] = scoredNormalRepos.map((item, i) => ({
+      repo: item.repo,
+      score: item.score,
       slot: normalMix[i % normalMix.length],
     }));
     const normalItems = await generateItemsForCandidates(pairs, normalSchedule, accountId, items.length);

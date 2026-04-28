@@ -5,6 +5,7 @@ import type { TrendingRepo, ContentFormat } from '../types';
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MAX_TOKENS = 400;
 const THREAD_MAX_TOKENS = 800;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -17,21 +18,35 @@ interface ChatResponse {
 
 export async function chat(messages: ChatMessage[], maxTokens: number = DEFAULT_MAX_TOKENS): Promise<string> {
   assertOpenRouter();
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.openrouter.apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': config.openrouter.referer,
-      'X-Title': config.openrouter.appName,
-    },
-    body: JSON.stringify({
-      model: config.openrouter.model,
-      messages,
-      temperature: 0.7,
-      max_tokens: maxTokens,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.openrouter.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': config.openrouter.referer,
+        'X-Title': config.openrouter.appName,
+      },
+      body: JSON.stringify({
+        model: config.openrouter.model,
+        messages,
+        temperature: 0.7,
+        max_tokens: maxTokens,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`OpenRouter timeout after ${REQUEST_TIMEOUT_MS}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
@@ -47,7 +62,24 @@ export async function chat(messages: ChatMessage[], maxTokens: number = DEFAULT_
 }
 
 function clean(text: string): string {
-  return text.replace(/^["'`]+|["'`]+$/g, '').trim();
+  return text
+    .replace(/^```[a-zA-Z0-9_-]*\s*/g, '')
+    .replace(/\s*```$/g, '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .trim();
+}
+
+function appendRepoUrl(lastTweet: string, repoUrl: string): string {
+  const repoLine = `repo: ${repoUrl}`;
+  const combined = `${lastTweet}\n\n${repoLine}`;
+  if (combined.length <= 280) return combined;
+
+  const maxTextLength = 280 - repoLine.length - 2;
+  if (maxTextLength <= 1) {
+    throw new Error('Thread son tweetine repo linki sigmiyor');
+  }
+
+  return `${lastTweet.slice(0, maxTextLength - 1).trimEnd()}…\n\n${repoLine}`;
 }
 
 export async function generateTweet(
@@ -115,7 +147,7 @@ export async function generateThread(
 
   const lastTweet = valid[valid.length - 1];
   if (!lastTweet.includes(repoUrl) && !lastTweet.includes('github.com')) {
-    valid[valid.length - 1] = `${lastTweet}\n\nrepo: ${repoUrl}`;
+    valid[valid.length - 1] = appendRepoUrl(lastTweet, repoUrl);
   }
 
   return valid.slice(0, 3);

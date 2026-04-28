@@ -117,7 +117,7 @@ ${BASE_RULES}
 
 Format: 3 tweetlik mini thread. Her tweet tek başına anlamlı olmalı. Link sadece son tweet'te.
 
-Tweeet 1: Sorun/ gözlem — bağlam kur
+Tweet 1: Sorun/ gözlem — bağlam kur
 Tweet 2: Çözüm — repo ne yapıyor, nasıl çalışıyor
 Tweet 3: Sonuç/Senaryo — ne işe yarar, link
 
@@ -229,7 +229,11 @@ kaynak: https://example.com/api-tool`,
 };
 
 export function getFormatConfig(format: ContentFormat): FormatConfig {
-  return FORMATS[format];
+  const config = FORMATS[format];
+  if (!config) {
+    throw new Error(`Unknown content format: ${format}`);
+  }
+  return config;
 }
 
 export function getSystemPrompt(format: ContentFormat): string {

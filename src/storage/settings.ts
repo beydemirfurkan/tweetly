@@ -70,10 +70,17 @@ const DEFS: SettingDef[] = [
   { key: 'thread.days', defaultValue: '1,3,5', type: 'string' },
 ];
 
-const cache = new Map<string, { value: unknown; updatedAt: string }>();
+const cache = new Map<string, { value: unknown; cachedAt: number }>();
 const CACHE_TTL_MS = 60_000;
+let defaultsEnsured = false;
+
+function getSettingDef(key: string): SettingDef | undefined {
+  return DEFS.find((d) => d.key === key);
+}
 
 function ensureDefaults(): void {
+  if (defaultsEnsured) return;
+
   const db = getDb(config.paths.db);
   const existing = new Set(
     (db.prepare('SELECT key FROM settings').all() as Array<{ key: string }>).map((r) => r.key)
@@ -93,6 +100,7 @@ function ensureDefaults(): void {
     }
   });
   txn();
+  defaultsEnsured = true;
 }
 
 function parseValue(raw: string, type: SettingType): unknown {
@@ -118,7 +126,7 @@ export function get<T = unknown>(key: string, fallback?: T, accountId?: string):
   const cacheKey = settingsKey(key, accountId);
   const now = Date.now();
   const cached = cache.get(cacheKey);
-  if (cached && now - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
+  if (cached && now - cached.cachedAt < CACHE_TTL_MS) {
     return cached.value as T;
   }
 
@@ -140,13 +148,13 @@ export function get<T = unknown>(key: string, fallback?: T, accountId?: string):
   }
 
   if (!row) {
-    const def = DEFS.find((d) => d.key === key);
+    const def = getSettingDef(key);
     const value = def ? def.defaultValue : fallback;
     return value as T;
   }
 
   const value = parseValue(row.value, row.type);
-  cache.set(cacheKey, { value, updatedAt: row.updated_at });
+  cache.set(cacheKey, { value, cachedAt: now });
   return value as T;
 }
 
@@ -154,7 +162,7 @@ export function set(key: string, value: unknown, accountId?: string): void {
   const db = getDb(config.paths.db);
   ensureDefaults();
 
-  const def = DEFS.find((d) => d.key === key);
+  const def = getSettingDef(key);
   const type = def?.type ?? 'string';
   const raw = type === 'json' ? JSON.stringify(value) : String(value);
   const now = new Date().toISOString();
@@ -172,7 +180,7 @@ export function set(key: string, value: unknown, accountId?: string): void {
   }
 
   const cacheKey = settingsKey(key, accountId);
-  cache.set(cacheKey, { value, updatedAt: now });
+  cache.set(cacheKey, { value, cachedAt: Date.now() });
 }
 
 export function getAll(accountId?: string): Record<string, { value: unknown; type: SettingType }> {
@@ -233,4 +241,8 @@ export function getFormatWeights(): Record<string, number> {
 export function getThreadDays(): number[] {
   const raw = get<string>('thread.days', '1,3,5');
   return raw.split(',').map(Number).filter((n) => Number.isFinite(n));
+}
+
+export function isKnownSetting(key: string): boolean {
+  return Boolean(getSettingDef(key));
 }

@@ -1,8 +1,10 @@
 import cron from 'node-cron';
+import type { Server } from 'http';
 import * as collect from './pipeline/collect';
 import * as dispatch from './pipeline/dispatch';
 import * as queue from './storage/queue';
 import * as accounts from './storage/accounts';
+import { close as closeDb } from './storage/db';
 import { config } from './config';
 import { hasSessionImportEnv, importSession, bootstrapAllSessions } from './core/importSession';
 import { startHealthServer, setTriggers } from './ops/healthServer';
@@ -14,6 +16,7 @@ const EMPTY_QUEUE_REFILL_COOLDOWN_MS = 30 * 60 * 1000;
 
 let collectRunning = false;
 let lastEmptyRefillAt = 0;
+let shuttingDown = false;
 
 async function bootstrapSessions(): Promise<void> {
   accounts.bootstrapFromEnv();
@@ -91,7 +94,9 @@ async function runCollectForAllAccounts(reason: string): Promise<void> {
 }
 
 async function refillQueueIfEmpty(reason: string): Promise<void> {
-  if (queue.hasActiveItems()) {
+  const active = accounts.getActive();
+  const accountIds = active.length > 0 ? active.map((account) => account.id) : [undefined];
+  if (accountIds.every((accountId) => queue.hasActiveItems(accountId))) {
     return;
   }
 
@@ -106,8 +111,30 @@ async function refillQueueIfEmpty(reason: string): Promise<void> {
   await runCollectForAllAccounts(reason);
 }
 
+function installShutdownHandlers(server: Server): void {
+  const shutdown = (signal: string): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log.warn(`${signal} alindi, kapanis baslatiliyor.`);
+
+    server.close(() => {
+      closeDb();
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      closeDb();
+      process.exit(1);
+    }, 10_000).unref();
+  };
+
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+}
+
 export async function start(): Promise<void> {
-  startHealthServer();
+  const healthServer = startHealthServer();
+  installShutdownHandlers(healthServer);
   setTriggers({
     collect: () => runCollectForAllAccounts('Manual trigger'),
     dispatch: async () => { await dispatch.run(); },

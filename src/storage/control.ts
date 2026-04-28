@@ -9,7 +9,13 @@ const FIELDS = {
   reason: { key: 'reason', parse: (v: string | undefined) => v ?? undefined },
   pausedAt: { key: 'pausedAt', parse: (v: string | undefined) => v ?? undefined },
   pauseUntil: { key: 'pauseUntil', parse: (v: string | undefined) => v ?? undefined },
-  consecutiveFailures: { key: 'consecutiveFailures', parse: (v: string | undefined) => parseInt(v ?? '0', 10) },
+  consecutiveFailures: {
+    key: 'consecutiveFailures',
+    parse: (v: string | undefined) => {
+      const parsed = parseInt(v ?? '0', 10);
+      return Number.isFinite(parsed) ? parsed : 0;
+    },
+  },
   lastFailureAt: { key: 'lastFailureAt', parse: (v: string | undefined) => v ?? undefined },
   lastFailure: { key: 'lastFailure', parse: (v: string | undefined) => v ?? undefined },
   lastSuccessAt: { key: 'lastSuccessAt', parse: (v: string | undefined) => v ?? undefined },
@@ -105,16 +111,7 @@ export function isPaused(accountId?: string, now: Date = new Date()): boolean {
   const state = loadState(accountId);
   if (!state.paused) return false;
   if (!state.pauseUntil) return true;
-  if (new Date(state.pauseUntil) > now) return true;
-
-  saveState({
-    ...state,
-    paused: false,
-    reason: undefined,
-    pausedAt: undefined,
-    pauseUntil: undefined,
-  }, accountId);
-  return false;
+  return new Date(state.pauseUntil) > now;
 }
 
 export function recordSuccess(accountId?: string): void {

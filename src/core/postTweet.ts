@@ -117,6 +117,13 @@ async function pressPostButton(page: Page): Promise<void> {
     .locator('[data-testid="tweetButtonInline"], [data-testid="tweetButton"]')
     .first();
   await postBtn.waitFor({ state: 'visible', timeout: 10000 });
+
+  await page.waitForFunction(
+    (button: Element | null) => button?.getAttribute('aria-disabled') !== 'true',
+    await postBtn.elementHandle(),
+    { timeout: 10000 }
+  );
+
   const disabled = await postBtn.getAttribute('aria-disabled');
   if (disabled === 'true') {
     throw new Error('Post butonu disabled — metinde sorun olabilir.');
@@ -162,8 +169,7 @@ async function extractTweetId(page: Page): Promise<string | null> {
       if (m) return m[1];
     }
 
-    const linkHref = await page.locator('a[href*="/status/"]').first().getAttribute('href').catch(() => null);
-    return linkHref?.match(/\/status\/(\d+)/)?.[1] ?? null;
+    return null;
   } catch {
     return null;
   }
@@ -203,7 +209,7 @@ async function executePostFlow(opts: PostFlowOpts): Promise<PostResult> {
     await waitForPostConfirmation(page);
 
     const tweetId = await extractTweetId(page);
-    const tweetUrl = tweetId ? `https://x.com/${username}/status/${tweetId}` : '';
+    const tweetUrl = tweetId && username ? `https://x.com/${username}/status/${tweetId}` : '';
 
     opts.onSuccess(username, tweetId);
     await page.waitForTimeout(3000);
@@ -217,7 +223,7 @@ async function executePostFlow(opts: PostFlowOpts): Promise<PostResult> {
     if (screenshotPath) log.error(`Screenshot: ${screenshotPath}`);
     throw err;
   } finally {
-    await context.close();
+    await context.close().catch(() => undefined);
   }
 }
 

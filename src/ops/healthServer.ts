@@ -47,20 +47,32 @@ function isAuthorized(req: IncomingMessage): boolean {
   return req.headers.authorization === bearer || req.headers['x-admin-token'] === config.server.adminToken;
 }
 
-type Handler = (req: IncomingMessage, res: ServerResponse, url: URL) => void;
+type Handler = (req: IncomingMessage, res: ServerResponse, url: URL) => void | Promise<void>;
+const MAX_BODY_BYTES = 64 * 1024;
 
 function auth(fn: Handler): Handler {
   return (req, res, url) => {
     if (!isAuthorized(req)) return unauthorized(res);
-    fn(req, res, url);
+    return fn(req, res, url);
   };
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk) => { body += chunk; });
+    let size = 0;
+    req.on('data', (chunk: Buffer | string) => {
+      const chunkSize = typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.length;
+      size += chunkSize;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error('body too large'));
+        req.destroy();
+        return;
+      }
+      body += chunk.toString();
+    });
     req.on('end', () => resolve(body));
+    req.on('error', reject);
   });
 }
 
@@ -228,12 +240,18 @@ const routes: Route[] = [
         const parsed = JSON.parse(body) as Record<string, unknown>;
         const accountId = (parsed._accountId as string) ?? undefined;
         const keys = Object.keys(parsed).filter((k) => k !== '_accountId');
+        const invalidKeys = keys.filter((key) => !settings.isKnownSetting(key));
+        if (invalidKeys.length > 0) {
+          sendJson(res, 400, { ok: false, error: `unknown setting keys: ${invalidKeys.join(', ')}` });
+          return;
+        }
         for (const key of keys) {
           settings.set(key, parsed[key], accountId);
         }
         sendJson(res, 200, { ok: true, updated: keys.length });
-      } catch {
-        sendJson(res, 400, { ok: false, error: 'invalid json' });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, 400, { ok: false, error: msg === 'body too large' ? msg : 'invalid json' });
       }
     }),
   },
@@ -279,7 +297,14 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
   const route = matchRoute(req.method ?? 'GET', url.pathname);
 
   if (route) {
-    route.handler(req, res, url);
+    Promise.resolve(route.handler(req, res, url)).catch((err) => {
+      log.error(`Health route hata: ${err instanceof Error ? err.message : String(err)}`);
+      if (!res.headersSent) {
+        sendJson(res, 500, { ok: false, error: 'internal_error' });
+      } else if (!res.writableEnded) {
+        res.end();
+      }
+    });
   } else {
     sendJson(res, 404, { ok: false, error: 'not_found' });
   }

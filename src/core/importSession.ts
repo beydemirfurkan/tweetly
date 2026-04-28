@@ -88,9 +88,9 @@ export async function importSession(accountId?: string): Promise<boolean> {
 
     if (ct0Cookie || twidCookie || authMultiCookie) {
       const patch: Partial<Pick<accounts.Account, 'ct0' | 'twid' | 'authMulti'>> = {};
-      if (ct0Cookie && !account.ct0) patch.ct0 = ct0Cookie.value;
-      if (twidCookie && !account.twid) patch.twid = twidCookie.value;
-      if (authMultiCookie && !account.authMulti) patch.authMulti = authMultiCookie.value;
+      if (ct0Cookie && ct0Cookie.value !== account.ct0) patch.ct0 = ct0Cookie.value;
+      if (twidCookie && twidCookie.value !== account.twid) patch.twid = twidCookie.value;
+      if (authMultiCookie && authMultiCookie.value !== account.authMulti) patch.authMulti = authMultiCookie.value;
       if (Object.keys(patch).length > 0) {
         accounts.update(account.id, patch);
         log.info(`Otomatik yakalanan cookie'ler: ${Object.keys(patch).join(', ')}`);

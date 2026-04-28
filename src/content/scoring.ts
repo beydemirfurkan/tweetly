@@ -1,4 +1,5 @@
 import type { TrendingRepo } from '../types';
+import type { Topic } from '../types';
 import { getScoringWeights, get } from '../storage/settings';
 
 export interface RepoScore {
@@ -30,7 +31,7 @@ const GENERIC_DESC = /^(a |an |the )?(simple |basic |lightweight )?(library|tool
 
 export function scoreRepo(
   repo: TrendingRepo,
-  recentTopicCounts: Record<string, number> = {},
+  recentTopicCounts: Partial<Record<Topic, number>> = {},
   recentOwnerCount = 0
 ): RepoScore {
   const w = getScoringWeights();
@@ -92,7 +93,7 @@ function calcFreshness(starsToday: number, totalStars: number, w: Record<string,
   return 0;
 }
 
-function calcNovelty(topicCounts: Record<string, number>, ownerCount: number, w: Record<string, number>): number {
+function calcNovelty(topicCounts: Partial<Record<Topic, number>>, ownerCount: number, w: Record<string, number>): number {
   let score = 0;
   const totalTopics = Object.values(topicCounts).reduce((s, c) => s + c, 0);
   if (totalTopics > 5) score += w.noveltyTopicRepeat;

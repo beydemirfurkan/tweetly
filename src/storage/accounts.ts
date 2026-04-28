@@ -101,12 +101,12 @@ export function touchLastUsed(id: string): void {
 
 export function bootstrapFromEnv(): Account[] {
   const authToken = process.env.X_AUTH_TOKEN?.trim();
-  const username = process.env.X_USERNAME?.trim() || `account_${authToken!.slice(-6)}`;
+  if (!authToken) return [];
+
+  const username = process.env.X_USERNAME?.trim() || `account_${authToken.slice(-6)}`;
   const authMulti = process.env.X_AUTH_MULTI?.trim();
   const ct0 = process.env.X_CT0?.trim();
   const twid = process.env.X_TWID?.trim();
-
-  if (!authToken) return [];
 
   const existing = getById(username);
   if (existing) {
