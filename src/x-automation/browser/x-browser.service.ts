@@ -2,10 +2,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { chromium, type BrowserContext, type Page } from 'patchright';
+import { AccountsService } from '../../accounts/accounts.service';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+const X_COOKIE_DOMAIN = '.x.com';
+const X_COOKIE_PATH = '/';
 
 export interface LaunchResult {
   context: BrowserContext;
@@ -24,7 +28,7 @@ export class XBrowserService implements OnModuleDestroy {
   private readonly active = new Set<BrowserContext>();
   private readonly cfg: BrowserConfig;
 
-  constructor() {
+  constructor(private readonly accounts: AccountsService) {
     this.cfg = {
       headless: (process.env.HEADLESS ?? 'true').toLowerCase() !== 'false',
       rootDir: process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data'),
@@ -61,9 +65,46 @@ export class XBrowserService implements OnModuleDestroy {
       timezoneId: 'Europe/Istanbul',
       args: ['--disable-blink-features=AutomationControlled'],
     });
+
+    if (accountId) {
+      await this.injectCookies(context, accountId);
+    }
+
     this.active.add(context);
     const page = context.pages()[0] ?? (await context.newPage());
     return { context, page };
+  }
+
+  private async injectCookies(context: BrowserContext, accountId: string): Promise<void> {
+    const account = await this.accounts.findById(accountId);
+    if (!account?.authToken) return;
+
+    const cookies = [
+      {
+        name: 'auth_token',
+        value: account.authToken,
+        domain: X_COOKIE_DOMAIN,
+        path: X_COOKIE_PATH,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'None' as const,
+      },
+    ];
+
+    if (account.ct0) {
+      cookies.push({
+        name: 'ct0',
+        value: account.ct0,
+        domain: X_COOKIE_DOMAIN,
+        path: X_COOKIE_PATH,
+        httpOnly: false,
+        secure: true,
+        sameSite: 'None' as const,
+      });
+    }
+
+    await context.addCookies(cookies);
+    this.log.log(`Cookies injected for account ${accountId}`);
   }
 
   async release(context: BrowserContext): Promise<void> {

@@ -17,6 +17,7 @@ import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
 import { SettingsService } from '../settings/settings.service';
 import { WorkflowDispatchService } from '../workflows/workflow-dispatch.service';
+import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES } from '../domain/types/action.types';
 
@@ -27,6 +28,7 @@ export class AdminApiController {
     private readonly service: AdminApiService,
     private readonly settings: SettingsService,
     private readonly dispatch: WorkflowDispatchService,
+    private readonly enqueue: ActionEnqueueService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -148,6 +150,85 @@ export class AdminApiController {
       await this.dispatch.runAll();
     }
     return { ok: true };
+  }
+
+  @Post('test/like')
+  @HttpCode(HttpStatus.OK)
+  async testLike(@Body() body: { targetTweetUrl: string; account?: string }) {
+    if (!body.targetTweetUrl?.includes('/status/')) {
+      throw new BadRequestException('targetTweetUrl must contain /status/');
+    }
+    const result = await this.enqueue.enqueueLike({
+      accountId: body.account ?? '',
+      targetTweetUrl: body.targetTweetUrl,
+      scheduledAt: new Date(),
+      metadata: { source: 'manual-test' },
+    });
+    return { ok: true, id: result.id };
+  }
+
+  @Post('test/retweet')
+  @HttpCode(HttpStatus.OK)
+  async testRetweet(@Body() body: { targetTweetUrl: string; account?: string }) {
+    if (!body.targetTweetUrl?.includes('/status/')) {
+      throw new BadRequestException('targetTweetUrl must contain /status/');
+    }
+    const result = await this.enqueue.enqueueRetweet({
+      accountId: body.account ?? '',
+      targetTweetUrl: body.targetTweetUrl,
+      scheduledAt: new Date(),
+      metadata: { source: 'manual-test' },
+    });
+    return { ok: true, id: result.id };
+  }
+
+  @Post('test/bookmark')
+  @HttpCode(HttpStatus.OK)
+  async testBookmark(@Body() body: { targetTweetUrl: string; account?: string }) {
+    if (!body.targetTweetUrl?.includes('/status/')) {
+      throw new BadRequestException('targetTweetUrl must contain /status/');
+    }
+    const result = await this.enqueue.enqueueBookmark({
+      accountId: body.account ?? '',
+      targetTweetUrl: body.targetTweetUrl,
+      scheduledAt: new Date(),
+      metadata: { source: 'manual-test' },
+    });
+    return { ok: true, id: result.id };
+  }
+
+  @Post('test/reply')
+  @HttpCode(HttpStatus.OK)
+  async testReply(@Body() body: { text: string; parentTweetUrl: string; account?: string }) {
+    if (!body.text) throw new BadRequestException('text is required');
+    if (!body.parentTweetUrl?.includes('/status/')) {
+      throw new BadRequestException('parentTweetUrl must contain /status/');
+    }
+    const result = await this.enqueue.enqueueReply({
+      accountId: body.account ?? '',
+      text: body.text,
+      parentTweetUrl: body.parentTweetUrl,
+      scheduledAt: new Date(),
+      metadata: { source: 'manual-test' },
+    });
+    return { ok: true, id: result.id };
+  }
+
+  @Post('test/quote')
+  @HttpCode(HttpStatus.OK)
+  async testQuote(@Body() body: { text: string; targetTweetUrl: string; account?: string }) {
+    if (!body.text) throw new BadRequestException('text is required');
+    if (!body.targetTweetUrl?.includes('/status/')) {
+      throw new BadRequestException('targetTweetUrl must contain /status/');
+    }
+    const result = await this.enqueue.enqueueQuote({
+      accountId: body.account ?? '',
+      text: body.text,
+      targetTweetUrl: body.targetTweetUrl,
+      scheduledAt: new Date(),
+      metadata: { source: 'manual-test' },
+    });
+    return { ok: true, id: result.id };
   }
 }
 
