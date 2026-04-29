@@ -48,9 +48,10 @@ export class GenericActionRepository {
     const sql = `
       WITH c AS (
         SELECT id FROM ${this.cfg.table}
-         WHERE status = 'pending'
-           AND scheduled_at <= now()
-           AND (locked_until IS NULL OR locked_until < now())
+         WHERE status IN ('pending', 'failed')
+            AND scheduled_at <= now()
+            AND (locked_until IS NULL OR locked_until < now())
+            AND attempts < max_attempts
          ORDER BY scheduled_at
          FOR UPDATE SKIP LOCKED
          LIMIT $2

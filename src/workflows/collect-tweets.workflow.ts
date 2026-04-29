@@ -280,7 +280,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
       : undefined;
     const linkAsReply =
       slot.format === 'repo_drop' && (cfg.linkAsReply ?? false)
-        ? await this.settings.get<boolean>('format.repo_drop.link_as_reply', true)
+        ? await this.settings.get<boolean>('format.repo_drop.link_as_reply', false)
         : false;
 
     if (linkAsReply) {
@@ -384,7 +384,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
   }
 
   private async loadExternalCandidates(accountId?: string): Promise<TrendingRepo[]> {
-    const enabled = await this.settings.get<boolean>('source_expansion.enabled', false, accountId);
+    const enabled = await this.settings.get<boolean>('source_expansion.enabled', true, accountId);
     if (!enabled) return [];
 
     const [includeHackerNews, includeDevTo, hackerNewsLimit, devToLimit, maxDaily, minScore, weights] = await Promise.all([
@@ -392,8 +392,8 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
       this.settings.get<boolean>('source_expansion.dev_to.enabled', true, accountId),
       this.settings.get<number>('source_expansion.hacker_news.limit', 25, accountId),
       this.settings.get<number>('source_expansion.dev_to.limit', 25, accountId),
-      this.settings.get<number>('source_expansion.max_daily_candidates', 15, accountId),
-      this.settings.get<number>('source_expansion.min_score', 70, accountId),
+      this.settings.get<number>('source_expansion.max_daily_candidates', 5, accountId),
+      this.settings.get<number>('source_expansion.min_score', 75, accountId),
       this.settings.getSourceQualityWeights(),
     ]);
 
@@ -468,7 +468,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
       week2WeekdayTarget,
       week2WeekendTarget,
     ] = await Promise.all([
-      this.settings.get<number>('tweets_per_day', 13, accountId),
+      this.settings.get<number>('tweets_per_day', 20, accountId),
       this.settings.get<boolean>('growth.enabled', false, accountId),
       this.settings.get<boolean>('growth.ramp_up.enabled', false, accountId),
       this.settings.get<string>('growth.ramp_up.start_date', '', accountId),
@@ -550,13 +550,13 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     const [intervalMin, jitterMin, jitterMax, rawWeights] = await Promise.all([
       growthEnabled
         ? this.settings.get<number>('growth.dispatch_interval_min', 18, accountId)
-        : this.settings.get<number>('dispatch_interval_min', 45, accountId),
+        : this.settings.get<number>('dispatch_interval_min', 18, accountId),
       growthEnabled
         ? this.settings.get<number>('growth.schedule_jitter_min', 5, accountId)
-        : this.settings.get<number>('schedule_jitter_min', 15, accountId),
+        : this.settings.get<number>('schedule_jitter_min', 5, accountId),
       growthEnabled
         ? this.settings.get<number>('growth.schedule_jitter_max', 25, accountId)
-        : this.settings.get<number>('schedule_jitter_max', 45, accountId),
+        : this.settings.get<number>('schedule_jitter_max', 25, accountId),
       weekend && growthEnabled
         ? this.settings.get<Record<string, number>>('schedule.weekend_hour_weights', DEFAULT_WEEKEND_HOUR_WEIGHTS, accountId)
         : this.settings.get<Record<string, number>>('schedule.hour_weights', DEFAULT_HOUR_WEIGHTS, accountId),
@@ -630,7 +630,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
         this.settings.get<number>('digest.day', 5),
         this.settings.getThreadDays(),
         this.settings.getFormatWeights(),
-        this.settings.get<boolean>('format.adaptive.enabled', true),
+        this.settings.get<boolean>('format.adaptive.enabled', false),
         this.settings.get<number>('format.adaptive.min_samples', 5),
         this.settings.get<number>('format.adaptive.boost_factor', 1.5),
         this.settings.get<number>('format.adaptive.cut_factor', 0.5),
@@ -776,11 +776,13 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     const rows: Array<{ cnt: string }> = accountId
       ? await this.dataSource.query(
           `SELECT COUNT(*)::text AS cnt FROM post_actions
-            WHERE account_id=$1 AND status IN ('pending','claimed','running')`,
+            WHERE account_id=$1
+              AND (status IN ('pending','claimed','running') OR (status='failed' AND attempts < max_attempts))`,
           [accountId],
         )
       : await this.dataSource.query(
-          `SELECT COUNT(*)::text AS cnt FROM post_actions WHERE status IN ('pending','claimed','running')`,
+        `SELECT COUNT(*)::text AS cnt FROM post_actions
+          WHERE status IN ('pending','claimed','running') OR (status='failed' AND attempts < max_attempts)`,
         );
     return parseInt(rows[0]?.cnt ?? '0', 10);
   }
@@ -803,13 +805,15 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     const rows: Array<{ repo: string }> = accountId
       ? await this.dataSource.query(
           `SELECT DISTINCT metadata->>'repo' AS repo FROM post_actions
-            WHERE account_id=$1 AND status IN ('pending','claimed','running')
+            WHERE account_id=$1
+              AND (status IN ('pending','claimed','running') OR (status='failed' AND attempts < max_attempts))
               AND metadata->>'repo' IS NOT NULL`,
           [accountId],
         )
       : await this.dataSource.query(
           `SELECT DISTINCT metadata->>'repo' AS repo FROM post_actions
-            WHERE status IN ('pending','claimed','running') AND metadata->>'repo' IS NOT NULL`,
+            WHERE (status IN ('pending','claimed','running') OR (status='failed' AND attempts < max_attempts))
+              AND metadata->>'repo' IS NOT NULL`,
         );
     return rows.map((r) => r.repo).filter(Boolean);
   }
@@ -834,7 +838,7 @@ const DEFAULT_WEEKEND_HOUR_WEIGHTS: Record<string, number> = {
 };
 
 export function resolveGrowthDailyTarget(options: GrowthTargetOptions): number {
-  const legacyTarget = sanitizeTarget(options.legacyTarget, 13);
+  const legacyTarget = sanitizeTarget(options.legacyTarget, 20);
   if (!options.growthEnabled) return legacyTarget;
 
   const weekend = isWeekendDay(options.baseDate.getDay());
@@ -857,7 +861,7 @@ export function reduceGrowthTargetForSafety(options: GrowthSafetyOptions): numbe
   const target = sanitizeTarget(options.target, options.legacyTarget);
   if (!options.safetyEnabled) return target;
 
-  const legacyTarget = sanitizeTarget(options.legacyTarget, 13);
+  const legacyTarget = sanitizeTarget(options.legacyTarget, 20);
   let safeTarget = target;
 
   if (options.authFailures >= Math.max(1, options.authFailureSoftLimit)) {

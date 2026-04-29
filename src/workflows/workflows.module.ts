@@ -7,6 +7,7 @@ import { ContentMemoryModule } from '../content-memory/content-memory.module';
 import { SettingsModule } from '../settings/settings.module';
 import { TrendingSourceModule } from '../trending-source/trending-source.module';
 import { GithubTrendingWorkflow } from './collect-tweets.workflow';
+import { AutoCollectScheduler } from './auto-collect-scheduler.service';
 import { WallpaperWorkflow } from './wallpaper.workflow';
 import { WorkflowDispatchService } from './workflow-dispatch.service';
 
@@ -20,7 +21,7 @@ import { WorkflowDispatchService } from './workflow-dispatch.service';
     SettingsModule,
     TrendingSourceModule,
   ],
-  providers: [GithubTrendingWorkflow, WallpaperWorkflow, WorkflowDispatchService],
+  providers: [GithubTrendingWorkflow, WallpaperWorkflow, WorkflowDispatchService, AutoCollectScheduler],
   exports: [GithubTrendingWorkflow, WallpaperWorkflow, WorkflowDispatchService],
 })
 export class WorkflowsModule {}

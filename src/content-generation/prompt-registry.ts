@@ -8,6 +8,8 @@ const BASE_RULES = `Kurallar:
 - Türkçe karakterleri doğru kullan: ç, ğ, ı, i, ö, ş, ü. ASCII'ye düşmüş Türkçe yazma.
 - Tweet metninin tamamı lowercase olacak. Cümle başı, repo adı, özel isim ve teknik terimler dahil büyük harf kullanma.
 - Pazarlama dili yok. Abartılı sıfat yok.
+- Kaynakta verilmeyen özellik, benchmark, kullanıcı sayısı veya kesin sonuç iddia etme.
+- Sinyal zayıfsa kesin konuşma; "gibi", "denemeye değer", "şunu işaret ediyor" gibi temkinli dil kullan.
 - Sadece tweet metnini döndür, başka açıklama, tırnak, ön/son ek yazma.`;
 
 export interface FormatConfig {

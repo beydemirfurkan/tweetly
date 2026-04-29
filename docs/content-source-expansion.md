@@ -34,15 +34,15 @@ Kurallar:
 
 ## Admin settings
 
-Varsayilan kapali:
+Varsayilan creative safe mode:
 
-- `source_expansion.enabled=false`
+- `source_expansion.enabled=true`
 - `source_expansion.hacker_news.enabled=true`
 - `source_expansion.dev_to.enabled=true`
 - `source_expansion.hacker_news.limit=25`
 - `source_expansion.dev_to.limit=25`
-- `source_expansion.max_daily_candidates=15`
-- `source_expansion.min_score=70`
+- `source_expansion.max_daily_candidates=5`
+- `source_expansion.min_score=75`
 
 Scoring agirliklari:
 

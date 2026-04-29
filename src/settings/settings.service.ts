@@ -12,14 +12,18 @@ interface SettingDef {
 }
 
 const DEFS: SettingDef[] = [
-  { key: 'tweets_per_day', defaultValue: 13, type: 'number' },
-  { key: 'dispatch_interval_min', defaultValue: 45, type: 'number' },
+  { key: 'tweets_per_day', defaultValue: 20, type: 'number' },
+  { key: 'dispatch_interval_min', defaultValue: 18, type: 'number' },
   { key: 'dispatch_start_hour', defaultValue: 9, type: 'number' },
   { key: 'max_attempts', defaultValue: 3, type: 'number' },
   { key: 'min_repo_score', defaultValue: 40, type: 'number' },
   { key: 'reply_delay_ms', defaultValue: 10000, type: 'number' },
-  { key: 'schedule_jitter_min', defaultValue: 15, type: 'number' },
-  { key: 'schedule_jitter_max', defaultValue: 45, type: 'number' },
+  { key: 'schedule_jitter_min', defaultValue: 5, type: 'number' },
+  { key: 'schedule_jitter_max', defaultValue: 25, type: 'number' },
+  { key: 'auto_collect.enabled', defaultValue: false, type: 'boolean' },
+  { key: 'auto_collect.run_hour', defaultValue: 8, type: 'number' },
+  { key: 'auto_collect.run_minute', defaultValue: 0, type: 'number' },
+  { key: 'auto_collect.startup_delay_sec', defaultValue: 60, type: 'number' },
   { key: 'growth.enabled', defaultValue: false, type: 'boolean' },
   { key: 'growth.ramp_up.enabled', defaultValue: false, type: 'boolean' },
   { key: 'growth.ramp_up.start_date', defaultValue: '', type: 'string' },
@@ -27,7 +31,7 @@ const DEFS: SettingDef[] = [
   { key: 'growth.weekday_target_max', defaultValue: 23, type: 'number' },
   { key: 'growth.weekend_target_min', defaultValue: 24, type: 'number' },
   { key: 'growth.weekend_target_max', defaultValue: 28, type: 'number' },
-  { key: 'growth.ramp_up.week1.weekday_target', defaultValue: 17, type: 'number' },
+  { key: 'growth.ramp_up.week1.weekday_target', defaultValue: 20, type: 'number' },
   { key: 'growth.ramp_up.week1.weekend_target', defaultValue: 20, type: 'number' },
   { key: 'growth.ramp_up.week2.weekday_target', defaultValue: 20, type: 'number' },
   { key: 'growth.ramp_up.week2.weekend_target', defaultValue: 23, type: 'number' },
@@ -39,13 +43,13 @@ const DEFS: SettingDef[] = [
   { key: 'growth.safety.post_failure_rate_threshold', defaultValue: 0.2, type: 'number' },
   { key: 'growth.safety.post_failure_min_samples', defaultValue: 5, type: 'number' },
   { key: 'growth.safety.reduction_factor', defaultValue: 0.5, type: 'number' },
-  { key: 'source_expansion.enabled', defaultValue: false, type: 'boolean' },
+  { key: 'source_expansion.enabled', defaultValue: true, type: 'boolean' },
   { key: 'source_expansion.hacker_news.enabled', defaultValue: true, type: 'boolean' },
   { key: 'source_expansion.dev_to.enabled', defaultValue: true, type: 'boolean' },
   { key: 'source_expansion.hacker_news.limit', defaultValue: 25, type: 'number' },
   { key: 'source_expansion.dev_to.limit', defaultValue: 25, type: 'number' },
-  { key: 'source_expansion.max_daily_candidates', defaultValue: 15, type: 'number' },
-  { key: 'source_expansion.min_score', defaultValue: 70, type: 'number' },
+  { key: 'source_expansion.max_daily_candidates', defaultValue: 5, type: 'number' },
+  { key: 'source_expansion.min_score', defaultValue: 75, type: 'number' },
   { key: 'source_scoring.source_trust', defaultValue: 20, type: 'number' },
   { key: 'source_scoring.topic_fit', defaultValue: 25, type: 'number' },
   { key: 'source_scoring.freshness', defaultValue: 20, type: 'number' },
@@ -88,21 +92,21 @@ const DEFS: SettingDef[] = [
   { key: 'scoring.freshness.mid', defaultValue: 5, type: 'number' },
   { key: 'scoring.novelty.topic_repeat', defaultValue: -10, type: 'number' },
   { key: 'scoring.novelty.owner_repeat', defaultValue: -5, type: 'number' },
-  { key: 'format.no_link_hook.weight', defaultValue: 3, type: 'number' },
-  { key: 'format.repo_drop.weight', defaultValue: 2, type: 'number' },
-  { key: 'format.question.weight', defaultValue: 2, type: 'number' },
-  { key: 'format.comparison.weight', defaultValue: 1, type: 'number' },
+  { key: 'format.no_link_hook.weight', defaultValue: 5, type: 'number' },
+  { key: 'format.repo_drop.weight', defaultValue: 1, type: 'number' },
+  { key: 'format.question.weight', defaultValue: 4, type: 'number' },
+  { key: 'format.comparison.weight', defaultValue: 3, type: 'number' },
   { key: 'format.bookmark_bait.weight', defaultValue: 1, type: 'number' },
-  { key: 'format.hot_take.weight', defaultValue: 1, type: 'number' },
-  { key: 'format.mini_thread.weight', defaultValue: 1, type: 'number' },
-  { key: 'format.weekly_digest.weight', defaultValue: 1, type: 'number' },
-  { key: 'format.repo_drop.link_as_reply', defaultValue: true, type: 'boolean' },
-  { key: 'format.adaptive.enabled', defaultValue: true, type: 'boolean' },
+  { key: 'format.hot_take.weight', defaultValue: 3, type: 'number' },
+  { key: 'format.mini_thread.weight', defaultValue: 0, type: 'number' },
+  { key: 'format.weekly_digest.weight', defaultValue: 0, type: 'number' },
+  { key: 'format.repo_drop.link_as_reply', defaultValue: false, type: 'boolean' },
+  { key: 'format.adaptive.enabled', defaultValue: false, type: 'boolean' },
   { key: 'format.adaptive.min_samples', defaultValue: 5, type: 'number' },
   { key: 'format.adaptive.boost_factor', defaultValue: 1.5, type: 'number' },
   { key: 'format.adaptive.cut_factor', defaultValue: 0.5, type: 'number' },
   { key: 'digest.day', defaultValue: 5, type: 'number' },
-  { key: 'thread.days', defaultValue: '1,3,5', type: 'string' },
+  { key: 'thread.days', defaultValue: '', type: 'string' },
   { key: 'scenario.type', defaultValue: 'github_trending', type: 'string' },
   { key: 'scenario.wallpaper.subreddit', defaultValue: 'wallpaper', type: 'string' },
   { key: 'scenario.wallpaper.per_day', defaultValue: 3, type: 'number' },
@@ -217,22 +221,27 @@ export class SettingsService {
 
   async getFormatWeights(): Promise<Record<string, number>> {
     const keys: Array<[string, number, string]> = [
-      ['format.no_link_hook.weight', 3, 'no_link_hook'],
-      ['format.repo_drop.weight', 2, 'repo_drop'],
-      ['format.question.weight', 2, 'question'],
-      ['format.comparison.weight', 1, 'comparison'],
+      ['format.no_link_hook.weight', 5, 'no_link_hook'],
+      ['format.repo_drop.weight', 1, 'repo_drop'],
+      ['format.question.weight', 4, 'question'],
+      ['format.comparison.weight', 3, 'comparison'],
       ['format.bookmark_bait.weight', 1, 'bookmark_bait'],
-      ['format.hot_take.weight', 1, 'hot_take'],
-      ['format.mini_thread.weight', 1, 'mini_thread'],
-      ['format.weekly_digest.weight', 1, 'weekly_digest'],
+      ['format.hot_take.weight', 3, 'hot_take'],
+      ['format.mini_thread.weight', 0, 'mini_thread'],
+      ['format.weekly_digest.weight', 0, 'weekly_digest'],
     ];
     const values = await Promise.all(keys.map(([k, d]) => this.get<number>(k, d)));
     return Object.fromEntries(keys.map(([, , name], i) => [name, values[i]]));
   }
 
   async getThreadDays(): Promise<number[]> {
-    const raw = await this.get<string>('thread.days', '1,3,5');
-    return raw.split(',').map(Number).filter((n) => Number.isFinite(n));
+    const raw = await this.get<string>('thread.days', '');
+    return raw
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map(Number)
+      .filter((n) => Number.isFinite(n));
   }
 
   getDefs(): readonly SettingDef[] {

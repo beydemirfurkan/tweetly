@@ -187,7 +187,13 @@ curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/a
 | `scenario.wallpaper.subreddit` | `wallpaper` | Reddit subreddit |
 | `scenario.wallpaper.per_day` | `3` | Günlük paylaşım sayısı |
 | `scenario.wallpaper.caption_template` | `''` | Post caption (boş = caption'sız) |
-| `tweets_per_day` | `13` | GitHub trending günlük tweet sayısı |
+| `tweets_per_day` | `20` | GitHub trending günlük tweet sayısı |
+| `auto_collect.enabled` | `false` | Prod'da günlük içerik toplama otomasyonu (canary sonrası açılır) |
+| `auto_collect.run_hour` | `8` | Günlük otomatik içerik toplama saati |
+| `auto_collect.run_minute` | `0` | Günlük otomatik içerik toplama dakikası |
+| `source_expansion.enabled` | `true` | Hacker News ve dev.to destek kaynaklarını açar |
+| `source_expansion.max_daily_candidates` | `5` | Günlük harici kaynak aday limiti |
+| `source_expansion.min_score` | `75` | Harici kaynak kalite eşiği |
 
 ---
 
