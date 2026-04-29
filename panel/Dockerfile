@@ -12,6 +12,10 @@ COPY . .
 
 RUN npm run build
 
+RUN cp -r .next/standalone/tweetly/panel/. /app/standalone-out/ && \
+    cp -r .next/static /app/standalone-out/.next/static && \
+    cp -r public /app/standalone-out/public 2>/dev/null; true
+
 
 FROM node:20-bookworm-slim
 
@@ -20,10 +24,8 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./tweetly/panel/.next/static
-COPY --from=builder /app/public ./tweetly/panel/public
+COPY --from=builder /app/standalone-out ./
 
 EXPOSE 3000
 
-CMD ["node", "tweetly/panel/server.js"]
+CMD ["node", "server.js"]
