@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +11,22 @@ import { KeyRound } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [token, setToken] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated && typeof window !== 'undefined') {
-    window.location.href = '/';
-    return null;
-  }
+  const getNextPath = () => {
+    if (typeof window === 'undefined') return '/';
+    const next = new URLSearchParams(window.location.search).get('next');
+    return next?.startsWith('/') ? next : '/';
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace(getNextPath());
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +34,9 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     const ok = await login(token.trim());
-    if (!ok) {
+    if (ok) {
+      router.replace(getNextPath());
+    } else {
       setError('Token gecersiz veya sunucu ulasilamaz.');
     }
     setLoading(false);

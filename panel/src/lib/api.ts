@@ -16,6 +16,12 @@ export function apiUrl(path: string): string {
   return `${resolveApiOrigin()}/admin${path}`;
 }
 
+function loginUrl(): string {
+  if (typeof window === 'undefined') return '/login';
+  const next = `${window.location.pathname}${window.location.search}`;
+  return `/login?next=${encodeURIComponent(next)}`;
+}
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('tweetly_admin_token');
@@ -58,7 +64,7 @@ export async function apiFetch<T>(
   if (res.status === 401) {
     clearToken();
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.location.href = loginUrl();
     }
     throw new ApiError(401, 'Unauthorized');
   }
