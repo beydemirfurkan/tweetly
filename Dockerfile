@@ -25,6 +25,7 @@ FROM node:20-bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Europe/Istanbul \
     NODE_ENV=production \
+    NEST_PORT=3000 \
     HEADLESS=true \
     DATA_DIR=/data/app-data \
     USER_DATA_DIR=/data/user-data
