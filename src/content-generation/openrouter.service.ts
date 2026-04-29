@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SettingsService } from '../settings/settings.service';
 import type { ContentFormat, TrendingRepo } from '../domain/types/content.types';
 import {
   getSystemPrompt,
@@ -28,15 +29,18 @@ interface ChatResponse {
 export class OpenRouterService {
   private readonly log = new Logger(OpenRouterService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly settings: SettingsService,
+  ) {}
 
   async chat(messages: ChatMessage[], maxTokens: number = DEFAULT_MAX_TOKENS): Promise<string> {
-    const apiKey = this.config.get<string>('OPENROUTER_API_KEY');
-    const model = this.config.get<string>('OPENROUTER_MODEL', 'google/gemini-flash-1.5');
+    const apiKey = await this.resolveApiKey();
+    const model = this.config.get<string>('OPENROUTER_MODEL', 'google/gemini-2.5-flash');
     const referer = this.config.get<string>('OPENROUTER_REFERER', 'https://github.com/tweetly-bot');
     const appName = this.config.get<string>('OPENROUTER_APP_NAME', 'tweetly');
 
-    if (!apiKey) throw new Error('OPENROUTER_API_KEY env var not set');
+    if (!apiKey) throw new Error('OpenRouter API key not configured');
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -74,6 +78,11 @@ export class OpenRouterService {
       throw new Error(`OpenRouter cevabı boş: ${JSON.stringify(data).slice(0, 300)}`);
     }
     return content.trim();
+  }
+
+  private async resolveApiKey(): Promise<string | undefined> {
+    const stored = await this.settings.get<string>('secrets.openrouter_api_key', '');
+    return stored || this.config.get<string>('OPENROUTER_API_KEY');
   }
 
   async generateTweet(repo: TrendingRepo, format: ContentFormat = 'repo_drop', extraContext?: string): Promise<string> {

@@ -147,6 +147,16 @@ export class SettingsService {
     return value as T;
   }
 
+  async set(key: string, value: unknown, accountId?: string): Promise<void> {
+    const type = inferType(value);
+    const raw = type === 'json' ? JSON.stringify(value) : String(value);
+    await this.repo.upsert(
+      { key, accountId: accountId ?? '', value: raw, type, updatedAt: new Date() },
+      ['key', 'accountId'],
+    );
+    this.invalidateCache(key, accountId);
+  }
+
   async getScoringWeights(): Promise<Record<string, number>> {
     const keys: Array<[string, number]> = [
       ['scoring.relevance.high', 20],
@@ -252,4 +262,11 @@ function parseValue(raw: string, type: string): unknown {
     default:
       return raw;
   }
+}
+
+function inferType(value: unknown): SettingType {
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'object' && value !== null) return 'json';
+  return 'string';
 }

@@ -91,25 +91,35 @@ npm run smoke:engine       # Action engine smoke testi
 
 ## Env Değişkenleri
 
-Bkz. `.env.example`. Kritik olanlar:
+`.env.example` sadece boot-time değerleri içerir. Account cookie'leri, OpenRouter API key ve kalıcı admin token DB üzerinden yönetilir.
 
 | Değişken | Zorunlu | Açıklama |
 |---|---|---|
-| `X_AUTH_TOKEN` | Evet | X `auth_token` cookie değeri |
-| `OPENROUTER_API_KEY` | Evet | AI üretimi için |
-| `ADMIN_TOKEN` | Evet | Admin API Bearer token |
+| `X_EXECUTOR_MODE` | Evet | Gerçek gönderim için `patchright`; lokal dry-run için `noop` |
+| `BOOTSTRAP_ADMIN_TOKEN` | İlk kurulumda | DB'de `secrets.admin_token` oluşturmak için geçici token |
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASS` / `DB_NAME` | Evet | PostgreSQL bağlantısı |
-| `OPENROUTER_MODEL` | Hayır | Default: `google/gemini-2.5-flash` |
-| `NEST_PORT` | Hayır | Default: `3001` (Docker'da `3000`) |
-| `X_USERNAME` | Hayır | Çok hesaplı kurulumda account ID olarak kullanılır |
-| `X_EXECUTOR_MODE` | Prod için evet | Gerçek gönderim için `patchright`; dry-run/dev için `noop` |
-| `HEADLESS` | Hayır | Default: `true` |
+
+Kalıcı secret'ları Admin API ile DB'ye yaz:
+
+```bash
+curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"adminToken":"kalici-admin-token","openrouterApiKey":"sk-or-v1-..."}' \
+  http://localhost:3001/admin/secrets
+
+curl -X PUT -H "Authorization: Bearer kalici-admin-token" \
+  -H "Content-Type: application/json" \
+  -d '{"displayName":"Test Account","authToken":"x-auth-token","ct0":"x-ct0","status":"active"}' \
+  http://localhost:3001/admin/accounts/test-account
+```
+
+`secrets.admin_token` DB'de oluşunca `BOOTSTRAP_ADMIN_TOKEN` env'den kaldırılabilir.
 
 ---
 
 ## Health & Admin API
 
-Tüm `/admin/*` endpoint'leri `Authorization: Bearer $ADMIN_TOKEN` veya `X-Admin-Token: $ADMIN_TOKEN` header'ı gerektirir.
+Tüm `/admin/*` endpoint'leri DB'deki `secrets.admin_token` ile `Authorization: Bearer $ADMIN_API_TOKEN` veya `X-Admin-Token: $ADMIN_API_TOKEN` header'ı gerektirir. İlk kurulumda DB token oluşana kadar `BOOTSTRAP_ADMIN_TOKEN` kullanılabilir.
 
 ```bash
 # Public
@@ -117,27 +127,27 @@ curl http://localhost:3001/health
 curl http://localhost:3001/metrics   # Prometheus scrape endpoint
 
 # Durum
-curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/status
-curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/queue/depth
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/status
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/queue/depth
 
 # Collect tetikleme
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/collect
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:3001/admin/collect?account=acc-id"
+curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/collect
+curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" "http://localhost:3001/admin/collect?account=acc-id"
 
 # Action yönetimi
-curl -H "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:3001/admin/actions?type=post&status=dead"
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/actions/post/UUID/replay
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/actions/post/UUID/cancel
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" "http://localhost:3001/admin/actions?type=post&status=dead"
+curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/actions/post/UUID/replay
+curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/actions/post/UUID/cancel
 
 # Ayarlar (global)
-curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/settings
-curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/settings
+curl -X PUT -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"tweets_per_day": 15}' \
   http://localhost:3001/admin/settings
 
 # Ayarlar (hesap bazlı)
-curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+curl -X PUT -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"scenario.type": "wallpaper", "_accountId": "acc-id"}' \
   http://localhost:3001/admin/settings
@@ -152,13 +162,13 @@ Her hesap bağımsız çalışır: ayrı slot limiti, ayrı content memory, ayr�
 **Hesap senaryosu atama:**
 ```bash
 # Hesabı wallpaper senaryosuna al
-curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+curl -X PUT -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"scenario.type": "wallpaper", "scenario.wallpaper.subreddit": "earthporn", "_accountId": "acc-id"}' \
   http://localhost:3001/admin/settings
 
 # Tüm hesapları tetikle (her biri kendi senaryosunu çalıştırır)
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:3001/admin/collect
+curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/collect
 ```
 
 **Ayarlanabilir senaryo parametreleri:**
@@ -194,9 +204,9 @@ docker compose up --build
 1. **New Resource → Application → Public Repository → Dockerfile**
 2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
 3. **Persistent Storage**: `/data`
-4. **Environment Variables**: `X_AUTH_TOKEN`, `OPENROUTER_API_KEY`, `ADMIN_TOKEN`, `X_EXECUTOR_MODE=patchright`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`
+4. **Environment Variables**: `.env.example` içindeki boot-time değerleri gir.
 5. Ayrıca bir **PostgreSQL resource** ekle; `DB_*` değişkenlerini ona göre ayarla.
-6. Deploy.
+6. Deploy sonrası `/admin/secrets` ve `/admin/accounts/:id` endpoint'leriyle kalıcı secret/account bilgilerini DB'ye yaz.
 
 ---
 

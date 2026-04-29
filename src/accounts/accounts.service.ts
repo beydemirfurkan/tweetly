@@ -2,8 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AccountEntity } from '../persistence/entities/account.entity';
+import type { AccountStatus } from '../domain/types/account.types';
 
 const AUTH_FAILURE_PAUSE_THRESHOLD = parseInt(process.env.AUTH_FAILURE_PAUSE_THRESHOLD ?? '3', 10);
+
+export interface AccountUpsertInput {
+  id: string;
+  displayName?: string | null;
+  authToken?: string;
+  authMulti?: string | null;
+  ct0?: string | null;
+  twid?: string | null;
+  status?: AccountStatus;
+}
 
 @Injectable()
 export class AccountsService {
@@ -19,6 +30,32 @@ export class AccountsService {
 
   async listActive(): Promise<AccountEntity[]> {
     return this.repo.find({ where: { status: 'active' } });
+  }
+
+  async listAll(): Promise<AccountEntity[]> {
+    return this.repo.find({ order: { id: 'ASC' } });
+  }
+
+  async upsertAccount(input: AccountUpsertInput): Promise<AccountEntity> {
+    const id = input.id.trim();
+    const existing = await this.findById(id);
+    if (!existing && !input.authToken) {
+      throw new Error('authToken is required for new account');
+    }
+
+    const saved = await this.repo.save({
+      id,
+      displayName: input.displayName ?? existing?.displayName ?? id,
+      authToken: input.authToken ?? existing?.authToken ?? '',
+      authMulti: input.authMulti ?? existing?.authMulti ?? null,
+      ct0: input.ct0 ?? existing?.ct0 ?? null,
+      twid: input.twid ?? existing?.twid ?? null,
+      status: input.status ?? existing?.status ?? 'active',
+      createdAt: existing?.createdAt ?? new Date(),
+      lastUsedAt: existing?.lastUsedAt ?? null,
+    });
+
+    return saved;
   }
 
   async touchLastUsed(id: string): Promise<void> {

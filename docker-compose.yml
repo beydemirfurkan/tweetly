@@ -8,21 +8,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      TZ: Europe/Istanbul
-      NODE_ENV: production
       NEST_PORT: "3000"
-      DATA_DIR: /data/app-data
-      USER_DATA_DIR: /data/user-data
-      HEADLESS: "true"
       X_EXECUTOR_MODE: ${X_EXECUTOR_MODE:-noop}
-      # X Auth
-      X_AUTH_TOKEN: ${X_AUTH_TOKEN:-}
-      X_USERNAME: ${X_USERNAME:-}
-      # AI
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
-      # Admin
-      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      BOOTSTRAP_ADMIN_TOKEN: ${BOOTSTRAP_ADMIN_TOKEN:-}
       # Database
       DB_HOST: postgres
       DB_PORT: "5432"

@@ -5,12 +5,13 @@ import type { AccountEntity } from '../persistence/entities/account.entity';
 describe('AccountsService', () => {
   function createService(): {
     service: AccountsService;
-    repo: jest.Mocked<Pick<Repository<AccountEntity>, 'findOne' | 'find' | 'update'>>;
+    repo: jest.Mocked<Pick<Repository<AccountEntity>, 'findOne' | 'find' | 'save' | 'update'>>;
     query: jest.Mock;
   } {
     const repo = {
       findOne: jest.fn(),
       find: jest.fn(),
+      save: jest.fn(),
       update: jest.fn(),
     };
     const query = jest.fn();
@@ -64,5 +65,37 @@ describe('AccountsService', () => {
       '3',
     ]);
     expect(repo.update).toHaveBeenCalledWith({ id: 'test-account' }, { status: 'paused' });
+  });
+
+  it('creates a new account with auth token stored in database', async () => {
+    const { service, repo } = createService();
+    const saved = {
+      id: 'test-account',
+      displayName: 'Test Account',
+      authToken: 'auth-token',
+      authMulti: null,
+      ct0: 'ct0-token',
+      twid: null,
+      status: 'active',
+      createdAt: new Date(),
+      lastUsedAt: null,
+    } as AccountEntity;
+    repo.findOne.mockResolvedValue(null);
+    repo.save.mockResolvedValue(saved);
+
+    const account = await service.upsertAccount({
+      id: 'test-account',
+      displayName: 'Test Account',
+      authToken: 'auth-token',
+      ct0: 'ct0-token',
+    });
+
+    expect(account).toBe(saved);
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'test-account',
+      authToken: 'auth-token',
+      ct0: 'ct0-token',
+      status: 'active',
+    }));
   });
 });

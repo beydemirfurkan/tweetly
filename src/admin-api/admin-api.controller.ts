@@ -13,6 +13,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { AccountsService } from '../accounts/accounts.service';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
 import { SettingsService } from '../settings/settings.service';
@@ -24,12 +25,43 @@ import { EngagementConfigService } from '../engagement/engagement-config.service
 import { EngagementCounterService } from '../engagement/engagement-counter.service';
 import { TimelineDiscoveryScheduler } from '../engagement/timeline-discovery-scheduler.service';
 import type { EngagementConfig } from '../engagement/engagement-config.service';
+import type { AccountStatus } from '../domain/types/account.types';
+import type { AccountEntity } from '../persistence/entities/account.entity';
+
+const ACCOUNT_STATUSES: AccountStatus[] = ['active', 'paused', 'banned'];
+
+interface AccountUpdateBody {
+  displayName?: string | null;
+  authToken?: string;
+  authMulti?: string | null;
+  ct0?: string | null;
+  twid?: string | null;
+  status?: AccountStatus;
+}
+
+interface SecretUpdateBody {
+  openrouterApiKey?: string;
+  adminToken?: string;
+}
+
+interface RedactedAccount {
+  id: string;
+  displayName: string | null;
+  status: AccountStatus;
+  hasAuthToken: boolean;
+  hasAuthMulti: boolean;
+  hasCt0: boolean;
+  hasTwid: boolean;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+}
 
 @Controller('admin')
 @UseGuards(AdminTokenGuard)
 export class AdminApiController {
   constructor(
     private readonly service: AdminApiService,
+    private readonly accounts: AccountsService,
     private readonly settings: SettingsService,
     private readonly dispatch: WorkflowDispatchService,
     private readonly enqueue: ActionEnqueueService,
@@ -65,6 +97,68 @@ export class AdminApiController {
   @Get('queue/depth')
   async getQueueDepth() {
     return this.service.getQueueDepth();
+  }
+
+  @Get('accounts')
+  async listAccounts() {
+    const accounts = await this.accounts.listAll();
+    return { count: accounts.length, accounts: accounts.map(redactAccount) };
+  }
+
+  @Put('accounts/:id')
+  @HttpCode(HttpStatus.OK)
+  async upsertAccount(@Param('id') id: string, @Body() body: AccountUpdateBody) {
+    const accountId = id.trim();
+    if (!accountId) throw new BadRequestException('account id is required');
+    if (body.status && !ACCOUNT_STATUSES.includes(body.status)) {
+      throw new BadRequestException(`status must be one of: ${ACCOUNT_STATUSES.join(', ')}`);
+    }
+
+    try {
+      const authToken = typeof body.authToken === 'string' ? body.authToken.trim() : undefined;
+      const account = await this.accounts.upsertAccount({
+        id: accountId,
+        displayName: body.displayName,
+        authToken: authToken || undefined,
+        authMulti: body.authMulti,
+        ct0: body.ct0,
+        twid: body.twid,
+        status: body.status,
+      });
+      return { ok: true, account: redactAccount(account) };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Account could not be saved';
+      throw new BadRequestException(message);
+    }
+  }
+
+  @Get('secrets')
+  async getSecretsStatus() {
+    const [openrouterApiKey, adminToken] = await Promise.all([
+      this.settings.get<string>('secrets.openrouter_api_key', ''),
+      this.settings.get<string>('secrets.admin_token', ''),
+    ]);
+    return {
+      openrouterApiKeyConfigured: Boolean(openrouterApiKey),
+      adminTokenConfigured: Boolean(adminToken),
+    };
+  }
+
+  @Put('secrets')
+  @HttpCode(HttpStatus.OK)
+  async updateSecrets(@Body() body: SecretUpdateBody) {
+    let updated = 0;
+    if (typeof body.openrouterApiKey === 'string' && body.openrouterApiKey.trim()) {
+      await this.settings.set('secrets.openrouter_api_key', body.openrouterApiKey.trim());
+      updated += 1;
+    }
+    if (typeof body.adminToken === 'string' && body.adminToken.trim()) {
+      await this.settings.set('secrets.admin_token', body.adminToken.trim());
+      updated += 1;
+    }
+    if (updated === 0) throw new BadRequestException('No valid secrets provided');
+
+    return { ok: true, updated };
   }
 
   @Get('actions')
@@ -328,4 +422,18 @@ function inferType(value: unknown): 'string' | 'number' | 'boolean' | 'json' {
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'object' && value !== null) return 'json';
   return 'string';
+}
+
+function redactAccount(account: AccountEntity): RedactedAccount {
+  return {
+    id: account.id,
+    displayName: account.displayName,
+    status: account.status,
+    hasAuthToken: Boolean(account.authToken),
+    hasAuthMulti: Boolean(account.authMulti),
+    hasCt0: Boolean(account.ct0),
+    hasTwid: Boolean(account.twid),
+    createdAt: account.createdAt,
+    lastUsedAt: account.lastUsedAt,
+  };
 }
