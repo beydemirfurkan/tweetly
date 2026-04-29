@@ -41,6 +41,35 @@ interface EnqueueItem {
   parentTweetUrl?: string;
 }
 
+export interface GrowthTargetOptions {
+  growthEnabled: boolean;
+  rampUpEnabled: boolean;
+  legacyTarget: number;
+  baseDate: Date;
+  rampUpStartDate: string;
+  weekdayTargetMin: number;
+  weekdayTargetMax: number;
+  weekendTargetMin: number;
+  weekendTargetMax: number;
+  week1WeekdayTarget: number;
+  week1WeekendTarget: number;
+  week2WeekdayTarget: number;
+  week2WeekendTarget: number;
+}
+
+export interface GrowthSafetyOptions {
+  safetyEnabled: boolean;
+  legacyTarget: number;
+  target: number;
+  authFailures: number;
+  authFailureSoftLimit: number;
+  postFailureRate: number;
+  postFailureSamples: number;
+  postFailureMinSamples: number;
+  postFailureRateThreshold: number;
+  reductionFactor: number;
+}
+
 @Injectable()
 export class GithubTrendingWorkflow implements IContentWorkflow {
   readonly scenarioType = 'github_trending';
@@ -91,7 +120,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
 
     const target = Math.min(remaining, scored.length);
     const mix = await this.buildDailyMix(target);
-    const schedule = await this.buildSchedule(estimateScheduleCount(mix));
+    const schedule = await this.buildSchedule(estimateScheduleCount(mix), new Date(), accountId);
 
     const pairs: CandidatePair[] = [];
     for (let i = 0; i < mix.length && i < scored.length; i++) {
@@ -114,7 +143,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     const { count: remaining } = await this.logAndCheckRemaining(accountId);
     if (remaining === 0) return;
 
-    const digestSchedule = await this.buildSchedule(Math.min(remaining, 6));
+    const digestSchedule = await this.buildSchedule(Math.min(remaining, 6), new Date(), accountId);
     const items: EnqueueItem[] = [];
 
     const digestRepo: TrendingRepo = {
@@ -147,7 +176,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
       const weights = await this.settings.getScoringWeights();
       const minScore = await this.settings.get<number>('min_repo_score', 40);
       const normalMix = await this.buildDailyMix(normalCount);
-      const normalSchedule = await this.buildSchedule(items.length + estimateScheduleCount(normalMix));
+      const normalSchedule = await this.buildSchedule(items.length + estimateScheduleCount(normalMix), new Date(), accountId);
       const scoredNormal = scoreCandidates(normalRepos, weights)
         .filter(({ score }) => {
           const rs = { repo: '', total: score, breakdown: { relevance: 0, popularity: 0, trust: 0, clarity: 0, freshness: 0, novelty: 0, penalty: 0 } };
@@ -353,33 +382,135 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     const [postedCount, queuedCount, tweetsPerDay] = await Promise.all([
       this.countSucceededToday(accountId),
       this.countPending(accountId),
-      this.settings.get<number>('tweets_per_day', 8),
+      this.getEffectiveDailyTarget(accountId),
     ]);
     const count = Math.max(0, tweetsPerDay - postedCount - queuedCount);
-    this.log.log(`Gunluk limit: ${postedCount} atildi, ${queuedCount} aktif, ${count} kalan.`);
+    this.log.log(`Gunluk hedef: ${tweetsPerDay}, ${postedCount} atildi, ${queuedCount} aktif, ${count} kalan.`);
     return { count, posted: postedCount, queued: queuedCount };
+  }
+
+  private async getEffectiveDailyTarget(accountId?: string, baseDate: Date = new Date()): Promise<number> {
+    const [
+      legacyTarget,
+      growthEnabled,
+      rampUpEnabled,
+      rampUpStartDate,
+      weekdayTargetMin,
+      weekdayTargetMax,
+      weekendTargetMin,
+      weekendTargetMax,
+      week1WeekdayTarget,
+      week1WeekendTarget,
+      week2WeekdayTarget,
+      week2WeekendTarget,
+    ] = await Promise.all([
+      this.settings.get<number>('tweets_per_day', 13, accountId),
+      this.settings.get<boolean>('growth.enabled', false, accountId),
+      this.settings.get<boolean>('growth.ramp_up.enabled', false, accountId),
+      this.settings.get<string>('growth.ramp_up.start_date', '', accountId),
+      this.settings.get<number>('growth.weekday_target_min', 20, accountId),
+      this.settings.get<number>('growth.weekday_target_max', 23, accountId),
+      this.settings.get<number>('growth.weekend_target_min', 24, accountId),
+      this.settings.get<number>('growth.weekend_target_max', 28, accountId),
+      this.settings.get<number>('growth.ramp_up.week1.weekday_target', 17, accountId),
+      this.settings.get<number>('growth.ramp_up.week1.weekend_target', 20, accountId),
+      this.settings.get<number>('growth.ramp_up.week2.weekday_target', 20, accountId),
+      this.settings.get<number>('growth.ramp_up.week2.weekend_target', 23, accountId),
+    ]);
+
+    const target = resolveGrowthDailyTarget({
+      growthEnabled,
+      rampUpEnabled,
+      legacyTarget,
+      baseDate,
+      rampUpStartDate,
+      weekdayTargetMin,
+      weekdayTargetMax,
+      weekendTargetMin,
+      weekendTargetMax,
+      week1WeekdayTarget,
+      week1WeekendTarget,
+      week2WeekdayTarget,
+      week2WeekendTarget,
+    });
+
+    if (!growthEnabled) return target;
+
+    const [
+      safetyEnabled,
+      authFailureSoftLimit,
+      postFailureRateThreshold,
+      postFailureMinSamples,
+      reductionFactor,
+      authFailures,
+      postFailureStats,
+    ] = await Promise.all([
+      this.settings.get<boolean>('growth.safety.enabled', true, accountId),
+      this.settings.get<number>('growth.safety.auth_failure_soft_limit', 1, accountId),
+      this.settings.get<number>('growth.safety.post_failure_rate_threshold', 0.2, accountId),
+      this.settings.get<number>('growth.safety.post_failure_min_samples', 5, accountId),
+      this.settings.get<number>('growth.safety.reduction_factor', 0.5, accountId),
+      this.getControlNumber(accountId, 'session.auth_failure_count'),
+      this.getPostFailureStatsToday(accountId),
+    ]);
+
+    const safeTarget = reduceGrowthTargetForSafety({
+      safetyEnabled,
+      legacyTarget,
+      target,
+      authFailures,
+      authFailureSoftLimit,
+      postFailureRate: postFailureStats.rate,
+      postFailureSamples: postFailureStats.total,
+      postFailureMinSamples,
+      postFailureRateThreshold,
+      reductionFactor,
+    });
+
+    if (safeTarget < target) {
+      this.log.warn(`Growth hedefi guvenlik nedeniyle dusuruldu: ${target} -> ${safeTarget}`);
+    }
+
+    return safeTarget;
   }
 
   // -----------------------------------------------------------------------
   // Schedule builder
   // -----------------------------------------------------------------------
 
-  async buildSchedule(count: number, baseDate: Date = new Date()): Promise<Date[]> {
+  async buildSchedule(count: number, baseDate: Date = new Date(), accountId?: string): Promise<Date[]> {
     if (count <= 0) return [];
 
+    const growthEnabled = await this.settings.get<boolean>('growth.enabled', false, accountId);
+    const weekend = isWeekendDay(baseDate.getDay());
     const [intervalMin, jitterMin, jitterMax, rawWeights] = await Promise.all([
-      this.settings.get<number>('dispatch_interval_min', 45),
-      this.settings.get<number>('schedule_jitter_min', 15),
-      this.settings.get<number>('schedule_jitter_max', 45),
-      this.settings.get<Record<string, number>>('schedule.hour_weights', DEFAULT_HOUR_WEIGHTS),
+      growthEnabled
+        ? this.settings.get<number>('growth.dispatch_interval_min', 18, accountId)
+        : this.settings.get<number>('dispatch_interval_min', 45, accountId),
+      growthEnabled
+        ? this.settings.get<number>('growth.schedule_jitter_min', 5, accountId)
+        : this.settings.get<number>('schedule_jitter_min', 15, accountId),
+      growthEnabled
+        ? this.settings.get<number>('growth.schedule_jitter_max', 25, accountId)
+        : this.settings.get<number>('schedule_jitter_max', 45, accountId),
+      weekend && growthEnabled
+        ? this.settings.get<Record<string, number>>('schedule.weekend_hour_weights', DEFAULT_WEEKEND_HOUR_WEIGHTS, accountId)
+        : this.settings.get<Record<string, number>>('schedule.hour_weights', DEFAULT_HOUR_WEIGHTS, accountId),
     ]);
 
-    const weights = rawWeights && Object.keys(rawWeights).length > 0 ? rawWeights : DEFAULT_HOUR_WEIGHTS;
-    const hours = Object.keys(weights)
+    const defaultWeights = weekend && growthEnabled ? DEFAULT_WEEKEND_HOUR_WEIGHTS : DEFAULT_HOUR_WEIGHTS;
+    const initialWeights = rawWeights && Object.keys(rawWeights).length > 0 ? rawWeights : defaultWeights;
+    let hours = Object.keys(initialWeights)
       .map(Number)
       .filter((h) => Number.isInteger(h) && h >= 0 && h < 24)
       .sort((a, b) => a - b);
-    const totalWeight = hours.reduce((s, h) => s + (weights[String(h)] ?? 0), 0);
+    let weights = initialWeights;
+    let totalWeight = hours.reduce((s, h) => s + (weights[String(h)] ?? 0), 0);
+    if (hours.length === 0 || totalWeight <= 0) {
+      weights = defaultWeights;
+      hours = Object.keys(weights).map(Number).sort((a, b) => a - b);
+      totalWeight = hours.reduce((s, h) => s + (weights[String(h)] ?? 0), 0);
+    }
 
     const minIntervalMs = intervalMin * 60_000;
     const jitterRangeMs = Math.max(0, (jitterMax - jitterMin) * 60_000);
@@ -525,6 +656,42 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
   // DB helpers
   // -----------------------------------------------------------------------
 
+  private async getControlNumber(accountId: string | undefined, key: string): Promise<number> {
+    const rows = (await this.dataSource.query(
+      `SELECT value FROM control_state WHERE key = $1 AND account_id = $2`,
+      [key, accountId ?? ''],
+    )) as Array<{ value: string }>;
+    const value = parseInt(rows[0]?.value ?? '0', 10);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  private async getPostFailureStatsToday(accountId?: string): Promise<{ total: number; failed: number; rate: number }> {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const rows: Array<{ total: string; failed: string }> = accountId
+      ? await this.dataSource.query(
+          `SELECT
+              COUNT(*) FILTER (WHERE status IN ('succeeded','failed','dead'))::text AS total,
+              COUNT(*) FILTER (WHERE status IN ('failed','dead'))::text AS failed
+             FROM post_actions
+            WHERE account_id=$1 AND updated_at >= $2`,
+          [accountId, startOfDay],
+        )
+      : await this.dataSource.query(
+          `SELECT
+              COUNT(*) FILTER (WHERE status IN ('succeeded','failed','dead'))::text AS total,
+              COUNT(*) FILTER (WHERE status IN ('failed','dead'))::text AS failed
+             FROM post_actions
+            WHERE updated_at >= $1`,
+          [startOfDay],
+        );
+    const total = parseInt(rows[0]?.total ?? '0', 10);
+    const failed = parseInt(rows[0]?.failed ?? '0', 10);
+    const safeTotal = Number.isFinite(total) ? total : 0;
+    const safeFailed = Number.isFinite(failed) ? failed : 0;
+    return { total: safeTotal, failed: safeFailed, rate: safeTotal > 0 ? safeFailed / safeTotal : 0 };
+  }
+
   private async countSucceededToday(accountId?: string): Promise<number> {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -594,6 +761,81 @@ const DEFAULT_HOUR_WEIGHTS: Record<string, number> = {
   '15': 0.6, '16': 0.6, '17': 0.7,
   '18': 0.9, '19': 1.4, '20': 1.5, '21': 1.3, '22': 0.8,
 };
+
+const DEFAULT_WEEKEND_HOUR_WEIGHTS: Record<string, number> = {
+  '10': 0.4, '11': 0.7,
+  '12': 1.0, '13': 1.1, '14': 0.9,
+  '15': 0.8, '16': 0.8, '17': 0.9,
+  '18': 1.2, '19': 1.5, '20': 1.7, '21': 1.5, '22': 1.0, '23': 0.5,
+};
+
+export function resolveGrowthDailyTarget(options: GrowthTargetOptions): number {
+  const legacyTarget = sanitizeTarget(options.legacyTarget, 13);
+  if (!options.growthEnabled) return legacyTarget;
+
+  const weekend = isWeekendDay(options.baseDate.getDay());
+  if (options.rampUpEnabled) {
+    const rampWeek = getRampWeek(options.rampUpStartDate, options.baseDate);
+    if (rampWeek === 0) {
+      return Math.max(legacyTarget, sanitizeTarget(weekend ? options.week1WeekendTarget : options.week1WeekdayTarget, legacyTarget));
+    }
+    if (rampWeek === 1) {
+      return Math.max(legacyTarget, sanitizeTarget(weekend ? options.week2WeekendTarget : options.week2WeekdayTarget, legacyTarget));
+    }
+  }
+
+  return weekend
+    ? pickTargetFromBand(options.weekendTargetMin, options.weekendTargetMax, options.baseDate, legacyTarget)
+    : pickTargetFromBand(options.weekdayTargetMin, options.weekdayTargetMax, options.baseDate, legacyTarget);
+}
+
+export function reduceGrowthTargetForSafety(options: GrowthSafetyOptions): number {
+  const target = sanitizeTarget(options.target, options.legacyTarget);
+  if (!options.safetyEnabled) return target;
+
+  const legacyTarget = sanitizeTarget(options.legacyTarget, 13);
+  let safeTarget = target;
+
+  if (options.authFailures >= Math.max(1, options.authFailureSoftLimit)) {
+    safeTarget = Math.min(safeTarget, legacyTarget);
+  }
+
+  const enoughFailureSamples = options.postFailureSamples >= Math.max(1, options.postFailureMinSamples);
+  if (enoughFailureSamples && options.postFailureRate >= options.postFailureRateThreshold) {
+    const reduced = Math.floor(target * clamp(options.reductionFactor, 0.1, 1));
+    safeTarget = Math.min(safeTarget, Math.max(legacyTarget, reduced));
+  }
+
+  return Math.max(0, safeTarget);
+}
+
+function isWeekendDay(day: number): boolean {
+  return day === 0 || day === 6;
+}
+
+function getRampWeek(startDateRaw: string, baseDate: Date): number {
+  const startMs = startDateRaw ? Date.parse(startDateRaw) : NaN;
+  if (!Number.isFinite(startMs)) return 0;
+  const elapsedMs = baseDate.getTime() - startMs;
+  if (elapsedMs <= 0) return 0;
+  return Math.floor(elapsedMs / (7 * 24 * 60 * 60 * 1000));
+}
+
+function pickTargetFromBand(min: number, max: number, baseDate: Date, fallback: number): number {
+  const safeMin = sanitizeTarget(min, fallback);
+  const safeMax = Math.max(safeMin, sanitizeTarget(max, safeMin));
+  const span = safeMax - safeMin + 1;
+  return safeMin + (baseDate.getDate() % span);
+}
+
+function sanitizeTarget(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : Math.floor(fallback);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
 
 function pickWeightedHour(weights: Record<string, number>, hours: number[], total: number): number {
   let r = Math.random() * total;

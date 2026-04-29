@@ -114,8 +114,18 @@ export class AdminApiController {
     const acctId = accountId || undefined;
     const keys = [
       'tweets_per_day', 'dispatch_interval_min', 'min_repo_score',
+      'growth.enabled', 'growth.ramp_up.enabled', 'growth.ramp_up.start_date',
+      'growth.ramp_up.week1.weekday_target', 'growth.ramp_up.week1.weekend_target',
+      'growth.ramp_up.week2.weekday_target', 'growth.ramp_up.week2.weekend_target',
+      'growth.weekday_target_min', 'growth.weekday_target_max',
+      'growth.weekend_target_min', 'growth.weekend_target_max',
+      'growth.dispatch_interval_min', 'growth.schedule_jitter_min', 'growth.schedule_jitter_max',
+      'growth.safety.enabled', 'growth.safety.auth_failure_soft_limit',
+      'growth.safety.post_failure_rate_threshold', 'growth.safety.post_failure_min_samples',
+      'growth.safety.reduction_factor',
       'format.repo_drop.link_as_reply', 'format.adaptive.enabled',
       'digest.day', 'thread.days', 'schedule_jitter_min', 'schedule_jitter_max',
+      'schedule.hour_weights', 'schedule.weekend_hour_weights',
       'format.no_link_hook.weight', 'format.repo_drop.weight',
       'format.question.weight', 'format.comparison.weight',
       'format.bookmark_bait.weight', 'format.hot_take.weight',
