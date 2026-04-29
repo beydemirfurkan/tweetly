@@ -8,7 +8,6 @@ import {
   type AccountUpdateBody,
 } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +16,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -26,27 +24,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Pencil, RefreshCw } from 'lucide-react';
+import { Pencil, RefreshCw, Users, CheckCircle2, XCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive'> = {
-  active: 'default',
-  paused: 'secondary',
-  banned: 'destructive',
+
+const STATUS_STYLES: Record<
+  string,
+  { variant: 'default' | 'secondary' | 'destructive'; label: string; className: string }
+> = {
+  active: {
+    variant: 'default',
+    label: 'Aktif',
+    className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
+  },
+  paused: {
+    variant: 'secondary',
+    label: 'Duraklatıldı',
+    className: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
+  },
+  banned: {
+    variant: 'destructive',
+    label: 'Yasaklı',
+    className: 'border-destructive/25 bg-destructive/10 text-destructive',
+  },
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  active: 'Aktif',
-  paused: 'Duraklatildi',
-  banned: 'Yasakli',
-};
+function TokenCell({ has }: { has: boolean }) {
+  return has ? (
+    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+  ) : (
+    <XCircle className="h-4 w-4 text-muted-foreground/40" />
+  );
+}
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<RedactedAccount[]>([]);
@@ -91,69 +100,124 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Hesaplar</h1>
-        <Button variant="outline" size="sm" onClick={loadAccounts} disabled={loading}>
-          <RefreshCw className="mr-1 h-3 w-3" />
+        <div>
+          <h1
+            className="text-2xl font-bold tracking-tight text-foreground"
+            style={{ fontFamily: 'var(--font-syne)' }}
+          >
+            Hesaplar
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Kayıtlı Twitter hesaplarını yönetin
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={loadAccounts}
+          disabled={loading}
+          className="gap-1.5"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin-slow')} />
           Yenile
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">
-            Kayitli Hesaplar ({accounts.length})
+      <Card className="border-border/60">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <Users className="h-4 w-4 text-primary" />
+            Kayıtlı Hesaplar
+            {!loading && (
+              <span className="ml-1 rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                {accounts.length}
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-sm text-muted-foreground">Yukleniyor...</div>
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="skeleton h-10 rounded-md" />
+              ))}
+            </div>
           ) : accounts.length === 0 ? (
-            <div className="text-sm text-muted-foreground">Henuz hesap yok.</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Henüz kayıtlı hesap yok.
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Ad</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead>Auth Token</TableHead>
-                  <TableHead>CT0</TableHead>
-                  <TableHead>Son Kullanim</TableHead>
-                  <TableHead className="text-right">Islem</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {accounts.map((acc) => (
-                  <TableRow key={acc.id}>
-                    <TableCell className="font-medium">{acc.id}</TableCell>
-                    <TableCell>{acc.displayName || '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[acc.status] ?? 'secondary'}>
-                        {STATUS_LABEL[acc.status] ?? acc.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{acc.hasAuthToken ? '✓' : '✗'}</TableCell>
-                    <TableCell>{acc.hasCt0 ? '✓' : '✗'}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
-                      {acc.lastUsedAt
-                        ? new Date(acc.lastUsedAt).toLocaleString('tr-TR')
-                        : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(acc)}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/40">
+                    {['ID', 'Ad', 'Durum', 'Auth', 'CT0', 'Son Kullanım', ''].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground first:pl-0 last:text-right"
+                        >
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {accounts.map((acc) => {
+                    const statusStyle = STATUS_STYLES[acc.status] ?? STATUS_STYLES.paused;
+                    return (
+                      <tr
+                        key={acc.id}
+                        className="group border-b border-border/20 last:border-0 hover:bg-accent/30 transition-colors"
                       >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        <td className="py-3 pr-4 font-mono text-xs font-medium text-foreground">
+                          {acc.id}
+                        </td>
+                        <td className="py-3 pr-4 text-xs">
+                          {acc.displayName || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
+                              statusStyle.className,
+                            )}
+                          >
+                            {statusStyle.label}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <TokenCell has={acc.hasAuthToken} />
+                        </td>
+                        <td className="py-3 pr-4">
+                          <TokenCell has={acc.hasCt0} />
+                        </td>
+                        <td className="py-3 pr-4 font-mono text-xs text-muted-foreground">
+                          {acc.lastUsedAt
+                            ? new Date(acc.lastUsedAt).toLocaleString('tr-TR')
+                            : '—'}
+                        </td>
+                        <td className="py-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(acc)}
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -162,18 +226,20 @@ export default function AccountsPage() {
         open={!!editAccount}
         onOpenChange={(open) => !open && setEditAccount(null)}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              Hesap Duzenle: {editAccount?.id}
+            <DialogTitle className="font-mono text-base">
+              {editAccount?.id}
             </DialogTitle>
           </DialogHeader>
           {editAccount && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Gorunen Ad</Label>
+            <div className="space-y-4 pt-1">
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Görünen Ad
+                </Label>
                 <Input
-                  placeholder={editAccount.displayName ?? ''}
+                  placeholder={editAccount.displayName ?? 'Ad girin...'}
                   value={editForm.displayName ?? ''}
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, displayName: e.target.value }))
@@ -181,8 +247,10 @@ export default function AccountsPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Durum</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Durum
+                </Label>
                 <Select
                   value={editForm.status ?? editAccount.status}
                   onValueChange={(v) =>
@@ -197,50 +265,59 @@ export default function AccountsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Aktif</SelectItem>
-                    <SelectItem value="paused">Duraklatildi</SelectItem>
-                    <SelectItem value="banned">Yasakli</SelectItem>
+                    <SelectItem value="paused">Duraklatıldı</SelectItem>
+                    <SelectItem value="banned">Yasaklı</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Auth Token</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Auth Token
+                </Label>
                 <Input
                   type="password"
-                  placeholder="Bos birakirsaniz degismez"
+                  placeholder="Boş bırakırsanız değişmez"
                   value={editForm.authToken ?? ''}
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, authToken: e.target.value }))
                   }
+                  className="font-mono"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>CT0 (CSRF)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  CT0 (CSRF)
+                </Label>
                 <Input
                   type="password"
-                  placeholder="Bos birakirsaniz degismez"
+                  placeholder="Boş bırakırsanız değişmez"
                   value={editForm.ct0 ?? ''}
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, ct0: e.target.value }))
                   }
+                  className="font-mono"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>TWID</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  TWID
+                </Label>
                 <Input
-                  placeholder="Bos birakirsaniz degismez"
+                  placeholder="Boş bırakırsanız değişmez"
                   value={editForm.twid ?? ''}
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, twid: e.target.value }))
                   }
+                  className="font-mono"
                 />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setEditAccount(null)}>
-                  Iptal
+                  İptal
                 </Button>
                 <Button onClick={saveEdit}>Kaydet</Button>
               </div>

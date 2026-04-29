@@ -20,10 +20,10 @@ const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/accounts', label: 'Hesaplar', icon: Users },
   { href: '/actions', label: 'Aksiyonlar', icon: Zap },
-  { href: '/settings', label: 'Ayarlar', icon: Settings },
   { href: '/engagement', label: 'Etkileşim', icon: Heart },
-  { href: '/secrets', label: 'Gizli Anahtarlar', icon: KeyRound },
   { href: '/collect', label: 'İçerik Topla', icon: Send },
+  { href: '/secrets', label: 'Gizli Anahtarlar', icon: KeyRound },
+  { href: '/settings', label: 'Ayarlar', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -31,42 +31,65 @@ export function Sidebar() {
   const { logout } = useAuth();
 
   return (
-    <aside className="flex h-screen w-56 flex-col border-r border-border bg-card">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-        <Bird className="h-5 w-5 text-primary" />
-        <span className="text-sm font-semibold">Tweetly</span>
+    <aside className="flex h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar">
+      <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10">
+          <Bird className="h-4 w-4 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <span
+            className="block truncate text-sm font-bold tracking-widest text-foreground uppercase"
+            style={{ fontFamily: 'var(--font-syne)' }}
+          >
+            Tweetly
+          </span>
+          <span className="block text-[10px] tracking-wider text-muted-foreground">
+            Admin Panel
+          </span>
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-2 py-3">
-        {NAV_ITEMS.map((item) => {
+      <nav className="flex-1 space-y-0.5 px-3 py-3">
+        {NAV_ITEMS.map((item, i) => {
           const isActive = item.exact
             ? pathname === item.href || pathname === '/'
-            : pathname.startsWith(item.href + '/');
+            : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              style={{ animationDelay: `${i * 35}ms` }}
               className={cn(
-                'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                'group animate-fade-up flex items-center gap-2.5 rounded-md border-l-2 py-2 pl-2.5 pr-3 text-sm transition-all duration-150',
                 isActive
-                  ? 'bg-accent text-accent-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground',
               )}
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <item.icon
+                className={cn(
+                  'h-4 w-4 shrink-0 transition-colors',
+                  isActive
+                    ? 'text-primary'
+                    : 'text-muted-foreground group-hover:text-foreground',
+                )}
+              />
+              <span className="truncate">{item.label}</span>
+              {isActive && (
+                <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-border p-2">
+      <div className="border-t border-sidebar-border p-3">
         <button
           onClick={logout}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          className="flex w-full items-center gap-2.5 rounded-md border-l-2 border-transparent py-2 pl-2.5 pr-3 text-sm text-muted-foreground transition-all duration-150 hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
         >
-          <LogOut className="h-4 w-4" />
-          Çıkış
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span>Çıkış Yap</span>
         </button>
       </div>
     </aside>

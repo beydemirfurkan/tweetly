@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiFetch, type ActionRow } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -12,26 +11,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { RefreshCw, RotateCcw, X } from 'lucide-react';
+import { RefreshCw, RotateCcw, X, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const ACTION_TYPES = ['post', 'reply', 'retweet', 'like', 'follow', 'quote', 'bookmark'];
 
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  pending: 'outline',
-  claimed: 'secondary',
-  running: 'default',
-  succeeded: 'default',
-  failed: 'destructive',
-  dead: 'destructive',
-  cancelled: 'secondary',
+const STATUS_STYLES: Record<
+  string,
+  { label: string; className: string }
+> = {
+  pending: {
+    label: 'Bekleyen',
+    className: 'border-border bg-muted/50 text-muted-foreground',
+  },
+  claimed: {
+    label: 'Alındı',
+    className: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
+  },
+  running: {
+    label: 'Çalışıyor',
+    className: 'border-primary/25 bg-primary/10 text-primary',
+  },
+  succeeded: {
+    label: 'Başarılı',
+    className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
+  },
+  failed: {
+    label: 'Başarısız',
+    className: 'border-destructive/25 bg-destructive/10 text-destructive',
+  },
+  dead: {
+    label: 'Dead',
+    className: 'border-destructive/40 bg-destructive/15 text-destructive font-semibold',
+  },
+  cancelled: {
+    label: 'İptal',
+    className: 'border-border bg-muted/30 text-muted-foreground',
+  },
 };
 
 export default function ActionsPage() {
@@ -67,114 +83,169 @@ export default function ActionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Aksiyonlar</h1>
+    <div className="space-y-6 animate-fade-up">
+      <div>
+        <h1
+          className="text-2xl font-bold tracking-tight text-foreground"
+          style={{ fontFamily: 'var(--font-syne)' }}
+        >
+          Aksiyonlar
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Kuyruklanmış görevleri izleyin ve yönetin
+        </p>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={type} onValueChange={(v) => v && setType(v)}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="h-9 w-36 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {ACTION_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
+              <SelectItem key={t} value={t} className="font-mono text-xs">
+                {t}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select value={status} onValueChange={(v) => setStatus(v ?? '')}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Tum durumlar" />
+          <SelectTrigger className="h-9 w-40 text-xs">
+            <SelectValue placeholder="Tüm durumlar" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Tum durumlar</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="claimed">Claimed</SelectItem>
-            <SelectItem value="running">Running</SelectItem>
-            <SelectItem value="succeeded">Succeeded</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-            <SelectItem value="dead">Dead</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="">Tüm durumlar</SelectItem>
+            {Object.entries(STATUS_STYLES).map(([key, s]) => (
+              <SelectItem key={key} value={key} className="text-xs">
+                {s.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className="mr-1 h-3 w-3" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+          className="h-9 gap-1.5 text-xs"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin-slow')} />
           Yenile
         </Button>
+
+        <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Zap className="h-3.5 w-3.5 text-primary" />
+          <span className="font-mono">{rows.length}</span>
+          kayıt
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">
-            {type} - {rows.length} kayit
+      <Card className="border-border/60">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <span className="h-1 w-3 rounded-full bg-primary" />
+            <span className="font-mono">{type}</span>
+            <span className="text-muted-foreground">aksiyonları</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {rows.length === 0 ? (
-            <div className="text-sm text-muted-foreground">Kayit bulunamadi.</div>
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="skeleton h-10 rounded-md" />
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              Bu filtrelerle kayıt bulunamadı.
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead>Hesap</TableHead>
-                  <TableHead>Deneme</TableHead>
-                  <TableHead>Zamanlama</TableHead>
-                  <TableHead>Hata</TableHead>
-                  <TableHead className="text-right">Islem</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-mono text-xs">
-                      {r.id.slice(0, 8)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>
-                        {r.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs">{r.account_id}</TableCell>
-                    <TableCell>
-                      {r.attempts}/{r.max_attempts}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(r.scheduled_at).toLocaleString('tr-TR')}
-                    </TableCell>
-                    <TableCell className="max-w-48 truncate text-xs text-destructive">
-                      {r.last_error || '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {(r.status === 'failed' || r.status === 'dead') && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => replay(r.id)}
-                            title="Tekrar oynat"
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border/40">
+                    {['ID', 'Durum', 'Hesap', 'Deneme', 'Zamanlama', 'Hata', ''].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground last:text-right"
+                        >
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const s = STATUS_STYLES[r.status] ?? STATUS_STYLES.pending;
+                    return (
+                      <tr
+                        key={r.id}
+                        className="group border-b border-border/20 last:border-0 hover:bg-accent/30 transition-colors"
+                      >
+                        <td className="py-2.5 pr-4 font-mono text-muted-foreground">
+                          {r.id.slice(0, 8)}
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium',
+                              s.className,
+                            )}
                           >
-                            <RotateCcw className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {(r.status === 'pending' || r.status === 'claimed') && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => cancel(r.id)}
-                            title="Iptal et"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                            {s.label}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4 font-mono text-muted-foreground">
+                          {r.account_id}
+                        </td>
+                        <td className="py-2.5 pr-4 font-mono">
+                          {r.attempts}/{r.max_attempts}
+                        </td>
+                        <td className="py-2.5 pr-4 text-muted-foreground">
+                          {new Date(r.scheduled_at).toLocaleString('tr-TR')}
+                        </td>
+                        <td className="max-w-40 truncate py-2.5 pr-4 text-destructive/80">
+                          {r.last_error || (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {(r.status === 'failed' || r.status === 'dead') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => replay(r.id)}
+                                title="Tekrar dene"
+                                className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {(r.status === 'pending' || r.status === 'claimed') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => cancel(r.id)}
+                                title="İptal et"
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
