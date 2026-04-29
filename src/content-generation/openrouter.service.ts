@@ -8,6 +8,7 @@ import {
   userPromptForDigest,
   RETRY_USER_NOTE,
   RETRY_THREAD_NOTE,
+  RETRY_NATURALNESS_NOTE,
 } from './prompt-registry';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
@@ -15,6 +16,16 @@ const DEFAULT_MAX_TOKENS = 400;
 const THREAD_MAX_TOKENS = 800;
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_PRACTICAL_TWEET_LEN = 800;
+const ARTIFICIAL_LANGUAGE_PATTERNS = [
+  /ilginç(?: bir)? yöntem sunuyor/u,
+  /değerli bilgiler(?: içeriyor| sunuyor)?/u,
+  /ne gibi yenilikler/u,
+  /blog yazısı/u,
+  /bu yazıda/u,
+  /geliştiriciler için/u,
+  /merak ediyorum/u,
+  /dikkat çekici/u,
+];
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -99,9 +110,16 @@ export class OpenRouterService {
       text = clean(await this.chat(messages));
     }
 
+    if (hasArtificialLanguage(text)) {
+      messages.push({ role: 'assistant', content: text });
+      messages.push({ role: 'user', content: RETRY_NATURALNESS_NOTE });
+      text = clean(await this.chat(messages));
+    }
+
     if (text.length > MAX_PRACTICAL_TWEET_LEN) {
       throw new Error(`Tweet pratik uzunluk limitini aşıyor (${text.length}/${MAX_PRACTICAL_TWEET_LEN}): ${text.slice(0, 80)}…`);
     }
+    if (hasArtificialLanguage(text)) throw new Error(`Tweet yapay dil filtresine takıldı: ${text.slice(0, 80)}…`);
     if (!text) throw new Error('Boş tweet metni döndü');
 
     return text;
@@ -123,10 +141,18 @@ export class OpenRouterService {
       tweets = raw.split(/\n*---\n*/).map((t) => t.trim()).filter(Boolean);
     }
 
+    if (tweets.some(hasArtificialLanguage)) {
+      messages.push({ role: 'assistant', content: raw });
+      messages.push({ role: 'user', content: RETRY_NATURALNESS_NOTE });
+      raw = clean(await this.chat(messages, THREAD_MAX_TOKENS));
+      tweets = raw.split(/\n*---\n*/).map((t) => t.trim()).filter(Boolean);
+    }
+
     if (tweets.length === 0) throw new Error('Thread üretilemedi: boş cevap');
 
     const valid = tweets.filter((t) => t.length <= MAX_PRACTICAL_TWEET_LEN);
     if (valid.length === 0) throw new Error(`Thread tweet'leri pratik uzunluk limitini aşıyor`);
+    if (valid.some(hasArtificialLanguage)) throw new Error(`Thread yapay dil filtresine takıldı`);
 
     const lastTweet = valid[valid.length - 1];
     const normalizedRepoUrl = repoUrl.toLocaleLowerCase('tr-TR');
@@ -151,9 +177,16 @@ export class OpenRouterService {
       text = clean(await this.chat(messages));
     }
 
+    if (hasArtificialLanguage(text)) {
+      messages.push({ role: 'assistant', content: text });
+      messages.push({ role: 'user', content: RETRY_NATURALNESS_NOTE });
+      text = clean(await this.chat(messages));
+    }
+
     if (text.length > MAX_PRACTICAL_TWEET_LEN) {
       throw new Error(`Digest pratik uzunluk limitini aşıyor (${text.length}/${MAX_PRACTICAL_TWEET_LEN})`);
     }
+    if (hasArtificialLanguage(text)) throw new Error(`Digest yapay dil filtresine takıldı`);
 
     return text;
   }
@@ -166,6 +199,10 @@ function clean(text: string): string {
     .replace(/^["'`]+|["'`]+$/g, '')
     .trim()
     .toLocaleLowerCase('tr-TR');
+}
+
+function hasArtificialLanguage(text: string): boolean {
+  return ARTIFICIAL_LANGUAGE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 function appendRepoUrl(lastTweet: string, repoUrl: string): string {

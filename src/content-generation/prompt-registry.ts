@@ -1,7 +1,8 @@
 import type { ContentFormat, EngagementObjective, TrendingRepo } from '../domain/types/content.types';
 
 const BASE_RULES = `Kurallar:
-- 280 karakter hard limit değil. Varsayılan hedef 120-280 karakter; güçlü tek tweet gerekiyorsa 280-600 karakter; nadiren detaylı premium tweet 600-800 karakter olabilir.
+- İnsan gibi yaz: kısa, net, biraz fikirli. Basın bülteni, ürün tanıtımı veya blog özeti gibi yazma.
+- Varsayılan hedef 120-260 karakter. Güçlü tek tweet gerekiyorsa 280-420 karakter; nadiren 600 karaktere yaklaşabilir.
 - 800 karakteri aşma; 25.000 karakterlik uzun post yazma.
 - Süslü dil yok, emoji yok, hashtag yok.
 - Teknik terimler İngilizce kalır (skill, agent, workflow, frontend, prompt vb.).
@@ -9,7 +10,8 @@ const BASE_RULES = `Kurallar:
 - Tweet metninin tamamı lowercase olacak. Cümle başı, repo adı, özel isim ve teknik terimler dahil büyük harf kullanma.
 - Pazarlama dili yok. Abartılı sıfat yok.
 - Kaynakta verilmeyen özellik, benchmark, kullanıcı sayısı veya kesin sonuç iddia etme.
-- Sinyal zayıfsa kesin konuşma; "gibi", "denemeye değer", "şunu işaret ediyor" gibi temkinli dil kullan.
+- Yasak kalıplar: "ilginç bir yöntem sunuyor", "değerli bilgiler içeriyor", "ne gibi yenilikler", "dikkat çekici", "bu yazıda", "blog yazısı", "geliştiriciler için", "merak ediyorum".
+- Cümleyi doğal kur: önce problem veya gözlem, sonra kaynak/repo bunu neden gündeme getiriyor.
 - Sadece tweet metnini döndür, başka açıklama, tırnak, ön/son ek yazma.`;
 
 export interface FormatConfig {
@@ -57,7 +59,7 @@ Yaklaşımlar:
 - Bir probleme çözüm olarak repo'yi doğal şekilde işaret et, ama link verme.
 
 Örnek:
-coding agent'lara frontend tasarım yaptırmak hala zor ama bugün çıkan şu skill koleksiyonu işi epey kolaylaştırıyor gibi, deneyen oldu mu?`,
+coding agent'lara frontend yaptırınca sorun çoğu zaman model değil, zevk ve sınır meselesi oluyor. bugün çıkan şu skill koleksiyonu tam o boşluğa oynuyor.`,
     needsLink: false,
     isThread: false,
     threadCount: 1,
@@ -78,7 +80,7 @@ Yaklaşımlar:
 - "X yerine Y mi tercih edersiniz, neden?"
 
 Örnek:
-bugün trending'de coding agent'lar için skill market tarzı bir şey çıktı. siz agent'lara frontend tasarım yaptırıyor musunuz gerçek projede, yoksa sadece deneme amaçlı mı kullanıyorsunuz?`,
+agent'a test yazdırmak mı daha güvenilir, refactor yaptırmak mı? gerçek projede ikisini de deneyen varsa hangisi daha az sorun çıkardı?`,
     needsLink: false,
     isThread: false,
     threadCount: 1,
@@ -99,7 +101,7 @@ Yaklaşımlar:
 - "Şu kategoriye şu iki araç lider, siz hangisini tercih edersiniz?"
 
 Örnek:
-frontend geliştirme için AI coding asistanları hızlıca çoğaldı. cursor mu daha iyi yoksa copilot mu, gerçek projede ikisini de kullanan var mı aranızda?`,
+cursor, copilot, windsurf tartışmasında asıl fark model değil gibi geliyor; workflow'u kim daha az bölerse o kazanıyor. sizce?`,
     needsLink: false,
     isThread: false,
     threadCount: 1,
@@ -125,7 +127,7 @@ frontend tasarımı için coding agent'lara özel instruction yazmak giderek kar
 ---
 bugün çıkan şu repo tam bu sorunu çözüyor: hazır frontend skill şablonları içeriyor, projene göre özelleştirip agent'lara verebiliyorsun
 ---
-özellikle cursor ve windsurf ile düzgün sonuç veriyor diyor geliştiriciler, denemeye değer
+asıl mesele tool'un ne kadar akıllı olduğu değil, agent'a ne kadar net sınır çizdiği
 
 repo: https://github.com/example/frontend-skills`,
     needsLink: true,
@@ -140,15 +142,15 @@ repo: https://github.com/example/frontend-skills`,
 
 ${BASE_RULES}
 
-Format: Liste, derleme veya kaynak önerisi formatı. Kaydedilmeye değer olmalı. Link etiketiyle.
+Format: Kaydedilecek kadar pratik bir not veya kısa kaynak önerisi. Link etiketiyle. "blog yazısı" diye özetleme; doğrudan neden bakmaya değer olduğunu söyle.
 
 Yaklaşımlar:
-- "Bu hafta dikkatimi çeken X araç" listesi (tek repo'yi odak olarak)
-- "Şu kategoride en iyi araçlardan biri" tanıtımı
-- "Kaynak: repo adı + kısa neden kaydedilmeli"
+- Tek somut kullanım senaryosu ver.
+- "Bunu şunun için saklarım" gibi kişisel ve kısa yaz.
+- Linki sona koy, ama metni link olmadan da anlamlı bırak.
 
 Örnek:
-coding agent'lar için frontend tasarım skill'leri arıyorsanız şu repoyu kaydedin, içinde 40+ hazır şablon var ve cursor/windsurf ile doğrudan çalışıyor
+agent'a ui yaptırırken en çok bozulan şey renk değil, karar hiyerarşisi. bu repo'yu o yüzden saklarım: component değil, tasarım davranışı tarif ediyor
 
 repo: https://github.com/example/frontend-skills`,
     needsLink: true,
@@ -172,7 +174,7 @@ Yaklaşımlar:
 - "Bu araç çıkınca X artık gereksiz olabilir"
 
 Örnek:
-coding agent'lara skill pazarı açmak iyi fikir ama kalite kontrolü olmadan bu işin spam'a dönüşme ihtimali yüksek, göreceğiz bakalım`,
+coding agent ekosisteminde herkes daha fazla otomasyon konuşuyor ama bence asıl eksik fren mekanizması. agent'ın ne yapacağını değil, nerede duracağını tasarlamak gerekiyor.`,
     needsLink: false,
     isThread: false,
     threadCount: 1,
@@ -270,3 +272,6 @@ export const RETRY_USER_NOTE =
 
 export const RETRY_THREAD_NOTE =
   'Thread tweet\'lerinden en az biri 800 karakteri aşıyor veya gereksiz uzadı. Her tweet\'i ayrı ayrı kontrol et, daha kısa yaz. Tweet\'ler arası "---" ile ayır. Türkçe karakterleri doğru kullan ve tamamen lowercase yaz.';
+
+export const RETRY_NATURALNESS_NOTE =
+  'Önceki metin çok yapay ve blog özeti gibi duruyor. "ilginç", "değerli bilgiler", "blog yazısı", "merak ediyorum", "ne gibi yenilikler" gibi kalıpları kullanma. Daha insanî, daha kısa, tek net gözlem veya soru yaz.';
