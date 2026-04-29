@@ -97,7 +97,15 @@ npm run smoke:engine       # Action engine smoke testi
 |---|---|---|
 | `X_EXECUTOR_MODE` | Evet | Gerçek gönderim için `patchright`; lokal dry-run için `noop` |
 | `BOOTSTRAP_ADMIN_TOKEN` | İlk kurulumda | DB'de `secrets.admin_token` oluşturmak için geçici token |
-| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASS` / `DB_NAME` | Evet | PostgreSQL bağlantısı |
+| `DATABASE_URL` | Evet | PostgreSQL bağlantı URL'i |
+
+Prod'da tek DB env yeterli:
+
+```env
+DATABASE_URL=postgres://user:password@host:port/database
+```
+
+`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME` sadece lokal compose fallback'i için desteklenir; prod env'e eklemeye gerek yok.
 
 Kalıcı secret'ları Admin API ile DB'ye yaz:
 
@@ -205,7 +213,7 @@ docker compose up --build
 2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
 3. **Persistent Storage**: `/data`
 4. **Environment Variables**: `.env.example` içindeki boot-time değerleri gir.
-5. Ayrıca bir **PostgreSQL resource** ekle; `DB_*` değişkenlerini ona göre ayarla.
+5. PostgreSQL bağlantısını `DATABASE_URL` olarak gir.
 6. Deploy sonrası `/admin/secrets` ve `/admin/accounts/:id` endpoint'leriyle kalıcı secret/account bilgilerini DB'ye yaz.
 
 ---

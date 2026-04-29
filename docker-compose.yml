@@ -12,6 +12,7 @@ services:
       X_EXECUTOR_MODE: ${X_EXECUTOR_MODE:-noop}
       BOOTSTRAP_ADMIN_TOKEN: ${BOOTSTRAP_ADMIN_TOKEN:-}
       # Database
+      DATABASE_URL: ${DATABASE_URL:-}
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: ${DB_USER:-tweetly}

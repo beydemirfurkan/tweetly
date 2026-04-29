@@ -26,6 +26,9 @@ export interface DatabaseEnv {
 }
 
 export function readDatabaseEnv(env: NodeJS.ProcessEnv = process.env): DatabaseEnv {
+  const url = env.DATABASE_URL || env.DB_URL;
+  if (url) return parseDatabaseUrl(url, env);
+
   return {
     host: env.DB_HOST ?? 'localhost',
     port: parseInt(env.DB_PORT ?? '5432', 10),
@@ -35,6 +38,24 @@ export function readDatabaseEnv(env: NodeJS.ProcessEnv = process.env): DatabaseE
     ssl: (env.DB_SSL ?? 'false').toLowerCase() === 'true',
     schema: env.DB_SCHEMA ?? 'public',
   };
+}
+
+function parseDatabaseUrl(rawUrl: string, env: NodeJS.ProcessEnv): DatabaseEnv {
+  try {
+    const url = new URL(rawUrl);
+    return {
+      host: url.hostname,
+      port: parseInt(url.port || '5432', 10),
+      username: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      database: decodeURIComponent(url.pathname.replace(/^\//, '') || 'postgres'),
+      ssl: (env.DB_SSL ?? url.searchParams.get('sslmode') ?? 'false').toLowerCase() === 'true'
+        || url.searchParams.get('sslmode') === 'require',
+      schema: env.DB_SCHEMA ?? 'public',
+    };
+  } catch {
+    throw new Error('DATABASE_URL is not a valid Postgres URL');
+  }
 }
 
 const ENTITY_LIST: MixedList<Function | string | EntitySchema<unknown>> = [
