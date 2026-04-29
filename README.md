@@ -102,6 +102,7 @@ Bkz. `.env.example`. Kritik olanlar:
 | `OPENROUTER_MODEL` | Hayır | Default: `google/gemini-2.5-flash` |
 | `NEST_PORT` | Hayır | Default: `3001` (Docker'da `3000`) |
 | `X_USERNAME` | Hayır | Çok hesaplı kurulumda account ID olarak kullanılır |
+| `X_EXECUTOR_MODE` | Prod için evet | Gerçek gönderim için `patchright`; dry-run/dev için `noop` |
 | `HEADLESS` | Hayır | Default: `true` |
 
 ---
@@ -193,7 +194,7 @@ docker compose up --build
 1. **New Resource → Application → Public Repository → Dockerfile**
 2. Repo: `https://github.com/beydemirfurkan/tweetly`, Branch: `main`
 3. **Persistent Storage**: `/data`
-4. **Environment Variables**: `X_AUTH_TOKEN`, `OPENROUTER_API_KEY`, `ADMIN_TOKEN`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`
+4. **Environment Variables**: `X_AUTH_TOKEN`, `OPENROUTER_API_KEY`, `ADMIN_TOKEN`, `X_EXECUTOR_MODE=patchright`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`
 5. Ayrıca bir **PostgreSQL resource** ekle; `DB_*` değişkenlerini ona göre ayarla.
 6. Deploy.
 
