@@ -1,14 +1,3 @@
-FROM node:20-bookworm-slim AS panel-builder
-
-WORKDIR /panel
-
-COPY panel/package*.json ./
-RUN npm ci
-
-COPY panel/ ./
-RUN npm run build
-
-
 FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
@@ -48,7 +37,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
-COPY --from=panel-builder /panel/out ./panel-static
 
 RUN mkdir -p /data/user-data /data/app-data/errors /data/app-data/logs
 

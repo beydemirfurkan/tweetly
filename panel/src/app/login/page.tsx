@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated && typeof window !== 'undefined') {
-    window.location.href = '/panel';
+    window.location.href = '/';
     return null;
   }
 

@@ -20,7 +20,7 @@ export default function PanelLayout({
 
   if (!isAuthenticated) {
     if (typeof window !== 'undefined') {
-      window.location.href = '/panel/login';
+      window.location.href = '/login';
     }
     return null;
   }

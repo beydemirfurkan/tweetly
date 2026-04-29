@@ -1,4 +1,4 @@
-const API_BASE = '/admin';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/admin';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -42,7 +42,7 @@ export async function apiFetch<T>(
   if (res.status === 401) {
     clearToken();
     if (typeof window !== 'undefined') {
-      window.location.href = '/panel/login';
+      window.location.href = '/login';
     }
     throw new ApiError(401, 'Unauthorized');
   }

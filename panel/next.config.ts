@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  basePath: "/panel",
-  output: "export",
+  output: "standalone",
 };
 
 export default nextConfig;

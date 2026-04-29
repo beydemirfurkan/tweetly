@@ -17,13 +17,13 @@ import {
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { href: '/panel', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { href: '/panel/accounts', label: 'Hesaplar', icon: Users },
-  { href: '/panel/actions', label: 'Aksiyonlar', icon: Zap },
-  { href: '/panel/settings', label: 'Ayarlar', icon: Settings },
-  { href: '/panel/engagement', label: 'Etkileşim', icon: Heart },
-  { href: '/panel/secrets', label: 'Gizli Anahtarlar', icon: KeyRound },
-  { href: '/panel/collect', label: 'İçerik Topla', icon: Send },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/accounts', label: 'Hesaplar', icon: Users },
+  { href: '/actions', label: 'Aksiyonlar', icon: Zap },
+  { href: '/settings', label: 'Ayarlar', icon: Settings },
+  { href: '/engagement', label: 'Etkileşim', icon: Heart },
+  { href: '/secrets', label: 'Gizli Anahtarlar', icon: KeyRound },
+  { href: '/collect', label: 'İçerik Topla', icon: Send },
 ];
 
 export function Sidebar() {
@@ -40,7 +40,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 px-2 py-3">
         {NAV_ITEMS.map((item) => {
           const isActive = item.exact
-            ? pathname === item.href
+            ? pathname === item.href || pathname === '/'
             : pathname.startsWith(item.href + '/');
           return (
             <Link
