@@ -39,6 +39,19 @@ const DEFS: SettingDef[] = [
   { key: 'growth.safety.post_failure_rate_threshold', defaultValue: 0.2, type: 'number' },
   { key: 'growth.safety.post_failure_min_samples', defaultValue: 5, type: 'number' },
   { key: 'growth.safety.reduction_factor', defaultValue: 0.5, type: 'number' },
+  { key: 'source_expansion.enabled', defaultValue: false, type: 'boolean' },
+  { key: 'source_expansion.hacker_news.enabled', defaultValue: true, type: 'boolean' },
+  { key: 'source_expansion.dev_to.enabled', defaultValue: true, type: 'boolean' },
+  { key: 'source_expansion.hacker_news.limit', defaultValue: 25, type: 'number' },
+  { key: 'source_expansion.dev_to.limit', defaultValue: 25, type: 'number' },
+  { key: 'source_expansion.max_daily_candidates', defaultValue: 15, type: 'number' },
+  { key: 'source_expansion.min_score', defaultValue: 70, type: 'number' },
+  { key: 'source_scoring.source_trust', defaultValue: 20, type: 'number' },
+  { key: 'source_scoring.topic_fit', defaultValue: 25, type: 'number' },
+  { key: 'source_scoring.freshness', defaultValue: 20, type: 'number' },
+  { key: 'source_scoring.discussion', defaultValue: 15, type: 'number' },
+  { key: 'source_scoring.account_fit', defaultValue: 20, type: 'number' },
+  { key: 'source_scoring.weak_title_penalty', defaultValue: -15, type: 'number' },
   {
     key: 'schedule.hour_weights',
     defaultValue: {
@@ -169,6 +182,26 @@ export class SettingsService {
       freshnessMid: values[12],
       noveltyTopicRepeat: values[13],
       noveltyOwnerRepeat: values[14],
+    };
+  }
+
+  async getSourceQualityWeights(): Promise<Record<string, number>> {
+    const keys: Array<[string, number]> = [
+      ['source_scoring.source_trust', 20],
+      ['source_scoring.topic_fit', 25],
+      ['source_scoring.freshness', 20],
+      ['source_scoring.discussion', 15],
+      ['source_scoring.account_fit', 20],
+      ['source_scoring.weak_title_penalty', -15],
+    ];
+    const values = await Promise.all(keys.map(([k, d]) => this.get<number>(k, d)));
+    return {
+      sourceTrust: values[0],
+      topicFit: values[1],
+      freshness: values[2],
+      discussion: values[3],
+      accountFit: values[4],
+      weakTitlePenalty: values[5],
     };
   }
 

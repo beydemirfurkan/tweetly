@@ -5,8 +5,10 @@ import type { IContentWorkflow } from './content-workflow.interface';
 import type { ContentFormat, EngagementObjective, TrendingRepo, Topic, FormatSlot } from '../domain/types/content.types';
 import { inferTopic } from '../domain/services/topic-inference';
 import { scoreRepo, isQualityRepo } from '../domain/services/repo-scoring';
+import { isStrongSourceCandidate, scoreSourceCandidate } from '../domain/services/source-quality-scoring';
 import { getFormatConfig, FORMATS } from '../content-generation/prompt-registry';
 import { GithubTrendingSource } from '../trending-source/github-trending.source';
+import { ExternalTechSource } from '../trending-source/external-tech.source';
 import { OpenRouterService } from '../content-generation/openrouter.service';
 import { MediaService } from '../content-generation/media.service';
 import { ContentMemoryService } from '../content-memory/content-memory.service';
@@ -84,6 +86,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     private readonly analytics: AnalyticsService,
     private readonly enqueue: ActionEnqueueService,
     private readonly dataSource: DataSource,
+    private readonly externalTech: ExternalTechSource,
   ) {}
 
   async run(accountId?: string): Promise<void> {
@@ -235,6 +238,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     accountId?: string,
   ): Promise<{ items: EnqueueItem[]; slotCount: number } | null> {
     const topic = inferTopic(repo);
+    const itemSource = repo.sourceId ?? SOURCE_DAILY;
 
     if (slot.isThread && slot.format === 'mini_thread') {
       const tweets = await this.openrouter.generateThread(repo, repo.url);
@@ -248,7 +252,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
           format: 'mini_thread' as ContentFormat,
           objective: 'dwell' as EngagementObjective,
           topic,
-          source: SOURCE_DAILY,
+          source: itemSource,
           score,
         };
       });
@@ -271,7 +275,9 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     this.log.log(`${repo.slug} [${slot.format}] score=${score} — ${text.length} char`);
 
     const cfg = getFormatConfig(slot.format);
-    const mediaPath = cfg.media === 'og_image' ? (await this.media.fetchRepoOgImage(repo)) ?? undefined : undefined;
+    const mediaPath = cfg.media === 'og_image' && (!repo.sourceType || repo.sourceType === 'github')
+      ? (await this.media.fetchRepoOgImage(repo)) ?? undefined
+      : undefined;
     const linkAsReply =
       slot.format === 'repo_drop' && (cfg.linkAsReply ?? false)
         ? await this.settings.get<boolean>('format.repo_drop.link_as_reply', true)
@@ -284,13 +290,13 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
           {
             repo, text, mediaPath,
             scheduledAt: slots[slotIdx] ?? new Date(Date.now() + slotIdx * FALLBACK_INTERVAL_MS),
-            format: slot.format, objective: slot.objective, topic, source: SOURCE_DAILY, score,
+            format: slot.format, objective: slot.objective, topic, source: itemSource, score,
           },
           {
             repo,
             text: `kaynak: ${repo.url}`,
             scheduledAt: slots[slotIdx + 1] ?? new Date(Date.now() + (slotIdx + 1) * FALLBACK_INTERVAL_MS),
-            format: slot.format, objective: slot.objective, topic, source: SOURCE_DAILY,
+            format: slot.format, objective: slot.objective, topic, source: itemSource,
           },
         ],
         slotCount: 2,
@@ -301,7 +307,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
       items: [{
         repo, text, mediaPath,
         scheduledAt: slots[slotIdx] ?? new Date(Date.now() + slotIdx * FALLBACK_INTERVAL_MS),
-        format: slot.format, objective: slot.objective, topic, source: SOURCE_DAILY, score,
+        format: slot.format, objective: slot.objective, topic, source: itemSource, score,
       }],
       slotCount: 1,
     };
@@ -334,6 +340,10 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
       const metadata: Record<string, unknown> = {
         repo: item.repo.slug,
         repoUrl: item.repo.url,
+        sourceType: item.repo.sourceType ?? 'github',
+        sourceName: item.repo.sourceName ?? 'GitHub',
+        sourceScore: item.repo.sourceScore,
+        sourceScoreBreakdown: item.repo.sourceScoreBreakdown,
         format: item.format,
         objective: item.objective,
         topic: item.topic,
@@ -364,9 +374,56 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
   private async loadFreshCandidates(since: 'daily' | 'weekly', accountId?: string): Promise<TrendingRepo[]> {
     const trending = await this.trending.fetchTrending({ since });
     this.log.log(`GitHub Trending (${since}): ${trending.length} repo`);
-    const candidates = await this.deduped(trending, accountId);
+
+    const expanded = since === 'daily'
+      ? [...trending, ...(await this.loadExternalCandidates(accountId))]
+      : trending;
+    const candidates = await this.deduped(expanded, accountId);
     this.log.log(`Dedup sonrasi: ${candidates.length} aday`);
     return candidates;
+  }
+
+  private async loadExternalCandidates(accountId?: string): Promise<TrendingRepo[]> {
+    const enabled = await this.settings.get<boolean>('source_expansion.enabled', false, accountId);
+    if (!enabled) return [];
+
+    const [includeHackerNews, includeDevTo, hackerNewsLimit, devToLimit, maxDaily, minScore, weights] = await Promise.all([
+      this.settings.get<boolean>('source_expansion.hacker_news.enabled', true, accountId),
+      this.settings.get<boolean>('source_expansion.dev_to.enabled', true, accountId),
+      this.settings.get<number>('source_expansion.hacker_news.limit', 25, accountId),
+      this.settings.get<number>('source_expansion.dev_to.limit', 25, accountId),
+      this.settings.get<number>('source_expansion.max_daily_candidates', 15, accountId),
+      this.settings.get<number>('source_expansion.min_score', 70, accountId),
+      this.settings.getSourceQualityWeights(),
+    ]);
+
+    const raw = await this.externalTech.fetchCandidates({
+      includeHackerNews,
+      includeDevTo,
+      hackerNewsLimit,
+      devToLimit,
+    });
+
+    const scored = raw
+      .map((candidate) => {
+        const scoredCandidate = scoreSourceCandidate(candidate, weights);
+        return {
+          ...candidate,
+          sourceScore: scoredCandidate.total,
+          sourceScoreBreakdown: scoredCandidate.breakdown,
+        } satisfies TrendingRepo;
+      })
+      .filter((candidate) => {
+        const breakdown = candidate.sourceScoreBreakdown;
+        return breakdown
+          ? isStrongSourceCandidate({ total: candidate.sourceScore ?? 0, breakdown }, minScore)
+          : false;
+      })
+      .sort((a, b) => (b.sourceScore ?? 0) - (a.sourceScore ?? 0))
+      .slice(0, Math.max(0, maxDaily));
+
+    this.log.log(`Source expansion: ${scored.length}/${raw.length} kaliteli harici aday`);
+    return scored;
   }
 
   private async deduped(repos: TrendingRepo[], accountId?: string): Promise<TrendingRepo[]> {
@@ -375,7 +432,14 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
       this.getPendingRepoSlugs(accountId),
     ]);
     const seen = new Set([...postedSlugs.map((s) => s.toLowerCase()), ...pendingSlugs.map((s) => s.toLowerCase())]);
-    return repos.filter((r) => !seen.has(r.slug.toLowerCase()));
+    const seenUrls = new Set<string>();
+    return repos.filter((r) => {
+      const slug = r.slug.toLowerCase();
+      const url = r.url.toLowerCase();
+      if (seen.has(slug) || seenUrls.has(url)) return false;
+      seenUrls.add(url);
+      return true;
+    });
   }
 
   private async logAndCheckRemaining(accountId?: string): Promise<{ count: number; posted: number; queued: number }> {
@@ -859,7 +923,7 @@ function scoreCandidates(
   weights: Record<string, number>,
 ): Array<{ repo: TrendingRepo; score: number }> {
   const baseRanked = candidates
-    .map((repo) => ({ repo, score: scoreRepo(repo, weights).total }))
+    .map((repo) => ({ repo, score: baseCandidateScore(repo, weights) }))
     .sort((a, b) => b.score - a.score);
 
   const topicCounts: Partial<Record<Topic, number>> = {};
@@ -868,11 +932,27 @@ function scoreCandidates(
   return baseRanked.map(({ repo }) => {
     const topic = inferTopic(repo);
     const owner = repo.owner.toLowerCase();
-    const rescored = scoreRepo(repo, weights, topicCounts, ownerCounts.get(owner) ?? 0).total;
+    const rescored = baseCandidateScore(repo, weights, topicCounts, ownerCounts.get(owner) ?? 0);
     topicCounts[topic] = (topicCounts[topic] ?? 0) + 1;
     ownerCounts.set(owner, (ownerCounts.get(owner) ?? 0) + 1);
     return { repo, score: rescored };
   }).sort((a, b) => b.score - a.score);
+}
+
+function baseCandidateScore(
+  repo: TrendingRepo,
+  weights: Record<string, number>,
+  topicCounts: Partial<Record<Topic, number>> = {},
+  recentOwnerCount = 0,
+): number {
+  if (repo.sourceType && repo.sourceType !== 'github' && typeof repo.sourceScore === 'number') {
+    const noveltyPenalty = recentOwnerCount >= 3 ? (weights.noveltyOwnerRepeat ?? -5) : 0;
+    const topicPenalty = Object.values(topicCounts).reduce((s, c) => s + (c ?? 0), 0) > 5
+      ? (weights.noveltyTopicRepeat ?? -10)
+      : 0;
+    return Math.max(0, repo.sourceScore + noveltyPenalty + topicPenalty);
+  }
+  return scoreRepo(repo, weights, topicCounts, recentOwnerCount).total;
 }
 
 function shuffle<T>(arr: T[]): T[] {

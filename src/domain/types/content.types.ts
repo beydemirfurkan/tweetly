@@ -7,6 +7,22 @@ export interface TrendingRepo {
   language: string;
   starsToday: number;
   totalStars: number;
+  sourceType?: 'github' | 'article' | 'discussion';
+  sourceId?: string;
+  sourceName?: string;
+  publishedAt?: string;
+  discussionCount?: number;
+  sourceScore?: number;
+  sourceScoreBreakdown?: SourceQualityBreakdown;
+}
+
+export interface SourceQualityBreakdown {
+  source: number;
+  topic: number;
+  freshness: number;
+  discussion: number;
+  accountFit: number;
+  penalty: number;
 }
 
 export type ContentFormat =

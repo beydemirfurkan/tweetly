@@ -25,7 +25,7 @@ export const FORMATS: Record<ContentFormat, FormatConfig> = {
   repo_drop: {
     format: 'repo_drop',
     objective: 'link_click',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -43,7 +43,7 @@ ai coding araçları için daha iyi frontend tasarımı üreten skill koleksiyon
   no_link_hook: {
     format: 'no_link_hook',
     objective: 'reply',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -64,7 +64,7 @@ coding agent'lara frontend tasarım yaptırmak hala zor ama bugün çıkan şu s
   question: {
     format: 'question',
     objective: 'reply',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -85,7 +85,7 @@ bugün trending'de coding agent'lar için skill market tarzı bir şey çıktı.
   comparison: {
     format: 'comparison',
     objective: 'reply',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -106,7 +106,7 @@ frontend geliştirme için AI coding asistanları hızlıca çoğaldı. cursor m
   mini_thread: {
     format: 'mini_thread',
     objective: 'dwell',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji mini thread'leri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji mini thread'leri yazıyorsun. Konu: GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -134,7 +134,7 @@ repo: https://github.com/example/frontend-skills`,
   bookmark_bait: {
     format: 'bookmark_bait',
     objective: 'bookmark',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -158,7 +158,7 @@ repo: https://github.com/example/frontend-skills`,
   hot_take: {
     format: 'hot_take',
     objective: 'reply',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -179,7 +179,7 @@ coding agent'lara skill pazarı açmak iyi fikir ama kalite kontrolü olmadan bu
   weekly_digest: {
     format: 'weekly_digest',
     objective: 'bookmark',
-    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: Bu hafta GitHub'da yükselişe geçen AI ve coding araçları.
+    systemPrompt: `Sen X (Twitter) için Türkçe teknoloji tweetleri yazıyorsun. Konu: Bu hafta GitHub ve seçilmiş teknik kaynaklarda yükselen AI, coding ve developer araçları.
 
 ${BASE_RULES}
 
@@ -233,13 +233,17 @@ export function getSystemPrompt(format: ContentFormat): string {
 
 export function userPromptForFormat(format: ContentFormat, repo: TrendingRepo, extraContext?: string): string {
   const cfg = FORMATS[format];
+  const isGithub = !repo.sourceType || repo.sourceType === 'github';
   const parts = [
-    `Repo: ${repo.owner}/${repo.name}`,
+    `${isGithub ? 'Repo' : 'Kaynak'}: ${isGithub ? `${repo.owner}/${repo.name}` : repo.name}`,
+    `Kaynak türü: ${repo.sourceName ?? repo.sourceId ?? (isGithub ? 'GitHub' : 'harici teknik kaynak')}`,
     `URL: ${repo.url}`,
-    `Açıklama (İngilizce): ${repo.description || '(yok)'}`,
-    `Dil: ${repo.language || '(belirtilmemiş)'}`,
-    `Bugünkü yıldız: ${repo.starsToday || 0}`,
+    `Açıklama/özet: ${repo.description || '(yok)'}`,
+    `Dil/etiket/domain: ${repo.language || '(belirtilmemiş)'}`,
+    `Popülerlik sinyali: ${repo.starsToday || 0}`,
   ];
+  if (repo.discussionCount !== undefined) parts.push(`Tartışma/yorum sinyali: ${repo.discussionCount}`);
+  if (repo.publishedAt) parts.push(`Yayın zamanı: ${repo.publishedAt}`);
   if (cfg.needsLink) {
     parts.push('Tweet içinde link etiketi ile URL yer almalı.');
   } else {
