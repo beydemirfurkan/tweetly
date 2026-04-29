@@ -18,7 +18,7 @@ async function bootstrap(): Promise<void> {
 
   const panelDir = join(__dirname, '..', 'panel-static');
   if (existsSync(panelDir)) {
-    app.useStaticAssets(panelDir);
+    app.useStaticAssets(panelDir, { prefix: '/panel/' });
     Logger.log(`Panel:      http://localhost:${parseInt(process.env.NEST_PORT ?? '3001', 10)}/panel`, 'Bootstrap');
   }
 
