@@ -69,7 +69,12 @@ export default function AccountsPage() {
     setLoadError('');
     try {
       const res = await apiFetch<AccountsResponse>('/accounts');
-      setAccounts(res.accounts);
+      const list = Array.isArray(res?.accounts)
+        ? res.accounts
+        : Array.isArray(res)
+          ? (res as unknown as RedactedAccount[])
+          : [];
+      setAccounts(list);
     } catch (err) {
       setLoadError((err as Error).message);
     } finally {
@@ -95,7 +100,7 @@ export default function AccountsPage() {
     if (editForm.ct0 !== undefined) body.ct0 = editForm.ct0;
     if (editForm.twid !== undefined) body.twid = editForm.twid;
 
-    await apiFetch(`/accounts/${editAccount.id}`, {
+    await apiFetch(`/accounts/${String(editAccount.id)}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     });
@@ -180,17 +185,21 @@ export default function AccountsPage() {
                 </thead>
                 <tbody>
                   {accounts.map((acc) => {
-                    const statusStyle = STATUS_STYLES[acc.status] ?? STATUS_STYLES.paused;
+                    const accId = String(acc.id ?? '');
+                    const statusKey = typeof acc.status === 'string' ? acc.status : '';
+                    const statusStyle = STATUS_STYLES[statusKey] ?? STATUS_STYLES.paused;
                     return (
                       <tr
-                        key={acc.id}
+                        key={accId}
                         className="group border-b border-border/20 last:border-0 hover:bg-accent/30 transition-colors"
                       >
                         <td className="py-3 pr-4 font-mono text-xs font-medium text-foreground">
-                          {acc.id}
+                          {accId}
                         </td>
                         <td className="py-3 pr-4 text-xs">
-                          {acc.displayName || (
+                          {acc.displayName != null && acc.displayName !== '' ? (
+                            String(acc.displayName)
+                          ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
@@ -205,14 +214,14 @@ export default function AccountsPage() {
                           </span>
                         </td>
                         <td className="py-3 pr-4">
-                          <TokenCell has={acc.hasAuthToken} />
+                          <TokenCell has={Boolean(acc.hasAuthToken)} />
                         </td>
                         <td className="py-3 pr-4">
-                          <TokenCell has={acc.hasCt0} />
+                          <TokenCell has={Boolean(acc.hasCt0)} />
                         </td>
                         <td className="py-3 pr-4 font-mono text-xs text-muted-foreground">
-                          {acc.lastUsedAt
-                            ? new Date(acc.lastUsedAt).toLocaleString('tr-TR')
+                          {acc.lastUsedAt != null
+                            ? new Date(String(acc.lastUsedAt)).toLocaleString('tr-TR')
                             : '—'}
                         </td>
                         <td className="py-3 text-right">
@@ -242,7 +251,7 @@ export default function AccountsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-mono text-base">
-              {editAccount?.id}
+              {editAccount ? String(editAccount.id ?? '') : ''}
             </DialogTitle>
           </DialogHeader>
           {editAccount && (
