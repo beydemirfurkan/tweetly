@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { setToken, clearToken, getToken } from './api';
+import { apiUrl, setToken, clearToken, getToken } from './api';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
-    fetch('/admin/status', {
+    fetch(apiUrl('/status'), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (token: string): Promise<boolean> => {
     try {
-      const res = await fetch('/admin/status', {
+      const res = await fetch(apiUrl('/status'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

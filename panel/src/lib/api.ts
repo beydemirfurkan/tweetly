@@ -1,4 +1,20 @@
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/admin';
+function resolveApiOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+
+  if (typeof window === 'undefined') return '';
+
+  const host = window.location.hostname.replace(/^www\./, '');
+  if (host.startsWith('tw-panel.')) {
+    return `${window.location.protocol}//${host.replace(/^tw-panel\./, 'tw-backend.')}`;
+  }
+
+  return '';
+}
+
+export function apiUrl(path: string): string {
+  return `${resolveApiOrigin()}/admin${path}`;
+}
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -34,7 +50,7 @@ export async function apiFetch<T>(
     ...(options?.headers as Record<string, string> | undefined),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     ...options,
     headers,
   });
