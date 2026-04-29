@@ -13,6 +13,6 @@ import { AdminTokenGuard } from './admin-token.guard';
   imports: [AccountsModule, AnalyticsModule, SettingsModule, WorkflowsModule, ActionEngineModule, EngagementModule],
   controllers: [AdminApiController],
   providers: [AdminApiService, AdminTokenGuard],
-  exports: [AdminApiService, AdminTokenGuard],
+  exports: [AdminApiService, AdminTokenGuard, SettingsModule],
 })
 export class AdminApiModule {}
