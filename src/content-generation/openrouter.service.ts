@@ -13,6 +13,7 @@ const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MAX_TOKENS = 400;
 const THREAD_MAX_TOKENS = 800;
 const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_PRACTICAL_TWEET_LEN = 800;
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -83,14 +84,14 @@ export class OpenRouterService {
 
     let text = clean(await this.chat(messages));
 
-    if (text.length > 280) {
+    if (text.length > MAX_PRACTICAL_TWEET_LEN) {
       messages.push({ role: 'assistant', content: text });
       messages.push({ role: 'user', content: RETRY_USER_NOTE });
       text = clean(await this.chat(messages));
     }
 
-    if (text.length > 280) {
-      throw new Error(`Tweet 280 karakteri aşıyor (${text.length}): ${text.slice(0, 80)}…`);
+    if (text.length > MAX_PRACTICAL_TWEET_LEN) {
+      throw new Error(`Tweet pratik uzunluk limitini aşıyor (${text.length}/${MAX_PRACTICAL_TWEET_LEN}): ${text.slice(0, 80)}…`);
     }
     if (!text) throw new Error('Boş tweet metni döndü');
 
@@ -106,7 +107,7 @@ export class OpenRouterService {
     let raw = clean(await this.chat(messages, THREAD_MAX_TOKENS));
     let tweets = raw.split(/\n*---\n*/).map((t) => t.trim()).filter(Boolean);
 
-    if (tweets.length === 0 || tweets.some((t) => t.length > 280)) {
+    if (tweets.length === 0 || tweets.some((t) => t.length > MAX_PRACTICAL_TWEET_LEN)) {
       messages.push({ role: 'assistant', content: raw });
       messages.push({ role: 'user', content: RETRY_THREAD_NOTE });
       raw = clean(await this.chat(messages, THREAD_MAX_TOKENS));
@@ -115,11 +116,12 @@ export class OpenRouterService {
 
     if (tweets.length === 0) throw new Error('Thread üretilemedi: boş cevap');
 
-    const valid = tweets.filter((t) => t.length <= 280);
-    if (valid.length === 0) throw new Error(`Thread tweet'leri 280 karakteri aşıyor`);
+    const valid = tweets.filter((t) => t.length <= MAX_PRACTICAL_TWEET_LEN);
+    if (valid.length === 0) throw new Error(`Thread tweet'leri pratik uzunluk limitini aşıyor`);
 
     const lastTweet = valid[valid.length - 1];
-    if (!lastTweet.includes(repoUrl) && !lastTweet.includes('github.com')) {
+    const normalizedRepoUrl = repoUrl.toLocaleLowerCase('tr-TR');
+    if (!lastTweet.includes(normalizedRepoUrl) && !lastTweet.includes('github.com')) {
       valid[valid.length - 1] = appendRepoUrl(lastTweet, repoUrl);
     }
 
@@ -134,14 +136,14 @@ export class OpenRouterService {
 
     let text = clean(await this.chat(messages));
 
-    if (text.length > 280) {
+    if (text.length > MAX_PRACTICAL_TWEET_LEN) {
       messages.push({ role: 'assistant', content: text });
       messages.push({ role: 'user', content: RETRY_USER_NOTE });
       text = clean(await this.chat(messages));
     }
 
-    if (text.length > 280) {
-      throw new Error(`Digest 280 karakteri aşıyor (${text.length})`);
+    if (text.length > MAX_PRACTICAL_TWEET_LEN) {
+      throw new Error(`Digest pratik uzunluk limitini aşıyor (${text.length}/${MAX_PRACTICAL_TWEET_LEN})`);
     }
 
     return text;
@@ -153,15 +155,16 @@ function clean(text: string): string {
     .replace(/^```[a-zA-Z0-9_-]*\s*/g, '')
     .replace(/\s*```$/g, '')
     .replace(/^["'`]+|["'`]+$/g, '')
-    .trim();
+    .trim()
+    .toLocaleLowerCase('tr-TR');
 }
 
 function appendRepoUrl(lastTweet: string, repoUrl: string): string {
-  const repoLine = `repo: ${repoUrl}`;
+  const repoLine = `repo: ${repoUrl.toLocaleLowerCase('tr-TR')}`;
   const combined = `${lastTweet}\n\n${repoLine}`;
-  if (combined.length <= 280) return combined;
+  if (combined.length <= MAX_PRACTICAL_TWEET_LEN) return combined;
 
-  const maxTextLength = 280 - repoLine.length - 2;
+  const maxTextLength = MAX_PRACTICAL_TWEET_LEN - repoLine.length - 2;
   if (maxTextLength <= 1) throw new Error('Thread son tweetine repo linki sigmiyor');
 
   return `${lastTweet.slice(0, maxTextLength - 1).trimEnd()}…\n\n${repoLine}`;

@@ -42,7 +42,7 @@ describe('RetryPolicy', () => {
   });
 
   it('classifies validation failures as permanent', () => {
-    expect(policy.classify(new Error('text exceeds 280 character limit'))).toBe('permanent');
+    expect(policy.classify(new Error('text exceeds character limit'))).toBe('permanent');
   });
 
   it('defaults unknown errors to transient', () => {

@@ -1,9 +1,12 @@
 import type { ContentFormat, EngagementObjective, TrendingRepo } from '../domain/types/content.types';
 
 const BASE_RULES = `Kurallar:
-- Toplam 280 karakter SINIRI. Hedef: 200-260 karakter.
+- 280 karakter hard limit değil. Varsayılan hedef 120-280 karakter; güçlü tek tweet gerekiyorsa 280-600 karakter; nadiren detaylı premium tweet 600-800 karakter olabilir.
+- 800 karakteri aşma; 25.000 karakterlik uzun post yazma.
 - Süslü dil yok, emoji yok, hashtag yok.
 - Teknik terimler İngilizce kalır (skill, agent, workflow, frontend, prompt vb.).
+- Türkçe karakterleri doğru kullan: ç, ğ, ı, i, ö, ş, ü. ASCII'ye düşmüş Türkçe yazma.
+- Tweet metninin tamamı lowercase olacak. Cümle başı, repo adı, özel isim ve teknik terimler dahil büyük harf kullanma.
 - Pazarlama dili yok. Abartılı sıfat yok.
 - Sadece tweet metnini döndür, başka açıklama, tırnak, ön/son ek yazma.`;
 
@@ -243,7 +246,7 @@ export function userPromptForFormat(format: ContentFormat, repo: TrendingRepo, e
     parts.push('Tweet içinde link/URL YOK. Sadece metin.');
   }
   if (extraContext) parts.push(`Ek not: ${extraContext}`);
-  parts.push(`Format: ${format}. Kurallara uygun bir Türkçe tweet yaz.`);
+  parts.push(`Format: ${format}. Kurallara uygun, Türkçe karakterleri doğru kullanan ve tamamen lowercase bir Türkçe tweet yaz.`);
   if (cfg.isThread) parts.push('Thread formatında üret, tweet\'leri "---" ile ayır.');
   return parts.join('\n');
 }
@@ -257,7 +260,7 @@ export function userPromptForDigest(repos: TrendingRepo[]): string {
 }
 
 export const RETRY_USER_NOTE =
-  'Önceki tweet 280 karakteri aştı. Daha kısa yaz, en fazla 240 karakter olsun. Açıklamayı tek cümleye düşür gerekirse.';
+  'Önceki tweet 800 karakteri aştı veya gereksiz uzadı. Daha kısa ve net yaz; mümkünse 120-280 karakter, detay gerekiyorsa en fazla 600-800 karakter olsun. Türkçe karakterleri doğru kullan ve tamamen lowercase yaz.';
 
 export const RETRY_THREAD_NOTE =
-  'Thread tweet\'lerinden en az biri 280 karakteri aşıyor. Her tweet\'i ayrı ayrı kontrol et, daha kısa yaz. Tweet\'ler arası "---" ile ayır.';
+  'Thread tweet\'lerinden en az biri 800 karakteri aşıyor veya gereksiz uzadı. Her tweet\'i ayrı ayrı kontrol et, daha kısa yaz. Tweet\'ler arası "---" ile ayır. Türkçe karakterleri doğru kullan ve tamamen lowercase yaz.';
