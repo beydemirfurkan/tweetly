@@ -1,10 +1,22 @@
 import 'reflect-metadata';
+import * as dotenv from 'dotenv';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 
+dotenv.config();
+
+function ensureExecutorMode(isProd: boolean): void {
+  if (process.env.X_EXECUTOR_MODE) return;
+
+  process.env.X_EXECUTOR_MODE = isProd ? 'patchright' : 'noop';
+  Logger.log(`X_EXECUTOR_MODE defaulted to ${process.env.X_EXECUTOR_MODE}`, 'Bootstrap');
+}
+
 async function bootstrap(): Promise<void> {
   const isProd = process.env.NODE_ENV === 'production';
+  ensureExecutorMode(isProd);
+
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
     logger: isProd ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug', 'verbose'],
