@@ -47,6 +47,22 @@ describe('scoreSourceCandidate', () => {
     expect(weak).toBeLessThan(70);
   });
 
+  it('does not accept open-source as sufficient account fit by itself', () => {
+    const score = scoreSourceCandidate(
+      candidate({
+        name: 'an open-source stethoscope that costs between two and five dollars',
+        description: 'open-source hardware for medical access',
+        starsToday: 180,
+        discussionCount: 60,
+      }),
+      {},
+      now,
+    );
+
+    expect(score.total).toBeLessThan(75);
+    expect(isStrongSourceCandidate(score, 75)).toBe(false);
+  });
+
   it('reduces freshness score for stale articles', () => {
     const fresh = scoreSourceCandidate(candidate(), {}, now).breakdown.freshness;
     const stale = scoreSourceCandidate(candidate({ publishedAt: '2026-04-20T12:00:00.000Z' }), {}, now).breakdown.freshness;

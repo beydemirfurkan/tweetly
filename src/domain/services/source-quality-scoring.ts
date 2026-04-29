@@ -39,11 +39,10 @@ const STRONG_TOPICS = new Set<Topic>([
   'backend',
   'data',
   'security',
-  'open-source',
 ]);
 
-const ACCOUNT_FIT = /\b(ai|agent|llm|coding|developer|devtool|framework|library|open.?source|github|typescript|javascript|react|vue|next\.?js|node|postgres|database|security|infra|cloud|cli|terminal|prompt|workflow|automation|model)\b/i;
-const WEAK_TITLE = /\b(launches|announces|raises|funding|crypto|web3|politics|election|celebrity|sports)\b/i;
+const ACCOUNT_FIT = /\b(ai|agent|llm|coding|developer|devtool|framework|library|github|typescript|javascript|react|vue|next\.?js|node|postgres|database|security|infra|cloud|cli|terminal|prompt|workflow|automation|model)\b/i;
+const WEAK_TITLE = /\b(launches|announces|raises|funding|crypto|web3|politics|election|celebrity|sports|medical|health|hospital|doctor|stethoscope|government|governance)\b/i;
 
 export function scoreSourceCandidate(
   candidate: TrendingRepo,
