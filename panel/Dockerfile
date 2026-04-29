@@ -12,8 +12,16 @@ COPY . .
 
 RUN npm run build
 
-RUN cp -r .next/standalone/tweetly/panel/. /app/standalone-out/ && \
-    cp -r .next/static /app/standalone-out/.next/static && \
+RUN SERVERJS=$(find .next/standalone -name "server.js" -not -path "*/node_modules/*" | head -1) && \
+    SERVERDIR=$(dirname "$SERVERJS") && \
+    echo "Found server.js at $SERVERJS" && \
+    mkdir -p /app/standalone-out && \
+    cp -r "$SERVERDIR/." /app/standalone-out/ && \
+    STATICDIR=$(find .next/standalone -path "*/.next/static" -type d | head -1) && \
+    echo "Found static at $STATICDIR" && \
+    rm -rf /app/standalone-out/.next/static && \
+    mkdir -p /app/standalone-out/.next && \
+    cp -r "$STATICDIR" /app/standalone-out/.next/static && \
     cp -r public /app/standalone-out/public 2>/dev/null; true
 
 
