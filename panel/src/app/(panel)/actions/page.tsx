@@ -55,14 +55,18 @@ export default function ActionsPage() {
   const [status, setStatus] = useState<string>('');
   const [rows, setRows] = useState<ActionRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       let path = `/actions?type=${type}&limit=100`;
       if (status) path += `&status=${status}`;
       const res = await apiFetch<{ rows: ActionRow[] }>(path);
       setRows(res.rows);
+    } catch (err) {
+      setLoadError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -81,6 +85,15 @@ export default function ActionsPage() {
     await apiFetch(`/actions/${type}/${id}/cancel`, { method: 'POST' });
     load();
   };
+
+  if (loadError) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <span>API hatası: {loadError}</span>
+        <button onClick={load} className="ml-auto underline hover:no-underline">Tekrar dene</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-up">

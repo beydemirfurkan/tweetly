@@ -60,14 +60,18 @@ function TokenCell({ has }: { has: boolean }) {
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<RedactedAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [editAccount, setEditAccount] = useState<RedactedAccount | null>(null);
   const [editForm, setEditForm] = useState<AccountUpdateBody>({});
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const res = await apiFetch<AccountsResponse>('/accounts');
       setAccounts(res.accounts);
+    } catch (err) {
+      setLoadError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -98,6 +102,15 @@ export default function AccountsPage() {
     setEditAccount(null);
     loadAccounts();
   };
+
+  if (loadError) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <span>API hatası: {loadError}</span>
+        <button onClick={loadAccounts} className="ml-auto underline hover:no-underline">Tekrar dene</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-up">

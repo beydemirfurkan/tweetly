@@ -27,8 +27,12 @@ export default function SecretsPage() {
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
-    const s = await apiFetch<SecretsStatus>('/secrets');
-    setStatus(s);
+    try {
+      const s = await apiFetch<SecretsStatus>('/secrets');
+      setStatus(s);
+    } catch {
+      // Stay in loading state - silently fail (will show skeleton)
+    }
   }, []);
 
   useEffect(() => {

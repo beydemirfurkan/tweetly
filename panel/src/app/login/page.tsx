@@ -33,12 +33,11 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     const ok = await login(token.trim());
-    if (ok) {
-      router.replace(getNextPath());
-    } else {
+    if (!ok) {
       setError('Token geçersiz veya sunucuya ulaşılamıyor.');
+      setLoading(false);
     }
-    setLoading(false);
+    // Navigation is handled by the useEffect above when isAuthenticated changes
   };
 
   return (

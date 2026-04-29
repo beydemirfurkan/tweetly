@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, type AccountsResponse } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -85,14 +85,30 @@ function CounterBar({
 
 export default function EngagementPage() {
   const [account, setAccount] = useState('');
+  const [accountIds, setAccountIds] = useState<string[]>([]);
   const [config, setConfig] = useState<EngagementConfig | null>(null);
   const [counters, setCounters] = useState<EngagementCounters | null>(null);
   const [discovered, setDiscovered] = useState<DiscoveredTweet[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+
+  // Load accounts list and auto-select when only one exists
+  useEffect(() => {
+    apiFetch<AccountsResponse>('/accounts')
+      .then((res) => {
+        const ids = res.accounts.map((a) => a.id);
+        setAccountIds(ids);
+        if (ids.length === 1) {
+          setAccount(ids[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     if (!account) return;
     setLoading(true);
+    setLoadError('');
     try {
       const [c, ctr, disc] = await Promise.all([
         apiFetch<EngagementConfig>(`/engagement/config?account=${account}`),
@@ -102,6 +118,8 @@ export default function EngagementPage() {
       setConfig(c);
       setCounters(ctr);
       setDiscovered(disc);
+    } catch (err) {
+      setLoadError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -118,6 +136,15 @@ export default function EngagementPage() {
     });
     load();
   };
+
+  if (loadError) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <span>API hatası: {loadError}</span>
+        <button onClick={load} className="ml-auto underline hover:no-underline">Tekrar dene</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -136,12 +163,19 @@ export default function EngagementPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Select value={account} onValueChange={(v) => setAccount(v ?? '')}>
             <SelectTrigger className="h-9 w-44 text-xs">
-              <SelectValue placeholder="Hesap seçin..." />
+              <SelectValue placeholder={accountIds.length === 0 ? 'Yükleniyor...' : 'Hesap seçin...'} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="test-account" className="font-mono text-xs">
-                test-account
-              </SelectItem>
+              {accountIds.map((id) => (
+                <SelectItem key={id} value={id} className="font-mono text-xs">
+                  {id}
+                </SelectItem>
+              ))}
+              {accountIds.length === 0 && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Hesap bulunamadı
+                </div>
+              )}
             </SelectContent>
           </Select>
           <Button

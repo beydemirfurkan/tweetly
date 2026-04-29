@@ -23,9 +23,11 @@ export default function SettingsPage() {
   const [dirty, setDirty] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const [d, v] = await Promise.all([
         apiFetch<SettingDef[]>('/settings/defs'),
@@ -34,6 +36,8 @@ export default function SettingsPage() {
       setDefs(d);
       setValues(v);
       setDirty({});
+    } catch (err) {
+      setLoadError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -65,6 +69,15 @@ export default function SettingsPage() {
   }, {});
 
   const dirtyCount = Object.keys(dirty).length;
+
+  if (loadError) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <span>API hatası: {loadError}</span>
+        <button onClick={load} className="ml-auto underline hover:no-underline">Tekrar dene</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-up">
