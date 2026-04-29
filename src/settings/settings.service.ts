@@ -235,6 +235,10 @@ export class SettingsService {
     return raw.split(',').map(Number).filter((n) => Number.isFinite(n));
   }
 
+  getDefs(): readonly SettingDef[] {
+    return DEFS;
+  }
+
   invalidateCache(key?: string, accountId?: string): void {
     if (!key) {
       this.cache.clear();
