@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { chromium, type BrowserContext, type Page } from 'patchright';
 import { AccountsService } from '../../accounts/accounts.service';
+import { AuthRequiredError } from './auth-required-error';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -10,6 +11,7 @@ const USER_AGENT =
 
 const X_COOKIE_DOMAIN = '.x.com';
 const X_COOKIE_PATH = '/';
+const STRICT_SESSION_HEALTH_ENABLED = (process.env.STRICT_SESSION_HEALTH_ENABLED ?? 'true').toLowerCase() !== 'false';
 
 export interface LaunchResult {
   context: BrowserContext;
@@ -113,6 +115,23 @@ export class XBrowserService implements OnModuleDestroy {
       await context.close();
     } catch (err) {
       this.log.warn(`Context close warning: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async assertSessionHealthy(page: Page, accountId?: string): Promise<void> {
+    if (!STRICT_SESSION_HEALTH_ENABLED) return;
+
+    const url = page.url();
+    const title = await page.title().catch(() => 'unknown');
+    const loggedOut =
+      url.includes('/login') ||
+      url.includes('/i/flow') ||
+      url === 'https://x.com/' ||
+      title.includes('Olan biten burada');
+
+    if (loggedOut) {
+      const reason = `X logged-out görünüyor. URL=${url} title=${title}`;
+      throw new AuthRequiredError(reason);
     }
   }
 

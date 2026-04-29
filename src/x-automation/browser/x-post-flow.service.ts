@@ -4,9 +4,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Locator, Page } from 'patchright';
 import { XBrowserService } from './x-browser.service';
 import { SelectorRegistry } from './selector-registry';
+export { AuthRequiredError, isAuthRequiredError } from './auth-required-error';
 
-const AUTH_REQUIRED_PREFIX = 'AUTH_REQUIRED:';
-const MAX_TWEET_LEN = 280;
+const MAX_PRACTICAL_TWEET_LEN = 800;
 
 export interface PostResult {
   tweetId: string;
@@ -23,18 +23,6 @@ export interface PostFlowOptions {
   errorPrefix: 'post' | 'reply' | 'quote';
 }
 
-export class AuthRequiredError extends Error {
-  constructor(message: string) {
-    super(`${AUTH_REQUIRED_PREFIX} ${message}`);
-    this.name = 'AuthRequiredError';
-  }
-}
-
-export function isAuthRequiredError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return msg.startsWith(AUTH_REQUIRED_PREFIX);
-}
-
 @Injectable()
 export class XPostFlowService {
   private readonly log = new Logger(XPostFlowService.name);
@@ -48,8 +36,8 @@ export class XPostFlowService {
     if (!text || typeof text !== 'string' || !text.trim()) {
       throw new Error('postTweet: boş metin');
     }
-    if (text.length > MAX_TWEET_LEN) {
-      throw new Error(`postTweet: metin ${MAX_TWEET_LEN} karakteri aşıyor (${text.length})`);
+    if (text.length > MAX_PRACTICAL_TWEET_LEN) {
+      throw new Error(`postTweet: metin pratik uzunluk limitini aşıyor (${text.length}/${MAX_PRACTICAL_TWEET_LEN})`);
     }
   }
 
@@ -59,13 +47,11 @@ export class XPostFlowService {
     }
   }
 
-  private async ensureLoggedIn(page: Page): Promise<void> {
-    if (page.url().includes('/login') || page.url().includes('/i/flow')) {
-      throw new AuthRequiredError('Session geçersiz — auth_token ile session import gerekli.');
-    }
+  private async ensureLoggedIn(page: Page, accountId?: string): Promise<void> {
+    await this.browser.assertSessionHealthy(page, accountId);
   }
 
-  private async waitForComposer(page: Page, label: string): Promise<Locator> {
+  private async waitForComposer(page: Page, label: string, accountId?: string): Promise<Locator> {
     const composer = page.locator(this.selectors.composer).first();
     try {
       await composer.waitFor({ state: 'visible', timeout: 20000 });
@@ -79,9 +65,7 @@ export class XPostFlowService {
       } catch (err) {
         const title = await page.title().catch(() => 'unknown');
         const detail = err instanceof Error ? err.message : String(err);
-        if (page.url() === 'https://x.com/' || title.includes('Olan biten burada')) {
-          throw new AuthRequiredError(`X logged-out görünüyor. URL=${page.url()} title=${title}. ${detail}`);
-        }
+        await this.browser.assertSessionHealthy(page, accountId);
         throw new Error(`${label} bulunamadı. URL=${page.url()} title=${title}. ${detail}`);
       }
     }
@@ -179,9 +163,9 @@ export class XPostFlowService {
     try {
       await opts.navigate(page);
       await page.waitForTimeout(3000);
-      await this.ensureLoggedIn(page);
+      await this.ensureLoggedIn(page, opts.accountId);
 
-      const composer = await this.waitForComposer(page, opts.composerLabel);
+      const composer = await this.waitForComposer(page, opts.composerLabel, opts.accountId);
       await composer.click();
       await page.waitForTimeout(400 + Math.random() * 600);
       await this.typeHuman(composer, opts.text);

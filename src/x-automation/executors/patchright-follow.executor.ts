@@ -32,6 +32,7 @@ export class PatchrightFollowExecutor implements IXActionExecutor<FollowPayload>
     const { context, page } = await this.browser.launch(session.accountId);
     try {
       await page.goto(`https://x.com/${targetHandle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, session.accountId);
 
       const followSel = this.sel.followButton(targetHandle);
       const followBtn = page.locator(followSel).first();

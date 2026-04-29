@@ -32,6 +32,7 @@ export class PatchrightRetweetExecutor implements IXActionExecutor<RetweetPayloa
     const { context, page } = await this.browser.launch(session.accountId);
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, session.accountId);
       await page.waitForSelector(this.sel.tweetArticle, { timeout: 15_000 });
 
       const retweetBtn = page.locator(this.sel.retweetButton).first();

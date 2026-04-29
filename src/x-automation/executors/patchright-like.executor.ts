@@ -32,6 +32,7 @@ export class PatchrightLikeExecutor implements IXActionExecutor<LikePayload>, On
     const { context, page } = await this.browser.launch(session.accountId);
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, session.accountId);
       await page.waitForSelector(this.sel.tweetArticle, { timeout: 15_000 });
 
       const isAlreadyLiked = (await page.locator(this.sel.unlikeButton).count()) > 0;

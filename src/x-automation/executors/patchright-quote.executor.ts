@@ -38,6 +38,7 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
         accountId: session.accountId,
         navigate: async (page) => {
           await page.goto(targetTweetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+          await this.browser.assertSessionHealthy(page, session.accountId);
           await page.waitForSelector(this.sel.tweetArticle, { timeout: 15_000 });
 
           const retweetBtn = page.locator('[data-testid="retweet"], [data-testid="unretweet"]').first();

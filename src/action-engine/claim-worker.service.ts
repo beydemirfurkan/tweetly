@@ -9,6 +9,7 @@ import type { ActionType } from '../domain/types/action.types';
 import type { ActionContext, ExecutionResult } from '../domain/ports/x-action-executor.port';
 import { PostActionHook } from '../engagement/post-action-hook.service';
 import type { PostSucceededPayload } from '../engagement/post-action-hook.service';
+import { AccountsService } from '../accounts/accounts.service';
 
 interface WorkerOptions {
   pollIntervalMs?: number;
@@ -32,6 +33,7 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly circuitBreaker: CircuitBreakerService,
     private readonly retry: RetryPolicy,
     private readonly moduleRef: ModuleRef,
+    private readonly accounts: AccountsService,
   ) {
     this.options = {
       pollIntervalMs: parseInt(process.env.WORKER_POLL_MS ?? '3000', 10),
@@ -154,6 +156,7 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
         });
       }
       await this.circuitBreaker.recordSuccess(row.account_id);
+      await this.accounts.recordSessionSuccess(row.account_id);
 
       if (type === 'post' && payload.kind === 'tweet') {
         this.triggerPostActionHook({
@@ -189,6 +192,9 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
       });
     }
     await this.circuitBreaker.recordFailure(row.account_id, result.message);
+    if (result.errorClass === 'auth') {
+      await this.accounts.recordSessionFailure(row.account_id, result.message);
+    }
   }
 
   private async triggerPostActionHook(params: PostSucceededPayload): Promise<void> {

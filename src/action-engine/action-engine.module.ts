@@ -7,6 +7,7 @@ import { BookmarkActionEntity } from '../persistence/entities/bookmark-action.en
 import { RetweetActionEntity } from '../persistence/entities/retweet-action.entity';
 import { FollowActionEntity } from '../persistence/entities/follow-action.entity';
 import { QuoteActionEntity } from '../persistence/entities/quote-action.entity';
+import { AccountsModule } from '../accounts/accounts.module';
 import { ExecutorRegistry } from './executor-registry.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { ClaimWorker } from './claim-worker.service';
@@ -14,6 +15,7 @@ import { ActionEnqueueService } from './action-enqueue.service';
 
 @Module({
   imports: [
+    AccountsModule,
     TypeOrmModule.forFeature([
       PostActionEntity,
       ReplyActionEntity,
