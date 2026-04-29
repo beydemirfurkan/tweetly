@@ -22,6 +22,7 @@ import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES } from '../domain/types/action.types';
 import { EngagementConfigService } from '../engagement/engagement-config.service';
 import { EngagementCounterService } from '../engagement/engagement-counter.service';
+import { TimelineDiscoveryScheduler } from '../engagement/timeline-discovery-scheduler.service';
 import type { EngagementConfig } from '../engagement/engagement-config.service';
 
 @Controller('admin')
@@ -34,6 +35,7 @@ export class AdminApiController {
     private readonly enqueue: ActionEnqueueService,
     private readonly engagementConfig: EngagementConfigService,
     private readonly engagementCounter: EngagementCounterService,
+    private readonly discoveryScheduler: TimelineDiscoveryScheduler,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -279,6 +281,28 @@ export class AdminApiController {
         bookmarks: config.maxBookmarksPerDay,
       },
     };
+  }
+
+  @Post('engagement/discover')
+  @HttpCode(HttpStatus.OK)
+  async triggerDiscovery(@Body() body: { account: string }) {
+    if (!body.account) throw new BadRequestException('account is required');
+    const result = await this.discoveryScheduler.runForAccount(body.account);
+    return { ok: true };
+  }
+
+  @Get('engagement/discovered')
+  async getDiscoveredTweets(
+    @Query('account') accountId: string,
+    @Query('limit') limit: string,
+  ) {
+    if (!accountId) throw new BadRequestException('account query param required');
+    const n = Math.min(parseInt(limit ?? '20', 10), 100);
+    return this.dataSource.query(
+      `SELECT tweet_url, author_handle, content_text, relevance_score, engagement_type, discovered_at
+       FROM discovered_tweets WHERE account_id = $1 ORDER BY discovered_at DESC LIMIT $2`,
+      [accountId, n],
+    );
   }
 }
 
