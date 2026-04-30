@@ -1,6 +1,6 @@
 services:
   tweetbot:
-    build: .
+    build: ./backend
     image: tweetbot:latest
     container_name: tweetbot
     restart: unless-stopped
