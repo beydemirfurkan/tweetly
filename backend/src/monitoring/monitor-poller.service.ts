@@ -42,7 +42,15 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
 
       for (const monitor of monitors) {
         try {
-          await this.checkMonitor(monitor.id, monitor.accountId, monitor.targetHandle, monitor.webhookUrl, monitor.lastTweetUrl, monitor.eventTypes);
+          await this.checkMonitor(
+            monitor.id,
+            monitor.accountId,
+            monitor.targetHandle,
+            monitor.webhookUrl,
+            monitor.lastTweetUrl,
+            monitor.eventTypes,
+            monitor.webhookSecret,
+          );
         } catch (err) {
           this.log.warn(`Monitor ${monitor.id} (${monitor.targetHandle}) poll error: ${err instanceof Error ? err.message : err}`);
           await this.monitoring.updateLastCheck(monitor.id).catch(() => null);
@@ -60,6 +68,7 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
     webhookUrl: string,
     lastTweetUrl: string | null,
     eventTypes: string[],
+    webhookSecret: string | null,
   ): Promise<void> {
     const tweets = await this.xDirect.getUserTweets(targetHandle, 1, accountId);
 
@@ -98,7 +107,7 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
       detected_at: new Date().toISOString(),
     };
 
-    const result = await this.webhook.deliver(webhookUrl, payload);
+    const result = await this.webhook.deliver(webhookUrl, payload, webhookSecret);
     await this.monitoring.recordDelivery(
       monitorId,
       'tweet.new',

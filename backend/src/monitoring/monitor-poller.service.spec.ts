@@ -79,6 +79,8 @@ describe('MonitorPollerService', () => {
       expect(webhook.deliver).toHaveBeenCalledWith(
         'https://hook.test',
         expect.objectContaining({ event: 'tweet.new', target_handle: 'user' }),
+        // monitor.webhookSecret defaults to undefined in this fixture; service forwards it as-is.
+        undefined,
       );
     });
 

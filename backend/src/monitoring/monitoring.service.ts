@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
 import { MonitorEntity } from '../persistence/entities/monitor.entity';
 import { WebhookDeliveryEntity } from '../persistence/entities/webhook-delivery.entity';
 
@@ -29,6 +30,9 @@ export class MonitoringService {
       existing.webhookUrl = input.webhookUrl;
       existing.eventTypes = input.eventTypes ?? existing.eventTypes;
       existing.enabled = true;
+      if (!existing.webhookSecret) {
+        existing.webhookSecret = generateWebhookSecret();
+      }
       return this.monitors.save(existing);
     }
 
@@ -38,8 +42,16 @@ export class MonitoringService {
         targetHandle: input.targetHandle,
         webhookUrl: input.webhookUrl,
         eventTypes: input.eventTypes ?? ['tweet.new'],
+        webhookSecret: generateWebhookSecret(),
       }),
     );
+  }
+
+  async rotateSecret(id: string): Promise<MonitorEntity | null> {
+    const m = await this.monitors.findOne({ where: { id } });
+    if (!m) return null;
+    m.webhookSecret = generateWebhookSecret();
+    return this.monitors.save(m);
   }
 
   async listAll(): Promise<MonitorEntity[]> {
@@ -102,4 +114,8 @@ export class MonitoringService {
       }),
     );
   }
+}
+
+function generateWebhookSecret(): string {
+  return randomBytes(32).toString('hex');
 }

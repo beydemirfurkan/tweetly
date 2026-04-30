@@ -26,6 +26,9 @@ export class MonitorEntity {
   @Column({ name: 'last_tweet_url', type: 'text', nullable: true })
   lastTweetUrl: string | null;
 
+  @Column({ name: 'webhook_secret', type: 'text', nullable: true })
+  webhookSecret: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

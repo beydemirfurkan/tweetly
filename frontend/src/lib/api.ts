@@ -188,6 +188,7 @@ export interface Monitor {
   lastCheckAt: string | null;
   lastTweetUrl: string | null;
   createdAt: string;
+  hasWebhookSecret: boolean;
 }
 
 export interface WebhookDelivery {

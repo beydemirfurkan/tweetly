@@ -5,7 +5,7 @@ import { apiFetch, type Monitor, type MonitorsResponse, type MonitorDetailRespon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Plus, Trash2, Pause, Radio, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Pause, Radio, ChevronDown, ChevronUp, ExternalLink, Copy, Check, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function StatusBadge({ enabled }: { enabled: boolean }) {
@@ -39,10 +39,11 @@ function DeliveryBadge({ status }: { status: 'delivered' | 'failed' }) {
   );
 }
 
-function MonitorRow({ monitor, onDelete, onPause, onExpand, expanded }: {
+function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }: {
   monitor: Monitor;
   onDelete: (id: string) => void;
   onPause: (id: string) => void;
+  onRotate: (id: string, handle: string) => void;
   onExpand: (id: string) => void;
   expanded: boolean;
 }) {
@@ -95,6 +96,15 @@ function MonitorRow({ monitor, onDelete, onPause, onExpand, expanded }: {
         </td>
         <td className="py-3 pr-4">
           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+              title="Webhook secret'ı yenile"
+              onClick={() => onRotate(monitor.id, monitor.targetHandle)}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+            </Button>
             {monitor.enabled && (
               <Button
                 variant="ghost"
@@ -168,6 +178,8 @@ export default function MonitoringPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ targetHandle: '', webhookUrl: '', accountId: '' });
   const [formError, setFormError] = useState('');
+  const [createdSecret, setCreatedSecret] = useState<{ targetHandle: string; secret: string } | null>(null);
+  const [secretCopied, setSecretCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -191,10 +203,11 @@ export default function MonitoringPage() {
     setCreating(true);
     setFormError('');
     try {
-      await apiFetch('/api/v1/monitors', {
+      const handle = form.targetHandle.trim().replace(/^@/, '');
+      const result = await apiFetch<{ ok: boolean; webhookSecret: string }>('/api/v1/monitors', {
         method: 'POST',
         body: JSON.stringify({
-          targetHandle: form.targetHandle.trim().replace(/^@/, ''),
+          targetHandle: handle,
           webhookUrl: form.webhookUrl.trim(),
           accountId: form.accountId.trim() || undefined,
           eventTypes: ['tweet.new'],
@@ -202,12 +215,35 @@ export default function MonitoringPage() {
       });
       setForm({ targetHandle: '', webhookUrl: '', accountId: '' });
       setShowForm(false);
+      if (result?.webhookSecret) {
+        setCreatedSecret({ targetHandle: handle, secret: result.webhookSecret });
+      }
       load();
     } catch (err) {
       setFormError((err as Error).message);
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleRotate = async (id: string, handle: string) => {
+    if (!confirm(`"@${handle}" için yeni webhook secret üretilecek; eskisi geçersiz olacak. Devam edilsin mi?`)) return;
+    try {
+      const result = await apiFetch<{ webhookSecret: string }>(`/api/v1/monitors/${id}/rotate-secret`, {
+        method: 'POST',
+      });
+      setCreatedSecret({ targetHandle: handle, secret: result.webhookSecret });
+      load();
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  };
+
+  const copySecret = async () => {
+    if (!createdSecret) return;
+    await navigator.clipboard.writeText(createdSecret.secret);
+    setSecretCopied(true);
+    setTimeout(() => setSecretCopied(false), 1500);
   };
 
   const handleDelete = async (id: string) => {
@@ -390,6 +426,7 @@ export default function MonitoringPage() {
                       monitor={m}
                       onDelete={handleDelete}
                       onPause={handlePause}
+                      onRotate={handleRotate}
                       onExpand={(id) => setExpandedId((prev) => (prev === id ? null : id))}
                       expanded={expandedId === m.id}
                     />
@@ -400,6 +437,40 @@ export default function MonitoringPage() {
           )}
         </CardContent>
       </Card>
+
+      {createdSecret && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+              <KeyRound className="h-4 w-4 text-primary" />
+              Webhook secret — sadece bir kez gösterilir
+            </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              <span className="font-mono">@{createdSecret.targetHandle}</span> için secret. Webhook
+              alıcınızda <code className="rounded bg-muted px-1">X-Tweetly-Signature</code>{' '}
+              imzasını doğrulamak için bu değeri saklayın.
+            </p>
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs">
+              <span className="flex-1 truncate">{createdSecret.secret}</span>
+              <Button variant="ghost" size="sm" onClick={copySecret} className="h-7 w-7 shrink-0 p-0">
+                {secretCopied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
+            <pre className="mt-3 overflow-x-auto rounded border border-border bg-muted/30 p-2 text-[10px] text-muted-foreground">
+{`# Verify (Node):
+const expected = crypto.createHmac('sha256', SECRET)
+  .update(\`\${ts}.\${rawBody}\`).digest('hex');`}
+            </pre>
+            <div className="mt-4 flex justify-end">
+              <Button size="sm" onClick={() => setCreatedSecret(null)}>Anladım</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

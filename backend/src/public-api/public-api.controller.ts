@@ -608,14 +608,21 @@ export class PublicApiController {
     const userAccounts = await this.accounts.listAllForUser(ctx.userId);
     const allowedIds = new Set(userAccounts.map((a) => a.id));
     const all = await this.monitoring.listAll();
-    const filtered = all.filter((m) => allowedIds.has(m.accountId));
+    const filtered = all.filter((m) => allowedIds.has(m.accountId)).map(redactMonitor);
     return { count: filtered.length, monitors: filtered };
   }
 
   @Post('monitors')
   @HttpCode(HttpStatus.CREATED)
   @ApiTags('monitors')
-  @ApiOperation({ summary: 'Create a monitor with webhook delivery' })
+  @ApiOperation({
+    summary: 'Create a monitor with webhook delivery',
+    description:
+      'Returns a `webhookSecret` on creation **once**. Use it to verify the ' +
+      'X-Tweetly-Signature header on incoming webhook deliveries. The secret ' +
+      'is never returned again — store it server-side. Use POST /monitors/:id/rotate-secret ' +
+      'if you lose it or need to rotate.',
+  })
   async createMonitor(@Req() req: Request, @Body() body: MonitorCreateDto) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     if (!body.webhookUrl?.startsWith('http')) {
@@ -628,7 +635,11 @@ export class PublicApiController {
       webhookUrl: body.webhookUrl,
       eventTypes: body.eventTypes ?? ['tweet.new'],
     });
-    return { ok: true, monitor };
+    return {
+      ok: true,
+      monitor: redactMonitor(monitor),
+      webhookSecret: monitor.webhookSecret,
+    };
   }
 
   @Get('monitors/:id')
@@ -641,7 +652,23 @@ export class PublicApiController {
     if (!monitor) throw new NotFoundException(`Monitor ${id} not found`);
     await this.assertAccountOwnership(req, monitor.accountId);
     const deliveries = await this.monitoring.listDeliveries(id, 20);
-    return { monitor, recentDeliveries: deliveries };
+    return { monitor: redactMonitor(monitor), recentDeliveries: deliveries };
+  }
+
+  @Post('monitors/:id/rotate-secret')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('monitors')
+  @ApiOperation({
+    summary: 'Rotate the webhook signing secret',
+    description: 'Returns the new secret once; the old one immediately stops being valid.',
+  })
+  async rotateMonitorSecret(@Req() req: Request, @Param('id') id: string) {
+    const monitor = await this.monitoring.findById(id);
+    if (!monitor) throw new NotFoundException(`Monitor ${id} not found`);
+    await this.assertAccountOwnership(req, monitor.accountId);
+    const rotated = await this.monitoring.rotateSecret(id);
+    if (!rotated) throw new NotFoundException(`Monitor ${id} not found`);
+    return { ok: true, webhookSecret: rotated.webhookSecret };
   }
 
   @Delete('monitors/:id')
@@ -708,4 +735,12 @@ function redact(account: AccountEntity): RedactedAccountDto {
     createdAt: account.createdAt,
     lastUsedAt: account.lastUsedAt,
   };
+}
+
+function redactMonitor<T extends { webhookSecret?: string | null }>(monitor: T) {
+  // Strip the secret from list/get responses; it's only revealed on
+  // create + rotate-secret.
+  const { webhookSecret: _omit, ...rest } = monitor as T & { webhookSecret?: string | null };
+  void _omit;
+  return { ...rest, hasWebhookSecret: Boolean(monitor.webhookSecret) };
 }
