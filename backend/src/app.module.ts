@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { HealthModule } from './observability/health.module';
 import { PersistenceModule } from './persistence/persistence.module';
 import { DomainModule } from './domain/domain.module';
@@ -17,6 +18,9 @@ import { PublicApiModule } from './public-api/public-api.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 30 }],
+    }),
     PersistenceModule,
     DomainModule,
     AccountsModule,

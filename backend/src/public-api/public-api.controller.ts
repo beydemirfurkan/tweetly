@@ -23,6 +23,14 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ApiKeyGuard, getAuthContext } from '../auth/api-key.guard';
+import {
+  RateLimitConnect,
+  RateLimitDelete,
+  RateLimitFollow,
+  RateLimitRead,
+  RateLimitWrite,
+  TieredThrottlerGuard,
+} from '../auth/tiered-throttler.guard';
 import { AccountsService } from '../accounts/accounts.service';
 import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
@@ -55,7 +63,7 @@ const ACCOUNT_STATUSES: AccountStatus[] = ['active', 'paused', 'banned'];
 
 @ApiBearerAuth('apiKey')
 @Controller('api/v1')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, TieredThrottlerGuard)
 export class PublicApiController {
   constructor(
     private readonly accounts: AccountsService,
@@ -69,6 +77,7 @@ export class PublicApiController {
 
   @Get('accounts')
   @ApiTags('accounts')
+  @RateLimitRead()
   @ApiOperation({ summary: 'List your connected X accounts' })
   @ApiResponse({ status: 200, type: AccountsResponseDto })
   async listAccounts(@Req() req: Request): Promise<AccountsResponseDto> {
@@ -80,14 +89,17 @@ export class PublicApiController {
   @Put('accounts/:id')
   @HttpCode(HttpStatus.OK)
   @ApiTags('accounts')
+  @RateLimitConnect()
   @ApiOperation({
     summary: 'Connect or update an X account',
     description:
       'Token-paste connect: provide authToken/ct0/twid copied from a logged-in browser session. ' +
-      'Empty fields preserve existing values on update.',
+      'Empty fields preserve existing values on update. Rate-limited to 3 calls per 15 minutes ' +
+      '(stricter than the default write tier to discourage credential brute force).',
   })
   @ApiResponse({ status: 200, description: 'Account upserted' })
   @ApiResponse({ status: 400, description: 'Validation error or account belongs to another user' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async upsertAccount(
     @Req() req: Request,
     @Param('id') id: string,
@@ -231,8 +243,13 @@ export class PublicApiController {
   @Post('actions/follow')
   @HttpCode(HttpStatus.OK)
   @ApiTags('actions')
-  @ApiOperation({ summary: 'Enqueue a follow' })
+  @RateLimitFollow()
+  @ApiOperation({
+    summary: 'Enqueue a follow',
+    description: 'Rate-limited to 20 follows per minute and 400 per day per user.',
+  })
   @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async enqueueFollow(@Req() req: Request, @Body() body: FollowBody) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     const accountId = await this.resolveAccountId(req, body.account);
@@ -271,6 +288,7 @@ export class PublicApiController {
 
   @Get('actions')
   @ApiTags('actions')
+  @RateLimitRead()
   @ApiOperation({ summary: 'List your actions filtered by type/status/account' })
   @ApiQuery({ name: 'type', enum: ACTION_TYPES, required: true })
   @ApiQuery({ name: 'status', required: false })
@@ -340,6 +358,7 @@ export class PublicApiController {
 
   @Get('x/search/tweets')
   @ApiTags('x')
+  @RateLimitRead()
   @ApiOperation({ summary: 'Search tweets matching a query (live)' })
   @ApiQuery({ name: 'query', required: true })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -358,6 +377,7 @@ export class PublicApiController {
 
   @Get('x/search/users')
   @ApiTags('x')
+  @RateLimitRead()
   @ApiOperation({ summary: 'Search users by name or handle' })
   async searchUsers(
     @Req() req: Request,
@@ -373,6 +393,7 @@ export class PublicApiController {
 
   @Get('x/users/:handle')
   @ApiTags('x')
+  @RateLimitRead()
   @ApiOperation({ summary: 'Get a user profile' })
   async getUser(
     @Req() req: Request,
@@ -385,6 +406,7 @@ export class PublicApiController {
 
   @Get('x/users/:handle/tweets')
   @ApiTags('x')
+  @RateLimitRead()
   @ApiOperation({ summary: "Get a user's recent tweets" })
   async getUserTweets(
     @Req() req: Request,
@@ -399,6 +421,7 @@ export class PublicApiController {
 
   @Get('x/users/:handle/followers')
   @ApiTags('x')
+  @RateLimitRead()
   @ApiOperation({ summary: "Get a user's followers" })
   async getUserFollowers(
     @Req() req: Request,
@@ -425,6 +448,7 @@ export class PublicApiController {
 
   @Get('x/trending')
   @ApiTags('x')
+  @RateLimitRead()
   @ApiOperation({ summary: 'Get current X trending topics' })
   async getXTrending(@Req() req: Request, @Query('account') accountId: string) {
     const acct = await this.resolveAccountIdOptional(req, accountId);
@@ -512,6 +536,7 @@ export class PublicApiController {
 
   @Get('monitors')
   @ApiTags('monitors')
+  @RateLimitRead()
   @ApiOperation({ summary: 'List your monitors' })
   async listMonitors(@Req() req: Request) {
     const ctx = getAuthContext(req);
@@ -543,6 +568,7 @@ export class PublicApiController {
 
   @Get('monitors/:id')
   @ApiTags('monitors')
+  @RateLimitRead()
   @ApiOperation({ summary: 'Get monitor + recent webhook deliveries' })
   async getMonitor(@Req() req: Request, @Param('id') id: string) {
     const monitor = await this.monitoring.findById(id);
@@ -555,6 +581,7 @@ export class PublicApiController {
   @Delete('monitors/:id')
   @HttpCode(HttpStatus.OK)
   @ApiTags('monitors')
+  @RateLimitDelete()
   @ApiOperation({ summary: 'Delete a monitor' })
   async deleteMonitor(@Req() req: Request, @Param('id') id: string) {
     const monitor = await this.monitoring.findById(id);

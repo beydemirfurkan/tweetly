@@ -8,11 +8,12 @@ import { ApiKeyService } from './api-key.service';
 import { MagicLinkService } from './magic-link.service';
 import { ApiKeyGuard } from './api-key.guard';
 import { AuthController } from './auth.controller';
+import { TieredThrottlerGuard } from './tiered-throttler.guard';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity, ApiKeyEntity, MagicLinkEntity])],
   controllers: [AuthController],
-  providers: [UsersService, ApiKeyService, MagicLinkService, ApiKeyGuard],
-  exports: [UsersService, ApiKeyService, ApiKeyGuard],
+  providers: [UsersService, ApiKeyService, MagicLinkService, ApiKeyGuard, TieredThrottlerGuard],
+  exports: [UsersService, ApiKeyService, ApiKeyGuard, TieredThrottlerGuard],
 })
 export class AuthModule {}

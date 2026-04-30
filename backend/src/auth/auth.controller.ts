@@ -20,6 +20,13 @@ import type { Request } from 'express';
 import { ApiKeyGuard, getAuthContext } from './api-key.guard';
 import { ApiKeyService } from './api-key.service';
 import { MagicLinkService } from './magic-link.service';
+import {
+  RateLimitDelete,
+  RateLimitMagicLink,
+  RateLimitRead,
+  RateLimitWrite,
+  TieredThrottlerGuard,
+} from './tiered-throttler.guard';
 import { UsersService } from './users.service';
 import {
   ApiKeySummaryDto,
@@ -33,6 +40,7 @@ import {
 
 @ApiTags('auth')
 @Controller('auth')
+@UseGuards(TieredThrottlerGuard)
 export class AuthController {
   constructor(
     private readonly users: UsersService,
@@ -41,13 +49,16 @@ export class AuthController {
   ) {}
 
   @Post('request-link')
+  @RateLimitMagicLink()
   @ApiOperation({
     summary: 'Send a magic-link to the given email',
     description:
       'Creates the user if missing, then issues a 15-minute magic link. ' +
-      'In development, the link is logged to the server console.',
+      'In development, the link is logged to the server console. ' +
+      'Rate-limited to 5 per minute per IP to prevent mail bombing.',
   })
   @ApiResponse({ status: 200, description: 'Link queued for delivery' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async requestLink(@Body() body: RequestLinkDto) {
     const email = body.email?.trim();
     if (!email || !isValidEmail(email)) {
@@ -59,6 +70,7 @@ export class AuthController {
   }
 
   @Post('consume')
+  @RateLimitWrite()
   @ApiOperation({
     summary: 'Exchange a magic-link token for a session API key',
     description:
@@ -92,7 +104,8 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RateLimitRead()
   @ApiBearerAuth('apiKey')
   @ApiOperation({ summary: 'Return the user the bearer key belongs to' })
   @ApiResponse({ status: 200, type: MeDto })
@@ -105,7 +118,8 @@ export class AuthController {
   }
 
   @Get('api-keys')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RateLimitRead()
   @ApiBearerAuth('apiKey')
   @ApiOperation({ summary: 'List your API keys' })
   @ApiResponse({ status: 200, type: ApiKeySummaryDto, isArray: true })
@@ -125,7 +139,8 @@ export class AuthController {
   }
 
   @Post('api-keys')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RateLimitWrite()
   @ApiBearerAuth('apiKey')
   @ApiOperation({
     summary: 'Create a new API key',
@@ -153,7 +168,8 @@ export class AuthController {
   }
 
   @Delete('api-keys/:id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RateLimitDelete()
   @ApiBearerAuth('apiKey')
   @ApiOperation({ summary: 'Revoke an API key' })
   @ApiResponse({ status: 200, description: 'Key revoked' })
