@@ -26,10 +26,6 @@ export class EngagementConfig1714410000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`
-      INSERT INTO engagement_config (account_id) VALUES ('test-account')
-      ON CONFLICT DO NOTHING
-    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

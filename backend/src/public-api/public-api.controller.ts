@@ -517,16 +517,10 @@ export class PublicApiController {
     if (!acct) throw new NotFoundException(`Account ${accountId} not found`);
   }
 
-  private async assertActionOwnership(req: Request, _type: ActionType, _id: string): Promise<void> {
-    // Action ownership is enforced at the user-account boundary: list/cancel/replay
-    // operations must reference a row whose account_id belongs to the caller.
-    // The cancel/replay queries already accept the action UUID; here we leave
-    // a light verification placeholder. A stricter check would join action rows
-    // with the user's accounts; current admin service does the work and we
-    // rely on the UUID being unguessable. If account isolation matters more,
-    // look up the row's account_id and call assertAccountOwnership.
-    // (Kept minimal to avoid extra queries on every action call.)
-    void _type; void _id; void this;
+  private async assertActionOwnership(req: Request, type: ActionType, id: string): Promise<void> {
+    const accountId = await this.admin.findActionAccountId(type, id);
+    if (!accountId) throw new NotFoundException(`Action ${id} not found`);
+    await this.assertAccountOwnership(req, accountId);
   }
 }
 
