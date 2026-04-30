@@ -22,6 +22,7 @@ export default function ApiKeysPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyScope, setNewKeyScope] = useState<'full' | 'read' | 'write'>('full');
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -46,12 +47,15 @@ export default function ApiKeysPage() {
     if (!newKeyName.trim()) return;
     setCreating(true);
     try {
+      const scopes =
+        newKeyScope === 'full' ? ['*'] : newKeyScope === 'read' ? ['read'] : ['write'];
       const created = await apiFetch<CreatedApiKey>('/auth/api-keys', {
         method: 'POST',
-        body: JSON.stringify({ name: newKeyName.trim() }),
+        body: JSON.stringify({ name: newKeyName.trim(), scopes }),
       });
       setCreatedKey(created);
       setNewKeyName('');
+      setNewKeyScope('full');
       loadKeys();
     } catch (err) {
       setError((err as Error).message);
@@ -266,6 +270,42 @@ export default function ApiKeysPage() {
                   onChange={(e) => setNewKeyName(e.target.value)}
                   disabled={creating}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  İzinler
+                </Label>
+                <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                  {(
+                    [
+                      ['full', 'Tam erişim', 'Tüm okuma + yazma + silme aksiyonları'],
+                      ['read', 'Sadece okuma', 'Hesaplar, aksiyonlar ve X arama listelenebilir'],
+                      ['write', 'Sadece yazma', 'Tweet at / cevapla / etkileşim, okuma izni dahil değil'],
+                    ] as const
+                  ).map(([value, label, desc]) => (
+                    <label
+                      key={value}
+                      className={cn(
+                        'flex cursor-pointer items-start gap-2.5 rounded-md p-2 transition-colors hover:bg-accent/50',
+                        newKeyScope === value && 'bg-accent/40',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="scope"
+                        value={value}
+                        checked={newKeyScope === value}
+                        onChange={() => setNewKeyScope(value)}
+                        disabled={creating}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{label}</div>
+                        <div className="text-xs text-muted-foreground">{desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>

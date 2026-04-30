@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ApiKeyGuard, getAuthContext } from '../auth/api-key.guard';
+import { RequiresScope } from '../auth/requires-scope.decorator';
 import {
   RateLimitConnect,
   RateLimitDelete,
@@ -64,6 +65,7 @@ const ACCOUNT_STATUSES: AccountStatus[] = ['active', 'paused', 'banned'];
 @ApiBearerAuth('apiKey')
 @Controller('api/v1')
 @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+@RequiresScope('write')
 export class PublicApiController {
   constructor(
     private readonly accounts: AccountsService,
@@ -77,6 +79,7 @@ export class PublicApiController {
 
   @Get('accounts')
   @ApiTags('accounts')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'List your connected X accounts' })
   @ApiResponse({ status: 200, type: AccountsResponseDto })
@@ -288,6 +291,7 @@ export class PublicApiController {
 
   @Get('actions')
   @ApiTags('actions')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'List your actions filtered by type/status/account' })
   @ApiQuery({ name: 'type', enum: ACTION_TYPES, required: true })
@@ -358,6 +362,7 @@ export class PublicApiController {
 
   @Get('x/search/tweets')
   @ApiTags('x')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'Search tweets matching a query (live)' })
   @ApiQuery({ name: 'query', required: true })
@@ -377,6 +382,7 @@ export class PublicApiController {
 
   @Get('x/search/users')
   @ApiTags('x')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'Search users by name or handle' })
   async searchUsers(
@@ -393,6 +399,7 @@ export class PublicApiController {
 
   @Get('x/users/:handle')
   @ApiTags('x')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'Get a user profile' })
   async getUser(
@@ -406,6 +413,7 @@ export class PublicApiController {
 
   @Get('x/users/:handle/tweets')
   @ApiTags('x')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: "Get a user's recent tweets" })
   async getUserTweets(
@@ -421,6 +429,7 @@ export class PublicApiController {
 
   @Get('x/users/:handle/followers')
   @ApiTags('x')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: "Get a user's followers" })
   async getUserFollowers(
@@ -437,6 +446,7 @@ export class PublicApiController {
   @Post('x/tweets/get')
   @HttpCode(HttpStatus.OK)
   @ApiTags('x')
+  @RequiresScope('read')
   @ApiOperation({ summary: 'Get tweet details by URL' })
   async getTweet(@Req() req: Request, @Body() body: GetTweetBody) {
     if (!body.tweetUrl?.includes('/status/')) {
@@ -448,6 +458,7 @@ export class PublicApiController {
 
   @Get('x/trending')
   @ApiTags('x')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'Get current X trending topics' })
   async getXTrending(@Req() req: Request, @Query('account') accountId: string) {
@@ -536,6 +547,7 @@ export class PublicApiController {
 
   @Get('monitors')
   @ApiTags('monitors')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'List your monitors' })
   async listMonitors(@Req() req: Request) {
@@ -568,6 +580,7 @@ export class PublicApiController {
 
   @Get('monitors/:id')
   @ApiTags('monitors')
+  @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'Get monitor + recent webhook deliveries' })
   async getMonitor(@Req() req: Request, @Param('id') id: string) {

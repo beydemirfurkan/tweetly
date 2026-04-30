@@ -20,6 +20,7 @@ import type { Request } from 'express';
 import { ApiKeyGuard, getAuthContext } from './api-key.guard';
 import { ApiKeyService } from './api-key.service';
 import { MagicLinkService } from './magic-link.service';
+import { RequiresScope } from './requires-scope.decorator';
 import {
   RateLimitDelete,
   RateLimitMagicLink,
@@ -105,6 +106,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RequiresScope('*')
   @RateLimitRead()
   @ApiBearerAuth('apiKey')
   @ApiOperation({ summary: 'Return the user the bearer key belongs to' })
@@ -119,6 +121,7 @@ export class AuthController {
 
   @Get('api-keys')
   @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RequiresScope('*')
   @RateLimitRead()
   @ApiBearerAuth('apiKey')
   @ApiOperation({ summary: 'List your API keys' })
@@ -140,11 +143,15 @@ export class AuthController {
 
   @Post('api-keys')
   @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RequiresScope('*')
   @RateLimitWrite()
   @ApiBearerAuth('apiKey')
   @ApiOperation({
     summary: 'Create a new API key',
-    description: 'The plain key is returned once and never retrievable afterwards.',
+    description:
+      'The plain key is returned once and never retrievable afterwards. ' +
+      'Pass `scopes` to restrict the key (e.g. ["read"] for read-only). ' +
+      'Omit or pass ["*"] for full access.',
   })
   @ApiResponse({ status: 201, type: CreatedApiKeyDto })
   async createApiKey(
@@ -154,10 +161,11 @@ export class AuthController {
     const name = body.name?.trim();
     if (!name) throw new BadRequestException('name is required');
     const ctx = getAuthContext(req);
+    const scopes = sanitizeScopes(body.scopes);
     const created = await this.apiKeys.create({
       userId: ctx.userId,
       name,
-      scopes: body.scopes,
+      scopes,
     });
     return {
       id: created.id,
@@ -169,6 +177,7 @@ export class AuthController {
 
   @Delete('api-keys/:id')
   @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
+  @RequiresScope('*')
   @RateLimitDelete()
   @ApiBearerAuth('apiKey')
   @ApiOperation({ summary: 'Revoke an API key' })
@@ -184,4 +193,20 @@ export class AuthController {
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+const ALLOWED_SCOPES = new Set(['*', 'read', 'write']);
+
+function sanitizeScopes(input: string[] | undefined): string[] {
+  if (!input || input.length === 0) return ['*'];
+  const filtered = input
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => ALLOWED_SCOPES.has(s));
+  if (filtered.length === 0) {
+    throw new BadRequestException(
+      `scopes must be a non-empty subset of: ${[...ALLOWED_SCOPES].join(', ')}`,
+    );
+  }
+  // Deduplicate while preserving order.
+  return Array.from(new Set(filtered));
 }
