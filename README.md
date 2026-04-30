@@ -95,11 +95,41 @@ curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
 X hesabını manuel token-paste ile bağla:
 
 ```bash
-curl -X PUT -H "Authorization: Bearer kalici-admin-token" \
+curl -X PUT -H "Authorization: Bearer $TWEETLY_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"displayName":"Foo","authToken":"x-auth-token","ct0":"x-ct0","status":"active"}' \
-  http://localhost:3001/admin/accounts/foo
+  -d '{"displayName":"Foo","authToken":"x-auth-token","ct0":"x-ct0","twid":"x-twid","status":"active"}' \
+  http://localhost:3001/api/v1/accounts/foo
 ```
+
+### X cookie'leri nasıl alınır?
+
+Tweetly Twitter API kullanmaz; bunun yerine tarayıcıda zaten açık olan
+oturumun cookie'leriyle hareket eder. Bu yüzden ücretsiz / quotasız.
+
+1. Chrome / Firefox / Edge'de https://x.com'a normalce giriş yap.
+2. DevTools → Application (Chrome) ya da Storage (Firefox) → Cookies → `https://x.com`.
+3. Şu üçünün **Value** kolonunu kopyala:
+   - `auth_token`  → `authToken`
+   - `ct0`        → `ct0`
+   - `twid`       → `twid`
+4. Panel → Hesaplar → Yeni hesap formuna yapıştır.
+
+> Tek tek cookie kopyalamak yerine "EditThisCookie" / "Cookie-Editor"
+> gibi bir uzantıyla `x.com` cookie'lerini JSON olarak dışa aktarıp
+> oradan da değerleri alabilirsin. Tweetly cookie'leri kalıcı olarak
+> tutar; sadece X tarafında aynı oturum açık kaldığı sürece geçerlidir.
+
+### Oturum ne zaman bozulur?
+
+Cookie'ler süresi dolar veya X "yeni cihaz" tespiti yaparsa Patchright
+auth-failure döndürür. Tweetly bunu otomatik olarak kaydeder:
+
+- 1+ ardışık başarısızlık → Hesaplar listesinde **"Token süresi dolmuş?"**
+  rozeti görünür (mouse-over ile son hata sebebi).
+- 3 ardışık başarısızlık → hesap otomatik olarak `paused` durumuna alınır
+  (kuyruktaki aksiyonlar tutulur, üretim bekler).
+
+Bu noktada tarayıcıdan yeni cookie'leri alıp hesabı güncellemek yeterli.
 
 ---
 
@@ -111,6 +141,41 @@ claude mcp add tweetly --url http://localhost:3001/mcp/sse \
 ```
 
 Sonra Claude Code içinde: "Tweetly üzerinden 'merhaba' diye bir tweet at" denildiğinde `post_tweet` tool'u tetiklenir, action engine'e enqueue edilir, Patchright X üzerinde gönderir.
+
+---
+
+## Webhook HMAC doğrulama
+
+Monitor oluşturduğunda response `webhookSecret` döner — sadece bir kez.
+Webhook receiver'ın bu secret'la `X-Tweetly-Signature` başlığını doğrulamalı:
+
+```js
+// Express örneği
+app.post('/tweetly-webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const header = req.header('X-Tweetly-Signature') ?? '';
+  const [tPart, vPart] = header.split(',');
+  const ts = tPart?.split('=')[1];
+  const sig = vPart?.split('=')[1];
+  if (!ts || !sig) return res.status(400).end();
+
+  const expected = crypto
+    .createHmac('sha256', process.env.TWEETLY_WEBHOOK_SECRET)
+    .update(`${ts}.${req.body.toString('utf8')}`)
+    .digest('hex');
+
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    return res.status(401).end();
+  }
+  if (Math.abs(Date.now() / 1000 - Number(ts)) > 300) return res.status(401).end();
+
+  // Trusted body — process.
+  const payload = JSON.parse(req.body.toString('utf8'));
+  // ...
+  res.status(200).end();
+});
+```
+
+Secret'ı kaybedersen: `POST /api/v1/monitors/:id/rotate-secret` ile rotate et.
 
 ---
 

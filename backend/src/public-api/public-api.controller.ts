@@ -45,6 +45,7 @@ import {
   AccountUpsertDto,
   AccountsResponseDto,
   RedactedAccountDto,
+  SessionHealthDto,
 } from './dto/account.dto';
 import {
   ActionEnqueueResponseDto,
@@ -120,7 +121,11 @@ export class PublicApiController {
   async listAccounts(@Req() req: Request): Promise<AccountsResponseDto> {
     const ctx = getAuthContext(req);
     const accounts = await this.accounts.listAllForUser(ctx.userId);
-    return { count: accounts.length, accounts: accounts.map(redact) };
+    const health = await this.accounts.getSessionHealthForAccounts(accounts.map((a) => a.id));
+    return {
+      count: accounts.length,
+      accounts: accounts.map((a) => redact(a, health.get(a.id) ?? defaultHealth())),
+    };
   }
 
   @Delete('accounts/:id')
@@ -178,7 +183,7 @@ export class PublicApiController {
         twid: body.twid,
         status: body.status,
       });
-      return { ok: true, account: redact(account) };
+      return { ok: true, account: redact(account, defaultHealth()) };
     } catch (err) {
       throw new BadRequestException(err instanceof Error ? err.message : 'Account could not be saved');
     }
@@ -723,7 +728,7 @@ export class PublicApiController {
   }
 }
 
-function redact(account: AccountEntity): RedactedAccountDto {
+function redact(account: AccountEntity, session: SessionHealthDto): RedactedAccountDto {
   return {
     id: account.id,
     displayName: account.displayName,
@@ -734,6 +739,17 @@ function redact(account: AccountEntity): RedactedAccountDto {
     hasTwid: Boolean(account.twid),
     createdAt: account.createdAt,
     lastUsedAt: account.lastUsedAt,
+    session,
+  };
+}
+
+function defaultHealth(): SessionHealthDto {
+  return {
+    health: 'unknown',
+    lastCheckAt: null,
+    lastFailureAt: null,
+    lastFailureReason: null,
+    authFailureCount: 0,
   };
 }
 

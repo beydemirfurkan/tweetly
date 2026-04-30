@@ -20,6 +20,23 @@ export class AccountUpsertDto {
   status?: 'active' | 'paused' | 'banned';
 }
 
+export class SessionHealthDto {
+  @ApiProperty({ enum: ['unknown', 'healthy', 'unhealthy'] })
+  health!: 'unknown' | 'healthy' | 'unhealthy';
+
+  @ApiProperty({ type: String, nullable: true })
+  lastCheckAt!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  lastFailureAt!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  lastFailureReason!: string | null;
+
+  @ApiProperty({ description: 'Consecutive auth failures since last success' })
+  authFailureCount!: number;
+}
+
 export class RedactedAccountDto {
   @ApiProperty()
   id!: string;
@@ -47,6 +64,9 @@ export class RedactedAccountDto {
 
   @ApiProperty({ type: Date, nullable: true })
   lastUsedAt!: Date | null;
+
+  @ApiProperty({ type: SessionHealthDto })
+  session!: SessionHealthDto;
 }
 
 export class AccountsResponseDto {

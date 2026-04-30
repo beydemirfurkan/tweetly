@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
@@ -54,6 +54,41 @@ function TokenCell({ has }: { has: boolean }) {
     <CheckCircle2 className="h-4 w-4 text-emerald-400" />
   ) : (
     <XCircle className="h-4 w-4 text-muted-foreground/40" />
+  );
+}
+
+function SessionHealthBadge({ session }: { session: RedactedAccount['session'] }) {
+  if (session.health === 'healthy') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400"
+        title={session.lastCheckAt ? `Son kontrol: ${new Date(session.lastCheckAt).toLocaleString('tr-TR')}` : 'Sağlıklı'}
+      >
+        <ShieldCheck className="h-3 w-3" />
+        Sağlıklı
+      </span>
+    );
+  }
+  if (session.health === 'unhealthy') {
+    const reason = session.lastFailureReason ?? 'Auth başarısız';
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive"
+        title={`${reason}${session.lastFailureAt ? ` (${new Date(session.lastFailureAt).toLocaleString('tr-TR')})` : ''} — token süresi dolmuş olabilir`}
+      >
+        <ShieldAlert className="h-3 w-3" />
+        Token süresi dolmuş?
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+      title="Henüz aksiyon çalıştırılmadı"
+    >
+      <Shield className="h-3 w-3" />
+      —
+    </span>
   );
 }
 
@@ -181,7 +216,7 @@ export default function AccountsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/40">
-                    {['ID', 'Ad', 'Durum', 'Auth', 'CT0', 'Son Kullanım', ''].map(
+                    {['ID', 'Ad', 'Durum', 'Oturum', 'Auth', 'CT0', 'Son Kullanım', ''].map(
                       (h) => (
                         <th
                           key={h}
@@ -222,6 +257,9 @@ export default function AccountsPage() {
                           >
                             {statusStyle.label}
                           </span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <SessionHealthBadge session={acc.session} />
                         </td>
                         <td className="py-3 pr-4">
                           <TokenCell has={Boolean(acc.hasAuthToken)} />

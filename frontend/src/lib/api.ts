@@ -118,6 +118,14 @@ export interface CreatedApiKey {
 
 // ── Accounts (user-scoped /api/v1) ────────────────────────────────────────
 
+export interface SessionHealth {
+  health: 'unknown' | 'healthy' | 'unhealthy';
+  lastCheckAt: string | null;
+  lastFailureAt: string | null;
+  lastFailureReason: string | null;
+  authFailureCount: number;
+}
+
 export interface RedactedAccount {
   id: string;
   displayName: string | null;
@@ -128,6 +136,7 @@ export interface RedactedAccount {
   hasTwid: boolean;
   createdAt: string;
   lastUsedAt: string | null;
+  session: SessionHealth;
 }
 
 export interface AccountsResponse {

@@ -6,6 +6,14 @@ import type { AccountStatus } from '../domain/types/account.types';
 
 const AUTH_FAILURE_PAUSE_THRESHOLD = parseInt(process.env.AUTH_FAILURE_PAUSE_THRESHOLD ?? '3', 10);
 
+export interface AccountSessionHealth {
+  health: 'unknown' | 'healthy' | 'unhealthy';
+  lastCheckAt: string | null;
+  lastFailureAt: string | null;
+  lastFailureReason: string | null;
+  authFailureCount: number;
+}
+
 export interface AccountUpsertInput {
   id: string;
   userId: string;
@@ -77,6 +85,43 @@ export class AccountsService {
 
   async touchLastUsed(id: string): Promise<void> {
     await this.repo.update({ id }, { lastUsedAt: new Date() });
+  }
+
+  async getSessionHealthForAccounts(ids: string[]): Promise<Map<string, AccountSessionHealth>> {
+    const out = new Map<string, AccountSessionHealth>();
+    for (const id of ids) {
+      out.set(id, { health: 'unknown', lastCheckAt: null, lastFailureAt: null, lastFailureReason: null, authFailureCount: 0 });
+    }
+    if (ids.length === 0) return out;
+    const rows: Array<{ key: string; account_id: string; value: string }> = await this.dataSource.query(
+      `SELECT key, account_id, value FROM control_state
+        WHERE account_id = ANY($1)
+          AND key IN ('session.health', 'session.last_check_at', 'session.last_failure_at',
+                      'session.last_failure_reason', 'session.auth_failure_count')`,
+      [ids],
+    );
+    for (const row of rows) {
+      const entry = out.get(row.account_id);
+      if (!entry) continue;
+      switch (row.key) {
+        case 'session.health':
+          if (row.value === 'healthy' || row.value === 'unhealthy') entry.health = row.value;
+          break;
+        case 'session.last_check_at':
+          entry.lastCheckAt = row.value;
+          break;
+        case 'session.last_failure_at':
+          entry.lastFailureAt = row.value;
+          break;
+        case 'session.last_failure_reason':
+          entry.lastFailureReason = row.value;
+          break;
+        case 'session.auth_failure_count':
+          entry.authFailureCount = parseInt(row.value, 10) || 0;
+          break;
+      }
+    }
+    return out;
   }
 
   async deleteAccount(id: string, userId: string): Promise<boolean> {
