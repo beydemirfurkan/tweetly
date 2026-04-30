@@ -4,8 +4,8 @@ export class AccountConnectDto {
   @ApiProperty({ description: 'X handle. Leading @ is stripped automatically.', example: 'alice' })
   username!: string;
 
-  @ApiProperty({ description: 'Email tied to the X account (required by login flow).' })
-  email!: string;
+  @ApiProperty({ required: false, nullable: true, description: 'Email tied to the X account. Optional unless X asks for an unusual-login challenge.' })
+  email?: string | null;
 
   @ApiProperty({ description: 'X account password. Encrypted at rest immediately.' })
   password!: string;
@@ -27,16 +27,6 @@ export class AccountConnectDto {
       'can run without re-prompting. When false, the secret is wiped after the login job completes.',
   })
   saveTotpSecret?: boolean;
-
-  @ApiProperty({
-    required: false,
-    nullable: true,
-    description:
-      'Two-letter country code (ISO 3166-1 alpha-2) hinting which proxy region to log in from. ' +
-      'Requires LOGIN_PROXY_<CC> env to be configured server-side; otherwise ignored.',
-    example: 'TR',
-  })
-  proxyCountry?: string | null;
 }
 
 export class AccountReauthDto {
@@ -55,9 +45,6 @@ export class AccountReauthDto {
 
   @ApiProperty({ required: false, nullable: true, description: 'Update the stored email during reauth.' })
   email?: string | null;
-
-  @ApiProperty({ required: false, nullable: true, example: 'TR' })
-  proxyCountry?: string | null;
 }
 
 export class LoginJobResponseDto {
@@ -80,7 +67,17 @@ export class LoginJobResponseDto {
   @ApiProperty({
     type: String,
     nullable: true,
-    enum: ['invalid_credentials', 'captcha_required', 'email_challenge', 'login_cooldown', 'unknown'],
+    enum: [
+      'invalid_credentials',
+      'captcha_required',
+      'email_challenge',
+      'email_verification_required',
+      'suspicious_login_blocked',
+      'login_cooldown',
+      'cookies_missing',
+      'home_not_reached',
+      'unknown',
+    ],
   })
   failureReason!: string | null;
 

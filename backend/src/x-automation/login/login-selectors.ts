@@ -33,6 +33,7 @@ export const SEL = {
   // Generic "Next" button — text-based, locale-aware. Order matters (most
   // specific first) so Locator.first() picks the visible primary CTA.
   nextButtonTexts: ['İleri', 'Next', 'Devam', 'Continue'],
+  loginButtonTexts: ['Giriş yap', 'Log in', 'Login'],
 
   // Error / challenge surfaces
   errorBanner: 'div[role="alert"], [data-testid="toast"]',
@@ -43,9 +44,12 @@ export const ERROR_TEXT = {
   invalidCredentials: [
     'sayfaya erişimi durdurduk',
     'kullanıcı adınız veya şifreniz',
+    'yanlış şifre',
+    'şifre yanlış',
     'şifrenizi doğru',
     'wrong password',
     'incorrect password',
+    'password you entered was incorrect',
     'did not match our records',
     "couldn't log you in",
   ],
@@ -57,8 +61,19 @@ export const ERROR_TEXT = {
   ],
   emailChallenge: [
     'doğrulama kodu',
+    'e-posta adresini onayla',
+    'e-posta adresini doğrula',
+    'e-posta veya telefon',
     'verification code',
     'we sent you a code',
     'enter the code',
+  ],
+  suspiciousLogin: [
+    'olağandışı giriş etkinliği',
+    'şüpheli giriş',
+    'unusual login activity',
+    'suspicious login',
+    'temporarily limited',
+    'account has been locked',
   ],
 } as const;

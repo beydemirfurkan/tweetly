@@ -157,11 +157,10 @@ export interface AccountUpdateBody {
 
 export interface AccountConnectBody {
   username: string;
-  email: string;
+  email?: string | null;
   password: string;
   totpSecret?: string | null;
   saveTotpSecret?: boolean;
-  proxyCountry?: string | null;
 }
 
 export interface AccountReauthBody {
@@ -169,7 +168,6 @@ export interface AccountReauthBody {
   totpSecret?: string | null;
   saveTotpSecret?: boolean;
   email?: string | null;
-  proxyCountry?: string | null;
 }
 
 export type LoginJobStatus = 'queued' | 'running' | 'success' | 'failed';
@@ -177,7 +175,11 @@ export type LoginJobFailureReason =
   | 'invalid_credentials'
   | 'captcha_required'
   | 'email_challenge'
+  | 'email_verification_required'
+  | 'suspicious_login_blocked'
   | 'login_cooldown'
+  | 'cookies_missing'
+  | 'home_not_reached'
   | 'unknown';
 
 export interface LoginJobAccepted {
@@ -205,8 +207,16 @@ export const FAILURE_REASON_TR: Record<LoginJobFailureReason, string> = {
     'X bir captcha doğrulaması istedi. Şu anda otomatik çözemiyoruz — manuel cookie yapıştırma yöntemine geçebilirsiniz.',
   email_challenge:
     'X "olağandışı giriş" doğrulama kodu istedi. 2FA secret kayıtlı değilse onu girin; ya da manuel cookie yapıştırın.',
+  email_verification_required:
+    'X e-posta veya doğrulama kodu istedi. Bu adımı otomatik geçmiyoruz; manuel doğrulama veya cookie yapıştırma gerekir.',
+  suspicious_login_blocked:
+    'X bu girişi şüpheli gördü. Aynı IP/bölgeden manuel giriş yapıp hesabı doğrulayın, sonra tekrar deneyin.',
   login_cooldown:
     'X çok fazla giriş denemesi tespit etti. 30-60 dakika bekleyip tekrar deneyin.',
+  cookies_missing:
+    'Login tamamlanmış göründü ama gerekli X session cookie’leri alınamadı. Manuel cookie yapıştırma yöntemini deneyin.',
+  home_not_reached:
+    'Şifre gönderildi ama X ana sayfasına geçilemedi. X ek doğrulama veya geçici blok istemiş olabilir.',
   unknown:
     'Beklenmeyen bir hata oluştu. Sorun devam ederse manuel cookie yapıştırma yöntemine geçebilirsiniz.',
 };

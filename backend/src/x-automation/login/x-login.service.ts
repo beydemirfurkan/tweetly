@@ -1,15 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { chromium, type BrowserContext, type Page } from 'patchright';
+import { chromium, type BrowserContext, type Locator, type Page } from 'patchright';
 import { LoginFlowError } from './login-error';
+import { redactLoginDebugText, writeLoginDebugArtifact } from './login-debug-artifact';
 import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
-import type { XLoginCookies, XLoginInput, XLoginResult } from './login.types';
+import type { LoginJobFailureReason, XLoginCookies, XLoginInput, XLoginResult } from './login.types';
 import { resolveProxy } from './proxy-resolver';
 import { generateTotp } from './totp';
 
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
+const USER_AGENT = process.env.LOGIN_USER_AGENT?.trim() || null;
 const STEP_TIMEOUT_MS = parseInt(process.env.LOGIN_STEP_TIMEOUT_MS ?? '20000', 10);
 const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10);
 const HEADFUL = (process.env.LOGIN_DEBUG_HEADFUL ?? 'false').toLowerCase() === 'true';
@@ -40,9 +38,10 @@ export class XLoginService {
     });
 
     let context: BrowserContext | null = null;
+    let page: Page | null = null;
     try {
       context = await browser.newContext({
-        userAgent: USER_AGENT,
+        ...(USER_AGENT ? { userAgent: USER_AGENT } : {}),
         locale: 'tr-TR',
         timezoneId: 'Europe/Istanbul',
         viewport: { width: 1280, height: 800 },
@@ -50,10 +49,10 @@ export class XLoginService {
       context.setDefaultTimeout(STEP_TIMEOUT_MS);
       context.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
 
-      const page = await context.newPage();
+      page = await context.newPage();
       await this.runFlow(page, { ...input, username });
       const cookies = await this.extractCookies(context);
-      const screenName = await this.verifyHandle(context, username, cookies);
+      const screenName = await this.verifyAuthenticatedSession(context, page, username, cookies);
       const userId = parseUserIdFromTwid(cookies.twid) ?? null;
 
       const durationMs = Date.now() - t0;
@@ -62,8 +61,9 @@ export class XLoginService {
     } catch (err) {
       const durationMs = Date.now() - t0;
       if (err instanceof LoginFlowError) {
-        this.log.warn(`login failed username=${username} reason=${err.reason} detail=${err.detail} duration=${durationMs}ms`);
-        return { ok: false, reason: err.reason, detail: err.detail, durationMs };
+        const detail = await this.decorateFailureDetail(page, input, username, err, durationMs);
+        this.log.warn(`login failed username=${username} reason=${err.reason} detail=${detail} duration=${durationMs}ms`);
+        return { ok: false, reason: err.reason, detail, durationMs };
       }
       const detail = err instanceof Error ? err.message : String(err);
       this.log.error(`login error username=${username} detail=${detail} duration=${durationMs}ms`);
@@ -87,11 +87,10 @@ export class XLoginService {
       const field = page.locator(SEL.usernameInput).first();
       await field.waitFor({ state: 'visible' });
       // X's React form ignores DOM-set values (fill() bypass): we must dispatch
-      // real keyboard events. Click for focus, type per-char, then Enter.
+      // real keyboard events. Click for focus, type per-char, then submit.
       await field.click();
       await page.keyboard.type(input.username, { delay: 30 });
-      await page.keyboard.press('Enter');
-      await this.waitForAdvance(page, SEL.usernameInput, 6000);
+      await this.submitUsernameStep(page, field);
     });
 
     // X may now show:
@@ -106,7 +105,7 @@ export class XLoginService {
         const field = page.locator(SEL.challengeInput).first();
         await field.click();
         await page.keyboard.type(challengeValue, { delay: 30 });
-        await page.keyboard.press('Enter');
+        await this.clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
         await this.waitForAdvance(page, SEL.challengeInput, 6000);
       });
     }
@@ -121,8 +120,10 @@ export class XLoginService {
         if (await this.matchesErrorText(page, ERROR_TEXT.invalidCredentials)) {
           throw new LoginFlowError('invalid_credentials', 'username rejected (account flagged or unknown)');
         }
+        const visibleFailure = await this.classifyVisibleFailure(page);
+        if (visibleFailure) throw visibleFailure;
         const ctx = await this.captureDebug(page);
-        throw new LoginFlowError('unknown', `step password: password field never appeared. ${ctx}`);
+        throw new LoginFlowError('home_not_reached', `password field never appeared. ${ctx}`);
       }
       await field.click();
       await page.keyboard.type(input.password, { delay: 30 });
@@ -130,20 +131,20 @@ export class XLoginService {
       if (await submitBtn.isVisible().catch(() => false)) {
         await submitBtn.click();
       } else {
-        await page.keyboard.press('Enter');
+        await this.clickNamedButtonOrPressEnter(page, SEL.loginButtonTexts);
       }
     });
 
     if (await this.isVisibleSoon(page, SEL.totpInput, 5000)) {
       if (!input.totpSecret) {
-        throw new LoginFlowError('email_challenge', '2FA prompted but no totp_secret provided');
+        throw new LoginFlowError('email_verification_required', 'X prompted for a verification code');
       }
       await this.step('2fa', async () => {
         const code = generateTotp(input.totpSecret!);
         const field = page.locator(SEL.totpInput).first();
         await field.click();
         await page.keyboard.type(code, { delay: 30 });
-        await page.keyboard.press('Enter');
+        await this.clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
       });
     }
 
@@ -161,10 +162,13 @@ export class XLoginService {
           throw new LoginFlowError('login_cooldown', 'X reports too many attempts');
         }
         if (await this.matchesErrorText(page, ERROR_TEXT.emailChallenge)) {
-          throw new LoginFlowError('email_challenge', 'X requires email verification code');
+          throw new LoginFlowError('email_verification_required', 'X requires email verification');
+        }
+        if (await this.matchesErrorText(page, ERROR_TEXT.suspiciousLogin)) {
+          throw new LoginFlowError('suspicious_login_blocked', 'X blocked this login as suspicious');
         }
         await this.checkForCaptcha(page);
-        throw new LoginFlowError('unknown', `did not reach /home (current=${page.url()})`);
+        throw new LoginFlowError('home_not_reached', `did not reach /home (current=${page.url()})`);
       }
     });
   }
@@ -216,6 +220,61 @@ export class XLoginService {
     }
   }
 
+  private async classifyVisibleFailure(page: Page): Promise<LoginFlowError | null> {
+    const mappings: Array<{ reason: LoginJobFailureReason; needles: readonly string[]; detail: string }> = [
+      { reason: 'invalid_credentials', needles: ERROR_TEXT.invalidCredentials, detail: 'credentials rejected' },
+      { reason: 'login_cooldown', needles: ERROR_TEXT.cooldown, detail: 'X reports too many attempts' },
+      { reason: 'email_verification_required', needles: ERROR_TEXT.emailChallenge, detail: 'X requires email verification' },
+      { reason: 'suspicious_login_blocked', needles: ERROR_TEXT.suspiciousLogin, detail: 'X blocked this login as suspicious' },
+    ];
+
+    for (const mapping of mappings) {
+      if (await this.matchesErrorText(page, mapping.needles)) {
+        return new LoginFlowError(mapping.reason, mapping.detail);
+      }
+    }
+
+    return null;
+  }
+
+  private async submitUsernameStep(page: Page, field: Locator): Promise<void> {
+    await this.clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
+    if (await this.didLeaveUsernameStep(page, 4000)) return;
+
+    await field.press('Enter');
+    if (await this.didLeaveUsernameStep(page, 4000)) return;
+
+    await this.clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
+  }
+
+  private async didLeaveUsernameStep(page: Page, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await page.locator(SEL.passwordInput).first().isVisible().catch(() => false)) return true;
+      if (await page.locator(SEL.challengeInput).first().isVisible().catch(() => false)) return true;
+      if (await page.locator(SEL.arkoseFrame).first().isVisible().catch(() => false)) return true;
+      await page.waitForTimeout(250);
+    }
+    return false;
+  }
+
+  private async clickNamedButtonOrPressEnter(page: Page, names: readonly string[]): Promise<void> {
+    const pattern = new RegExp(`^(${names.map(escapeRegExp).join('|')})$`, 'i');
+    const roleButton = page.getByRole('button', { name: pattern }).first();
+    if (await roleButton.isVisible().catch(() => false)) {
+      await roleButton.click();
+      return;
+    }
+
+    const textButton = page.locator('button, [role="button"]').filter({ hasText: pattern }).first();
+    if (await textButton.isVisible().catch(() => false)) {
+      await textButton.click();
+      return;
+    }
+
+    await page.keyboard.press('Enter');
+  }
+
   private async captureDebug(page: Page): Promise<string> {
     try {
       const url = page.url();
@@ -230,7 +289,10 @@ export class XLoginService {
           }),
         )
         .catch(() => ['(eval failed)']);
-      const visibleText = (await page.locator('body').innerText().catch(() => '')).slice(0, 200).replace(/\s+/g, ' ');
+      const visibleText = redactLoginDebugText(
+        (await page.locator('body').innerText().catch(() => '')).slice(0, 200).replace(/\s+/g, ' '),
+        [],
+      );
       return `url=${url} title=${title} inputs(${inputCount})=[${inputs.join(' ; ')}] body~${visibleText}`;
     } catch {
       return 'captureDebug failed';
@@ -242,6 +304,35 @@ export class XLoginService {
     return needles.some((n) => haystack.includes(n.toLowerCase()));
   }
 
+  private async decorateFailureDetail(
+    page: Page | null,
+    input: XLoginInput,
+    username: string,
+    err: LoginFlowError,
+    durationMs: number,
+  ): Promise<string> {
+    const safeDetail = redactLoginDebugText(err.detail, [username, input.email, input.password, input.totpSecret]);
+    if (!page) return safeDetail;
+
+    try {
+      const artifact = await writeLoginDebugArtifact({
+        page,
+        username,
+        email: input.email,
+        password: input.password,
+        totpSecret: input.totpSecret,
+        reason: err.reason,
+        detail: safeDetail,
+        durationMs,
+      });
+      return artifact ? `${safeDetail} debug_artifact=${artifact.path}` : safeDetail;
+    } catch (artifactErr) {
+      const artifactDetail = artifactErr instanceof Error ? artifactErr.message : String(artifactErr);
+      this.log.warn(`login debug artifact failed username=${username} detail=${truncate(artifactDetail, 160)}`);
+      return safeDetail;
+    }
+  }
+
   private async extractCookies(context: BrowserContext): Promise<XLoginCookies> {
     const all = await context.cookies(['https://x.com', 'https://twitter.com']);
     const byName = new Map(all.map((c) => [c.name, c.value]));
@@ -250,36 +341,61 @@ export class XLoginService {
     const twid = byName.get('twid') ?? null;
     if (!authToken || !ct0) {
       throw new LoginFlowError(
-        'unknown',
+        'cookies_missing',
         `login completed but cookies missing (auth_token=${!!authToken}, ct0=${!!ct0})`,
       );
     }
     return { authToken, ct0, twid };
   }
 
-  private async verifyHandle(
+  private async verifyAuthenticatedSession(
     context: BrowserContext,
+    page: Page,
     typedUsername: string,
     cookies: XLoginCookies,
   ): Promise<string> {
+    if (await this.isLoggedInAs(page, typedUsername)) return typedUsername;
+
     // Fetch from inside the browser context so cookies + UA match the session.
-    try {
-      const res = await context.request.get('https://api.x.com/1.1/account/settings.json', {
-        headers: {
-          'x-csrf-token': cookies.ct0,
-          'authorization':
-            'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-        },
-        timeout: 10_000,
-      });
-      if (res.ok()) {
-        const body = (await res.json()) as { screen_name?: string };
-        if (body.screen_name) return body.screen_name;
+    const urls = [
+      'https://api.x.com/1.1/account/settings.json',
+      'https://x.com/i/api/1.1/account/settings.json',
+    ];
+    let lastStatus: number | null = null;
+
+    for (const url of urls) {
+      try {
+        const res = await context.request.get(url, {
+          headers: {
+            'x-csrf-token': cookies.ct0,
+            'authorization':
+              'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+          },
+          timeout: 10_000,
+        });
+        lastStatus = res.status();
+        if (res.ok()) {
+          const body = (await res.json()) as { screen_name?: string };
+          if (body.screen_name) return body.screen_name;
+          throw new LoginFlowError('cookies_missing', 'authenticated settings response missing screen_name');
+        }
+
+        if (res.status() === 401 || res.status() === 403) {
+          throw new LoginFlowError('cookies_missing', `authenticated settings rejected session (status=${res.status()})`);
+        }
+      } catch (err) {
+        if (err instanceof LoginFlowError) throw err;
+        const detail = err instanceof Error ? err.message : String(err);
+        throw new LoginFlowError('home_not_reached', `authenticated settings check errored: ${truncate(detail, 160)}`);
       }
-    } catch {
-      // fall through
     }
-    return typedUsername;
+
+    throw new LoginFlowError('home_not_reached', `authenticated settings check failed (last_status=${lastStatus ?? '?'})`);
+  }
+
+  private async isLoggedInAs(page: Page, username: string): Promise<boolean> {
+    const bodyText = (await page.locator('body').innerText().catch(() => '')).toLowerCase();
+    return bodyText.includes(`@${username.toLowerCase()}`);
   }
 }
 
@@ -297,4 +413,8 @@ function parseUserIdFromTwid(twid: string | null): string | null {
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

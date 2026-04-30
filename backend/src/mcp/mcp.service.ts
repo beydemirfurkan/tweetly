@@ -17,7 +17,6 @@ import { LoginJobsRepository } from '../x-automation/login/login-jobs.repository
 import {
   LoginValidationError,
   assertBase32Secret,
-  normalizeProxyCountry,
   normalizeUsername,
   requireString,
 } from '../x-automation/login/login-validation';
@@ -337,7 +336,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'connect_x_account',
     description:
-      'Queue a server-side login job that connects a new X account using username/email/password ' +
+      'Queue a server-side login job that connects a new X account using username/password ' +
       '(plus optional TOTP base32 secret). Returns a job_id; call get_x_login_job to poll status. ' +
       'Typical login takes 20-40 seconds. Credentials are encrypted at rest; the password is wiped ' +
       'after the login completes. Set save_totp_secret=true to persist the TOTP secret for future reauth.',
@@ -345,13 +344,12 @@ const TOOL_DEFINITIONS = [
       type: 'object',
       properties: {
         username: { type: 'string', description: 'X handle (without @)' },
-        email: { type: 'string' },
+        email: { type: 'string', description: 'Optional unless X asks for an unusual-login challenge' },
         password: { type: 'string' },
         totp_secret: { type: 'string', description: 'Base32 TOTP secret (NOT the 6-digit code)' },
         save_totp_secret: { type: 'boolean', default: false },
-        proxy_country: { type: 'string', description: '2-letter country code; needs LOGIN_PROXY_<CC> env' },
       },
-      required: ['username', 'email', 'password'],
+      required: ['username', 'password'],
     },
   },
   {
@@ -368,7 +366,6 @@ const TOOL_DEFINITIONS = [
         totp_secret: { type: 'string', description: 'Optional; reuses stored secret if account opted in' },
         save_totp_secret: { type: 'boolean', default: false },
         email: { type: 'string', description: 'Optional; updates stored email' },
-        proxy_country: { type: 'string' },
       },
       required: ['account_id', 'password'],
     },
@@ -779,13 +776,12 @@ export class McpService {
       }
 
       case 'connect_x_account': {
-        let username: string, email: string, password: string;
-        let totpRaw: string | null, proxyCountry: string | null;
+        let username: string, email: string | null, password: string;
+        let totpRaw: string | null;
         try {
           username = normalizeUsername(args.username);
-          email = requireString(args.email, 'email').trim();
+          email = typeof args.email === 'string' && args.email.trim() ? args.email.trim() : null;
           password = requireString(args.password, 'password');
-          proxyCountry = normalizeProxyCountry(args.proxy_country);
           const t = args.totp_secret;
           totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
           if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
@@ -793,6 +789,7 @@ export class McpService {
           if (e instanceof LoginValidationError) throw new Error(e.message);
           throw e;
         }
+        await this.assertLoginCooldownIsClear(userId, username);
         const { id } = await this.loginJobs.create({
           userId,
           kind: 'connect',
@@ -802,7 +799,7 @@ export class McpService {
           encryptedPassword: this.cipher.encrypt(password),
           encryptedTotpSecret: totpRaw ? this.cipher.encrypt(totpRaw) : null,
           saveTotpSecret: Boolean(args.save_totp_secret),
-          proxyCountry,
+          proxyCountry: null,
         });
         return {
           job_id: id,
@@ -818,10 +815,9 @@ export class McpService {
         const account = await this.accounts.findByIdForUser(accountId, userId);
         if (!account) throw new NotFoundException(`Account ${accountId} not found`);
 
-        let password: string, totpRaw: string | null, proxyCountry: string | null;
+        let password: string, totpRaw: string | null;
         try {
           password = requireString(args.password, 'password');
-          proxyCountry = normalizeProxyCountry(args.proxy_country) ?? account.proxyCountry;
           const t = args.totp_secret;
           totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
           if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
@@ -836,6 +832,8 @@ export class McpService {
         const emailArg = args.email;
         const email = typeof emailArg === 'string' && emailArg.trim() ? emailArg.trim() : null;
 
+        await this.assertLoginCooldownIsClear(userId, account.id);
+
         const { id } = await this.loginJobs.create({
           userId,
           kind: 'reauth',
@@ -845,7 +843,7 @@ export class McpService {
           encryptedPassword: this.cipher.encrypt(password),
           encryptedTotpSecret: encryptedTotp,
           saveTotpSecret: Boolean(args.save_totp_secret) || (totpRaw === null && Boolean(account.totpSecretEncrypted)),
-          proxyCountry,
+          proxyCountry: null,
         });
         return {
           job_id: id,
@@ -984,6 +982,16 @@ export class McpService {
     const accountId = await this.adminApi.findActionAccountId(type, id);
     if (!accountId) throw new NotFoundException(`Action ${id} not found`);
     await this.assertAccountOwnership(userId, accountId);
+  }
+
+  private async assertLoginCooldownIsClear(userId: string, username: string): Promise<void> {
+    const cooldown = await this.loginJobs.findActiveCooldown(userId, username);
+    if (!cooldown) return;
+
+    const prefix = cooldown.manualReviewRequired
+      ? 'Login blocked after repeated failures; manual review recommended.'
+      : 'Login blocked after a recent failure.';
+    throw new Error(`${prefix} retry_after_sec=${cooldown.retryAfterSec} retry_at=${cooldown.retryAt}`);
   }
 }
 

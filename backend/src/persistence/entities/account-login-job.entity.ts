@@ -6,7 +6,11 @@ export type LoginJobFailureReason =
   | 'invalid_credentials'
   | 'captcha_required'
   | 'email_challenge'
+  | 'email_verification_required'
+  | 'suspicious_login_blocked'
   | 'login_cooldown'
+  | 'cookies_missing'
+  | 'home_not_reached'
   | 'unknown';
 
 @Entity('account_login_jobs')

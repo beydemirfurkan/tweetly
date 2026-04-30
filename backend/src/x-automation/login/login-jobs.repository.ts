@@ -45,6 +45,20 @@ export interface JobStatusView {
   finishedAt: string | null;
 }
 
+export interface LoginCooldownView {
+  username: string;
+  failureCount: number;
+  retryAfterSec: number;
+  retryAt: string;
+  manualReviewRequired: boolean;
+}
+
+const LOGIN_COOLDOWN_MS_BY_FAILURE_COUNT = [
+  5 * 60 * 1000,
+  30 * 60 * 1000,
+  24 * 60 * 60 * 1000,
+] as const;
+
 @Injectable()
 export class LoginJobsRepository {
   constructor(private readonly dataSource: DataSource) {}
@@ -69,6 +83,39 @@ export class LoginJobsRepository {
       ],
     )) as Array<{ id: string }>;
     return { id: rows[0].id };
+  }
+
+  async findActiveCooldown(userId: string, username: string): Promise<LoginCooldownView | null> {
+    const rows = (await this.dataSource.query(
+      `SELECT status, finished_at
+         FROM account_login_jobs
+        WHERE user_id = $1
+          AND LOWER(username) = LOWER($2)
+          AND status IN ('success','failed')
+          AND finished_at IS NOT NULL
+        ORDER BY finished_at DESC
+        LIMIT 3`,
+      [userId, username],
+    )) as Array<{ status: LoginJobStatus; finished_at: Date }>;
+
+    if (rows[0]?.status !== 'failed') return null;
+
+    const failureCount = countConsecutiveFailures(rows);
+    if (failureCount === 0) return null;
+
+    const cooldownMs = LOGIN_COOLDOWN_MS_BY_FAILURE_COUNT[Math.min(failureCount, 3) - 1];
+    const lastFailureAt = new Date(rows[0].finished_at);
+    const retryAt = new Date(lastFailureAt.getTime() + cooldownMs);
+    const retryAfterSec = Math.ceil((retryAt.getTime() - Date.now()) / 1000);
+    if (retryAfterSec <= 0) return null;
+
+    return {
+      username,
+      failureCount,
+      retryAfterSec,
+      retryAt: retryAt.toISOString(),
+      manualReviewRequired: failureCount >= 3,
+    };
   }
 
   /**
@@ -196,6 +243,15 @@ export class LoginJobsRepository {
       finishedAt: r.finished_at?.toISOString() ?? null,
     };
   }
+}
+
+function countConsecutiveFailures(rows: Array<{ status: LoginJobStatus }>): number {
+  let count = 0;
+  for (const row of rows) {
+    if (row.status === 'success') return count;
+    if (row.status === 'failed') count += 1;
+  }
+  return count;
 }
 
 export type { AccountLoginJobEntity };

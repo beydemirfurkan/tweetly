@@ -19,24 +19,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Loader2, KeyRound, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 2000;
-const PROXY_OPTIONS = [
-  { value: '', label: 'Otomatik (sunucu IP)' },
-  { value: 'TR', label: 'Türkiye' },
-  { value: 'US', label: 'ABD' },
-  { value: 'DE', label: 'Almanya' },
-  { value: 'GB', label: 'Birleşik Krallık' },
-];
 
 type Mode = 'connect' | 'reauth';
 
@@ -56,7 +42,6 @@ interface FormState {
   password: string;
   totpSecret: string;
   saveTotpSecret: boolean;
-  proxyCountry: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -65,13 +50,12 @@ const EMPTY_FORM: FormState = {
   password: '',
   totpSecret: '',
   saveTotpSecret: false,
-  proxyCountry: '',
 };
 
 type Phase =
   | { kind: 'idle' }
   | { kind: 'submitting' }
-  | { kind: 'polling'; jobId: string; status: LoginJobResponse['status']; startedAt: number }
+  | { kind: 'polling'; jobId: string; status: LoginJobResponse['status'] }
   | { kind: 'success'; targetAccountId: string }
   | { kind: 'failed'; reason: NonNullable<LoginJobResponse['failureReason']>; detail: string | null };
 
@@ -85,9 +69,12 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
   useEffect(() => {
     if (open) {
       cancelledRef.current = false;
-      setForm(EMPTY_FORM);
-      setPhase({ kind: 'idle' });
-      setSubmitError('');
+      queueMicrotask(() => {
+        if (cancelledRef.current) return;
+        setForm(EMPTY_FORM);
+        setPhase({ kind: 'idle' });
+        setSubmitError('');
+      });
     } else {
       // Stop the poll loop on close.
       cancelledRef.current = true;
@@ -98,7 +85,6 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
     setSubmitError('');
     if (mode === 'connect') {
       if (!form.username.trim()) return setSubmitError('Kullanıcı adı zorunlu.');
-      if (!form.email.trim()) return setSubmitError('E-posta zorunlu.');
     }
     if (!form.password) return setSubmitError('Şifre zorunlu.');
 
@@ -107,9 +93,8 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
     try {
       const accepted = await sendRequest({ form, mode, targetAccountId });
       if (cancelledRef.current) return;
-      const startedAt = Date.now();
-      setPhase({ kind: 'polling', jobId: accepted.jobId, status: 'queued', startedAt });
-      pollLoop(accepted.jobId, startedAt);
+      setPhase({ kind: 'polling', jobId: accepted.jobId, status: 'queued' });
+      pollLoop(accepted.jobId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Bilinmeyen hata';
       setPhase({ kind: 'idle' });
@@ -117,7 +102,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
     }
   };
 
-  const pollLoop = (jobId: string, startedAt: number) => {
+  const pollLoop = (jobId: string) => {
     const tick = async () => {
       if (cancelledRef.current) return;
       try {
@@ -143,7 +128,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
           return;
         }
         // queued | running — keep polling
-        setPhase({ kind: 'polling', jobId, status: job.status, startedAt });
+        setPhase({ kind: 'polling', jobId, status: job.status });
         setTimeout(tick, POLL_INTERVAL_MS);
       } catch (err) {
         if (cancelledRef.current) return;
@@ -176,7 +161,6 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
           />
         ) : phase.kind === 'polling' || phase.kind === 'submitting' ? (
           <PollingPanel
-            elapsedMs={phase.kind === 'polling' ? Date.now() - phase.startedAt : 0}
             status={phase.kind === 'polling' ? phase.status : 'queued'}
           />
         ) : (
@@ -203,18 +187,16 @@ async function sendRequest(args: {
     args.mode === 'connect'
       ? ({
           username: args.form.username.trim(),
-          email: args.form.email.trim(),
+          email: args.form.email.trim() || null,
           password: args.form.password,
           totpSecret: args.form.totpSecret.trim() || null,
           saveTotpSecret: args.form.saveTotpSecret,
-          proxyCountry: args.form.proxyCountry || null,
         } satisfies AccountConnectBody)
       : ({
           password: args.form.password,
           totpSecret: args.form.totpSecret.trim() || null,
           saveTotpSecret: args.form.saveTotpSecret,
           email: args.form.email.trim() || null,
-          proxyCountry: args.form.proxyCountry || null,
         } satisfies AccountReauthBody);
 
   const path =
@@ -265,11 +247,11 @@ function FormPanel(props: {
 
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          E-posta {mode === 'reauth' && <span className="text-muted-foreground/60">(opsiyonel)</span>}
+          E-posta <span className="text-muted-foreground/60">(opsiyonel)</span>
         </Label>
         <Input
           type="email"
-          placeholder="alice@example.com"
+          placeholder="X ekstra doğrulama isterse gerekli olabilir"
           value={form.email}
           onChange={(e) => update('email', e.target.value)}
           autoComplete="email"
@@ -303,7 +285,7 @@ function FormPanel(props: {
           className="font-mono"
         />
         <p className="text-[11px] text-muted-foreground/80">
-          X → Ayarlar → Güvenlik → 2FA → Authenticator app → "QR'ı tarayamıyorum" altındaki
+          X → Ayarlar → Güvenlik → 2FA → Authenticator app → &quot;QR&apos;ı tarayamıyorum&quot; altındaki
           base32 metni. <strong>6 haneli kod değil.</strong>
         </p>
       </div>
@@ -322,32 +304,6 @@ function FormPanel(props: {
           />
         </div>
       )}
-
-      <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Proxy bölgesi
-        </Label>
-        <Select
-          value={form.proxyCountry || '__none'}
-          onValueChange={(v: string | null) =>
-            setForm((f) => ({ ...f, proxyCountry: v === '__none' || !v ? '' : v }))
-          }
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PROXY_OPTIONS.map((o) => (
-              <SelectItem key={o.value || '__none'} value={o.value || '__none'}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-[11px] text-muted-foreground/80">
-          X farklı bölgeden girişi şüpheli görebilir; hesabın olağan bölgesini seçin.
-        </p>
-      </div>
 
       {error && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -368,8 +324,7 @@ function FormPanel(props: {
   );
 }
 
-function PollingPanel({ elapsedMs, status }: { elapsedMs: number; status: LoginJobResponse['status'] }) {
-  const seconds = Math.floor(elapsedMs / 1000);
+function PollingPanel({ status }: { status: LoginJobResponse['status'] }) {
   return (
     <div className="space-y-3 pt-2 text-center">
       <div className="flex justify-center">
@@ -380,7 +335,7 @@ function PollingPanel({ elapsedMs, status }: { elapsedMs: number; status: LoginJ
           {status === 'queued' ? 'Sıraya alındı...' : 'X\'e giriş yapılıyor...'}
         </p>
         <p className="text-xs text-muted-foreground">
-          Bu işlem 20-40 saniye sürer. {seconds > 0 && `(${seconds}sn geçti)`}
+          Bu işlem 20-40 saniye sürer.
         </p>
       </div>
     </div>

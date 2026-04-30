@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -42,7 +43,6 @@ import { LoginJobsRepository } from '../x-automation/login/login-jobs.repository
 import {
   LoginValidationError,
   assertBase32Secret,
-  normalizeProxyCountry,
   normalizeUsername,
   requireString,
 } from '../x-automation/login/login-validation';
@@ -165,20 +165,20 @@ export class PublicApiController {
     @Body() body: AccountConnectDto,
   ): Promise<LoginJobAcceptedDto> {
     const ctx = getAuthContext(req);
-    let username: string, email: string, password: string;
+    let username: string, email: string | null, password: string;
     let totpSecretRaw: string | null;
-    let proxyCountry: string | null;
     try {
       username = normalizeUsername(body.username);
-      email = requireString(body.email, 'email').trim();
+      email = optionalTrimmedString(body.email);
       password = requireString(body.password, 'password');
-      proxyCountry = normalizeProxyCountry(body.proxyCountry);
       totpSecretRaw = body.totpSecret?.trim() || null;
       if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
     } catch (e) {
       if (e instanceof LoginValidationError) throw new BadRequestException(e.message);
       throw e;
     }
+
+    await this.assertLoginCooldownIsClear(ctx.userId, username);
 
     const { id } = await this.loginJobs.create({
       userId: ctx.userId,
@@ -189,7 +189,7 @@ export class PublicApiController {
       encryptedPassword: this.cipher.encrypt(password),
       encryptedTotpSecret: totpSecretRaw ? this.cipher.encrypt(totpSecretRaw) : null,
       saveTotpSecret: Boolean(body.saveTotpSecret),
-      proxyCountry,
+      proxyCountry: null,
     });
     return { jobId: id, kind: 'connect', pollUrl: `/api/v1/accounts/login-jobs/${id}` };
   }
@@ -249,10 +249,9 @@ export class PublicApiController {
     const account = await this.accounts.findByIdForUser(accountId, ctx.userId);
     if (!account) throw new NotFoundException(`Account ${id} not found`);
 
-    let password: string, totpSecretRaw: string | null, proxyCountry: string | null;
+    let password: string, totpSecretRaw: string | null;
     try {
       password = requireString(body.password, 'password');
-      proxyCountry = normalizeProxyCountry(body.proxyCountry) ?? account.proxyCountry;
       totpSecretRaw = body.totpSecret?.trim() || null;
       if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
     } catch (e) {
@@ -264,6 +263,8 @@ export class PublicApiController {
       ? this.cipher.encrypt(totpSecretRaw)
       : account.totpSecretEncrypted;
 
+    await this.assertLoginCooldownIsClear(ctx.userId, account.id);
+
     const { id: jobId } = await this.loginJobs.create({
       userId: ctx.userId,
       kind: 'reauth',
@@ -273,9 +274,24 @@ export class PublicApiController {
       encryptedPassword: this.cipher.encrypt(password),
       encryptedTotpSecret: encryptedTotp,
       saveTotpSecret: Boolean(body.saveTotpSecret) || (totpSecretRaw === null && Boolean(account.totpSecretEncrypted)),
-      proxyCountry,
+      proxyCountry: null,
     });
     return { jobId, kind: 'reauth', pollUrl: `/api/v1/accounts/login-jobs/${jobId}` };
+  }
+
+  private async assertLoginCooldownIsClear(userId: string, username: string): Promise<void> {
+    const cooldown = await this.loginJobs.findActiveCooldown(userId, username);
+    if (!cooldown) return;
+
+    throw new HttpException({
+      message: cooldown.manualReviewRequired
+        ? 'Login temporarily blocked after repeated failures; manual review recommended.'
+        : 'Login temporarily blocked after a recent failure.',
+      retryAfterSec: cooldown.retryAfterSec,
+      retryAt: cooldown.retryAt,
+      failureCount: cooldown.failureCount,
+      manualReviewRequired: cooldown.manualReviewRequired,
+    }, HttpStatus.TOO_MANY_REQUESTS);
   }
 
   @Delete('accounts/:id')
@@ -901,6 +917,10 @@ function defaultHealth(): SessionHealthDto {
     lastFailureReason: null,
     authFailureCount: 0,
   };
+}
+
+function optionalTrimmedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function redactMonitor<T extends { webhookSecret?: string | null }>(monitor: T) {

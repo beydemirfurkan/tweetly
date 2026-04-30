@@ -13,6 +13,7 @@ services:
 
       # Database
       DATABASE_URL: ${DATABASE_URL:-postgres://tweetly:tweetly@postgres:5432/tweetly}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
 
       # Bootstrap-only — set on first deploy, then write secrets.admin_token
       # via PUT /admin/secrets and remove these env vars.
@@ -26,6 +27,14 @@ services:
       # Multi-instance coordination (rate-limit + MCP session registry).
       # Leave empty for single-instance deploys.
       REDIS_URL: ${REDIS_URL:-}
+
+      # Server-side X login diagnostics and optional regional egress.
+      LOGIN_WORKER_DISABLED: ${LOGIN_WORKER_DISABLED:-false}
+      LOGIN_STEP_TIMEOUT_MS: ${LOGIN_STEP_TIMEOUT_MS:-20000}
+      LOGIN_NAV_TIMEOUT_MS: ${LOGIN_NAV_TIMEOUT_MS:-45000}
+      LOGIN_DEBUG_HEADFUL: ${LOGIN_DEBUG_HEADFUL:-false}
+      LOGIN_DEBUG_SLOWMO_MS: ${LOGIN_DEBUG_SLOWMO_MS:-0}
+      LOGIN_USER_AGENT: ${LOGIN_USER_AGENT:-}
     ports:
       - "${BACKEND_PORT:-3001}:3000"
     volumes:
