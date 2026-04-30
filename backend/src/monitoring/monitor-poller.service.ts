@@ -1,9 +1,15 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { MonitoringService } from './monitoring.service';
 import { WebhookDeliveryService } from './webhook-delivery.service';
 import { XDirectService } from '../x-automation/x-direct.service';
 
 const POLL_INTERVAL_MS = parseInt(process.env.MONITOR_POLL_INTERVAL_MS ?? '600000', 10); // 10 min default
+
+// Stable 64-bit lock id (Postgres pg_try_advisory_lock takes a bigint).
+// Any instance arrives at the same constant; collisions with unrelated
+// callers in the same database are negligible.
+const POLLER_LOCK_KEY = '8275634918273401';
 
 @Injectable()
 export class MonitorPollerService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -15,6 +21,7 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
     private readonly monitoring: MonitoringService,
     private readonly webhook: WebhookDeliveryService,
     private readonly xDirect: XDirectService,
+    private readonly dataSource: DataSource,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -35,10 +42,16 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
   async poll(): Promise<void> {
     if (this.running) return;
     this.running = true;
+    let lockHeld = false;
     try {
+      lockHeld = await this.tryAcquireLeaderLock();
+      if (!lockHeld) {
+        this.log.debug('Monitor poll skipped — another instance holds the leader lock');
+        return;
+      }
       const monitors = await this.monitoring.findEnabled();
       if (monitors.length === 0) return;
-      this.log.log(`Polling ${monitors.length} monitor(s)`);
+      this.log.log(`Polling ${monitors.length} monitor(s) (leader)`);
 
       for (const monitor of monitors) {
         try {
@@ -57,8 +70,32 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
         }
       }
     } finally {
+      if (lockHeld) {
+        await this.releaseLeaderLock().catch((err) =>
+          this.log.warn(`Lock release failed: ${err instanceof Error ? err.message : err}`),
+        );
+      }
       this.running = false;
     }
+  }
+
+  private async tryAcquireLeaderLock(): Promise<boolean> {
+    try {
+      const rows: Array<{ acquired: boolean }> = await this.dataSource.query(
+        `SELECT pg_try_advisory_lock($1::bigint) AS acquired`,
+        [POLLER_LOCK_KEY],
+      );
+      return rows[0]?.acquired === true;
+    } catch (err) {
+      // If the underlying DB is non-Postgres (test-time mocks), treat as
+      // single-instance OK so behaviour matches pre-lock world.
+      this.log.warn(`Advisory lock query failed: ${err instanceof Error ? err.message : err}`);
+      return true;
+    }
+  }
+
+  private async releaseLeaderLock(): Promise<void> {
+    await this.dataSource.query(`SELECT pg_advisory_unlock($1::bigint)`, [POLLER_LOCK_KEY]);
   }
 
   private async checkMonitor(

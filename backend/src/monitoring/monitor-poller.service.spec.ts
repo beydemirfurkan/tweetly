@@ -13,8 +13,21 @@ function createService() {
   const xDirect = {
     getUserTweets: jest.fn().mockResolvedValue([]),
   };
-  const service = new MonitorPollerService(monitoring as any, webhook as any, xDirect as any);
-  return { service, monitoring, webhook, xDirect };
+  // Mock DataSource for advisory-lock calls. Default: lock acquired.
+  const dataSource = {
+    query: jest.fn().mockImplementation((sql: string) => {
+      if (sql.includes('pg_try_advisory_lock')) return Promise.resolve([{ acquired: true }]);
+      if (sql.includes('pg_advisory_unlock')) return Promise.resolve([{ pg_advisory_unlock: true }]);
+      return Promise.resolve([]);
+    }),
+  };
+  const service = new MonitorPollerService(
+    monitoring as any,
+    webhook as any,
+    xDirect as any,
+    dataSource as any,
+  );
+  return { service, monitoring, webhook, xDirect, dataSource };
 }
 
 describe('MonitorPollerService', () => {
@@ -113,12 +126,25 @@ describe('MonitorPollerService', () => {
 
       const p1 = service.poll();
       const p2 = service.poll();
-      jest.advanceTimersByTime(600);
+      await jest.advanceTimersByTimeAsync(600);
 
       await p1;
       await p2;
 
       expect(monitoring.findEnabled).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips polling when leader lock is held by another instance', async () => {
+      const { service, monitoring, dataSource } = createService();
+      dataSource.query.mockImplementation((sql: string) =>
+        sql.includes('pg_try_advisory_lock')
+          ? Promise.resolve([{ acquired: false }])
+          : Promise.resolve([]),
+      );
+
+      await service.poll();
+
+      expect(monitoring.findEnabled).not.toHaveBeenCalled();
     });
   });
 
