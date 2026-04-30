@@ -4,6 +4,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { chromium, type BrowserContext, type Page } from 'patchright';
 import { AccountsService } from '../../accounts/accounts.service';
 import { AuthRequiredError } from './auth-required-error';
+import { optionalBrowserChannel } from './browser-channel';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -60,7 +61,7 @@ export class XBrowserService implements OnModuleDestroy {
 
     const context = await chromium.launchPersistentContext(profileDir, {
       headless: this.cfg.headless,
-      channel: 'chrome',
+      ...optionalBrowserChannel(),
       viewport: null,
       userAgent: USER_AGENT,
       locale: 'tr-TR',

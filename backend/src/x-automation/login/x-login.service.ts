@@ -4,6 +4,7 @@ import { LoginFlowError } from './login-error';
 import { redactLoginDebugText, writeLoginDebugArtifact } from './login-debug-artifact';
 import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
 import type { LoginJobFailureReason, XLoginCookies, XLoginInput, XLoginResult } from './login.types';
+import { optionalBrowserChannel } from '../browser/browser-channel';
 import { resolveProxy } from './proxy-resolver';
 import { generateTotp } from './totp';
 
@@ -31,7 +32,7 @@ export class XLoginService {
     const proxy = resolveProxy(input.proxyCountry);
     const browser = await chromium.launch({
       headless: !HEADFUL,
-      channel: 'chrome',
+      ...optionalBrowserChannel(),
       slowMo: SLOWMO_MS || undefined,
       proxy: proxy ?? undefined,
       args: ['--disable-blink-features=AutomationControlled'],
