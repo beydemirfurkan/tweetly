@@ -92,6 +92,34 @@ curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
   http://localhost:3001/admin/secrets
 ```
 
+### Mail (SMTP) credential'larını DB'ye yaz
+
+Magic-link maillerini göndermek için SMTP bilgileri **DB'de** yaşar — env'de
+hiçbir SMTP değişkeni yok. Provider'ı (Postmark, Mailgun, SES, Gmail, vs.)
+seçtikten sonra credential'ları aynı `/admin/secrets` endpoint'i üzerinden yaz:
+
+```bash
+curl -X PUT -H "Authorization: Bearer $ADMIN_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mailProvider": "smtp",
+    "smtpHost": "smtp.postmarkapp.com",
+    "smtpPort": 587,
+    "smtpUser": "your-server-token",
+    "smtpPass": "your-server-token",
+    "smtpSecure": false,
+    "mailFrom": "Tweetly <noreply@yourdomain.com>"
+  }' \
+  http://localhost:3001/admin/secrets
+```
+
+Tweetly transporter'ı bir sonraki magic-link gönderiminde DB'den yeniden
+kurar; yeniden başlatmaya gerek yok. Provider değiştirdiğinde aynı endpoint'le
+güncelle, eski transporter düşer.
+
+`mailProvider` `console` kalırsa magic link sadece backend log'una düşer
+(yerel geliştirme için ideal).
+
 X hesabını manuel token-paste ile bağla:
 
 ```bash

@@ -1,48 +1,39 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { createTransport, type Transporter } from 'nodemailer';
 import { MagicLinkEntity } from '../persistence/entities/magic-link.entity';
+import { SettingsService } from '../settings/settings.service';
 
 const LINK_TTL_MIN = 15;
 const DEFAULT_FROM = 'Tweetly <noreply@tweetly.local>';
 
-type MailProvider = 'console' | 'smtp';
+interface SmtpConfig {
+  host: string;
+  port: number;
+  user: string | null;
+  pass: string | null;
+  secure: boolean;
+  from: string;
+}
 
 @Injectable()
-export class MagicLinkService implements OnModuleInit {
+export class MagicLinkService {
   private readonly log = new Logger(MagicLinkService.name);
   private transporter: Transporter | null = null;
-  private provider: MailProvider = 'console';
+  private cachedConfig: SmtpConfig | null = null;
 
   constructor(
     @InjectRepository(MagicLinkEntity)
     private readonly repo: Repository<MagicLinkEntity>,
+    private readonly settings: SettingsService,
   ) {}
 
-  onModuleInit(): void {
-    const raw = (process.env.MAIL_PROVIDER ?? 'console').toLowerCase();
-    if (raw === 'smtp') {
-      const host = process.env.SMTP_HOST;
-      if (!host) {
-        this.log.warn('MAIL_PROVIDER=smtp but SMTP_HOST not set; falling back to console');
-        return;
-      }
-      const port = parseInt(process.env.SMTP_PORT ?? '587', 10);
-      const user = process.env.SMTP_USER;
-      const pass = process.env.SMTP_PASS;
-      const secure = (process.env.SMTP_SECURE ?? '').toLowerCase() === 'true' || port === 465;
-
-      this.transporter = createTransport({
-        host,
-        port,
-        secure,
-        auth: user && pass ? { user, pass } : undefined,
-      });
-      this.provider = 'smtp';
-      this.log.log(`SMTP transport configured: ${host}:${port} (secure=${secure})`);
-    }
+  /** Called from AdminApiController.updateSecrets after a config write. */
+  invalidateTransport(): void {
+    this.transporter = null;
+    this.cachedConfig = null;
   }
 
   async issue(userId: string, email: string): Promise<{ token: string; expiresAt: Date }> {
@@ -70,11 +61,11 @@ export class MagicLinkService implements OnModuleInit {
     const baseUrl = process.env.APP_URL ?? 'http://localhost:3000';
     const link = `${baseUrl}/auth/verify?token=${token}`;
 
-    if (this.provider === 'smtp' && this.transporter) {
-      const from = process.env.MAIL_FROM ?? DEFAULT_FROM;
+    const transporter = await this.resolveTransporter();
+    if (transporter && this.cachedConfig) {
       try {
-        await this.transporter.sendMail({
-          from,
+        await transporter.sendMail({
+          from: this.cachedConfig.from,
           to: email,
           subject: 'Tweetly login link',
           text:
@@ -92,6 +83,36 @@ export class MagicLinkService implements OnModuleInit {
     }
 
     this.log.log(`[MAGIC_LINK] ${email} → ${link}`);
+  }
+
+  private async resolveTransporter(): Promise<Transporter | null> {
+    if (this.transporter) return this.transporter;
+
+    const provider = (await this.settings.get<string>('secrets.mail_provider', 'console')).toLowerCase();
+    if (provider !== 'smtp') return null;
+
+    const host = await this.settings.get<string>('secrets.smtp_host', '');
+    if (!host) {
+      this.log.warn('secrets.mail_provider=smtp but secrets.smtp_host not set; using console fallback');
+      return null;
+    }
+    const portRaw = await this.settings.get<number | string>('secrets.smtp_port', 587);
+    const port = parseInt(String(portRaw), 10) || 587;
+    const user = (await this.settings.get<string>('secrets.smtp_user', '')) || null;
+    const pass = (await this.settings.get<string>('secrets.smtp_pass', '')) || null;
+    const secureFlag = await this.settings.get<boolean | string>('secrets.smtp_secure', false);
+    const secure = String(secureFlag).toLowerCase() === 'true' || port === 465;
+    const from = (await this.settings.get<string>('secrets.mail_from', '')) || DEFAULT_FROM;
+
+    this.cachedConfig = { host, port, user, pass, secure, from };
+    this.transporter = createTransport({
+      host,
+      port,
+      secure,
+      auth: user && pass ? { user, pass } : undefined,
+    });
+    this.log.log(`SMTP transport configured from DB: ${host}:${port} (secure=${secure})`);
+    return this.transporter;
   }
 }
 
