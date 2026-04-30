@@ -12,6 +12,8 @@ frontend/.env*
 # build artifacts
 dist/
 dist-nest/
+src/
+coverage/
 backend/dist/
 backend/dist-nest/
 backend/coverage/
