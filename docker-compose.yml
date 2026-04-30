@@ -1,31 +1,44 @@
 services:
-  tweetbot:
+  tweetly-backend:
     build: ./backend
-    image: tweetbot:latest
-    container_name: tweetbot
+    image: tweetly-backend:latest
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      NODE_ENV: ${NODE_ENV:-production}
       NEST_PORT: "3000"
       X_EXECUTOR_MODE: ${X_EXECUTOR_MODE:-noop}
-      BOOTSTRAP_ADMIN_TOKEN: ${BOOTSTRAP_ADMIN_TOKEN:-}
+
       # Database
-      DATABASE_URL: ${DATABASE_URL:-}
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_USER: ${DB_USER:-tweetly}
-      DB_PASS: ${DB_PASS:-tweetly}
-      DB_NAME: ${DB_NAME:-tweetly}
+      DATABASE_URL: ${DATABASE_URL:-postgres://tweetly:tweetly@postgres:5432/tweetly}
+
+      # Bootstrap-only — set on first deploy, then write secrets.admin_token
+      # via PUT /admin/secrets and remove these env vars.
+      BOOTSTRAP_ADMIN_TOKEN: ${BOOTSTRAP_ADMIN_TOKEN:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@tweetly.local}
+
+      # Public URLs the magic-link emails embed and CORS allows.
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+
+      # Multi-instance coordination (rate-limit + MCP session registry).
+      # Leave empty for single-instance deploys.
+      REDIS_URL: ${REDIS_URL:-}
     ports:
-      - "3000:3000"
+      - "${BACKEND_PORT:-3001}:3000"
     volumes:
-      - tweetbot_state:/data
+      - tweetly_state:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   postgres:
     image: postgres:16-alpine
-    container_name: tweetly-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-tweetly}
@@ -42,5 +55,5 @@ services:
       retries: 10
 
 volumes:
-  tweetbot_state:
+  tweetly_state:
   tweetly_pgdata:

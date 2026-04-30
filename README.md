@@ -246,6 +246,89 @@ docker compose up --build
 
 ---
 
+## Coolify deploy
+
+### Servisler
+
+| Servis | Tip | Notlar |
+|---|---|---|
+| `tweetly-backend` | Application (Dockerfile) | `backend/` dizini, `Dockerfile` build, port 3000 |
+| `tweetly-frontend` | Application (Dockerfile) | `frontend/` dizini, build arg `NEXT_PUBLIC_API_URL=https://tw-backend.<domain>` |
+| `tweetly-postgres` | Managed Postgres | Coolify add-on, 16-alpine, persistent volume |
+
+### Backend env (Coolify → Environment Variables)
+
+```env
+DATABASE_URL=postgres://tweetly:tweetly@<coolify-postgres>:5432/tweetly
+NODE_ENV=production
+X_EXECUTOR_MODE=patchright
+APP_URL=https://panel.yourdomain.com
+CORS_ORIGINS=https://panel.yourdomain.com
+BOOTSTRAP_ADMIN_TOKEN=<random-32-byte-hex>      # bir kerelik
+BOOTSTRAP_ADMIN_EMAIL=you@yourdomain.com         # ilk user'ın maili
+# REDIS_URL=redis://<coolify-redis>:6379         # 2+ instance'da gerekli
+```
+
+### Frontend env
+
+```env
+# Build arg (Coolify "Build Arguments" alanı):
+NEXT_PUBLIC_API_URL=https://tw-backend.yourdomain.com
+```
+
+`tw-panel.*` ↔ `tw-backend.*` adlandırmasını kullanırsan `NEXT_PUBLIC_API_URL`'a
+gerek yok, `lib/api.ts` runtime'da otomatik çıkartır. Farklı bir convention
+ise build-arg zorunlu.
+
+### Persistent volume
+
+Backend container'ı `/data`'ya kalıcı volume bekliyor:
+- `/data/browsers` — Patchright Chromium binary'si (ilk start'ta indiriliyor)
+- `/data/user-data` — X session profile'ları (cookie kalıcılığı)
+- `/data/app-data/{errors,logs}` — runtime artifact'lar
+
+Coolify "Persistent Storage" → mount: `/data`.
+
+### Bootstrap akışı (deploy sonrası, bir kerelik)
+
+```bash
+# 1. İlk admin user'ı yarat
+curl -X POST -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@yourdomain.com"}' \
+  https://tw-backend.yourdomain.com/admin/users
+
+# 2. Kalıcı admin token + SMTP credentials yaz
+curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "adminToken": "<another-random-32-byte-hex>",
+    "mailProvider": "smtp",
+    "smtpHost": "smtp.postmarkapp.com",
+    "smtpPort": 587,
+    "smtpUser": "<provider-user>",
+    "smtpPass": "<provider-pass>",
+    "mailFrom": "Tweetly <noreply@yourdomain.com>"
+  }' \
+  https://tw-backend.yourdomain.com/admin/secrets
+
+# 3. BOOTSTRAP_ADMIN_TOKEN env'ini Coolify'dan kaldır, redeploy et
+# 4. Frontend → /login → email gir → SMTP üzerinden gelen link → giriş
+```
+
+### Migration
+
+Coolify "Run Command" sekmesinden:
+
+```bash
+npm run db:migrate
+```
+
+İlk deploy sonrası bir kez. Sonraki migration'larda her container start'ta
+zaten startup'ta uygulanmaz — manuel çalıştırmak gerekiyor.
+
+---
+
 ## Tek instance vs çoklu instance
 
 Tweetly tek bir Node process'inde sıfır ek konfigürasyonla çalışır.
@@ -294,7 +377,24 @@ lock" der.
 
 ## Prometheus Metrikleri
 
-`GET /metrics` (Bearer auth):
+`GET /metrics` Bearer auth gerektirir (`secrets.admin_token`). Prometheus
+scrape config örneği:
+
+```yaml
+scrape_configs:
+  - job_name: tweetly
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['tw-backend.yourdomain.com:443']
+    scheme: https
+    bearer_token: <secrets.admin_token değeri>
+    # veya bearer_token_file: /etc/prometheus/tweetly-token
+```
+
+Grafana Cloud free tier kullanıyorsan Grafana Agent veya Alloy aynı
+config'i kabul eder.
+
+
 
 | Metrik | Tür |
 |---|---|
