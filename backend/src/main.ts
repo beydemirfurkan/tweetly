@@ -15,6 +15,40 @@ function ensureExecutorMode(isProd: boolean): void {
   Logger.log(`X_EXECUTOR_MODE defaulted to ${process.env.X_EXECUTOR_MODE}`, 'Bootstrap');
 }
 
+function buildCorsOptions(isProd: boolean): {
+  origin: string[] | boolean;
+  credentials: boolean;
+  methods: string[];
+  allowedHeaders: string[];
+  exposedHeaders: string[];
+} {
+  const raw = (process.env.CORS_ORIGINS ?? '').trim();
+  let origin: string[] | boolean;
+
+  if (raw) {
+    origin = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    Logger.log(`CORS allowlist: ${(origin as string[]).join(', ')}`, 'Bootstrap');
+  } else if (isProd) {
+    origin = [];
+    Logger.warn(
+      'CORS_ORIGINS is empty in production — all browser origins will be rejected. ' +
+        'Set CORS_ORIGINS=https://panel.example.com,https://app.example.com',
+      'Bootstrap',
+    );
+  } else {
+    origin = true;
+    Logger.log('CORS open in development (set CORS_ORIGINS to restrict)', 'Bootstrap');
+  }
+
+  return {
+    origin,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
+    exposedHeaders: ['Retry-After'],
+  };
+}
+
 async function bootstrap(): Promise<void> {
   const isProd = process.env.NODE_ENV === 'production';
   ensureExecutorMode(isProd);
@@ -25,7 +59,7 @@ async function bootstrap(): Promise<void> {
   });
 
   app.enableShutdownHooks();
-  app.enableCors();
+  app.enableCors(buildCorsOptions(isProd));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tweetly API')
