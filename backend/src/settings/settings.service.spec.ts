@@ -13,8 +13,8 @@ describe('SettingsService', () => {
     it('returns default value when no row exists and no fallback', async () => {
       const { service, repo } = createService();
       repo.findOne.mockResolvedValue(null);
-      const val = await service.get<number>('tweets_per_day');
-      expect(val).toBe(20);
+      const val = await service.get<number>('max_attempts');
+      expect(val).toBe(3);
     });
 
     it('returns fallback when key has no DEFS entry and no row', async () => {
@@ -26,64 +26,64 @@ describe('SettingsService', () => {
 
     it('returns parsed number from db row', async () => {
       const { service, repo } = createService();
-      repo.findOne.mockResolvedValue({ key: 'tweets_per_day', value: '42', type: 'number', accountId: '' } as any);
-      const val = await service.get<number>('tweets_per_day');
+      repo.findOne.mockResolvedValue({ key: 'max_attempts', value: '42', type: 'number', accountId: '' } as any);
+      const val = await service.get<number>('max_attempts');
       expect(val).toBe(42);
     });
 
     it('returns parsed boolean true from db row', async () => {
       const { service, repo } = createService();
-      repo.findOne.mockResolvedValue({ key: 'auto_collect.enabled', value: 'true', type: 'boolean', accountId: '' } as any);
-      const val = await service.get<boolean>('auto_collect.enabled');
+      repo.findOne.mockResolvedValue({ key: 'flag', value: 'true', type: 'boolean', accountId: '' } as any);
+      const val = await service.get<boolean>('flag');
       expect(val).toBe(true);
     });
 
     it('returns parsed boolean false from "false" string', async () => {
       const { service, repo } = createService();
-      repo.findOne.mockResolvedValue({ key: 'auto_collect.enabled', value: 'false', type: 'boolean', accountId: '' } as any);
-      const val = await service.get<boolean>('auto_collect.enabled');
+      repo.findOne.mockResolvedValue({ key: 'flag', value: 'false', type: 'boolean', accountId: '' } as any);
+      const val = await service.get<boolean>('flag');
       expect(val).toBe(false);
     });
 
     it('returns parsed json from db row', async () => {
       const { service, repo } = createService();
       const obj = { a: 1 };
-      repo.findOne.mockResolvedValue({ key: 'schedule.hour_weights', value: JSON.stringify(obj), type: 'json', accountId: '' } as any);
-      const val = await service.get('schedule.hour_weights');
+      repo.findOne.mockResolvedValue({ key: 'cfg', value: JSON.stringify(obj), type: 'json', accountId: '' } as any);
+      const val = await service.get('cfg');
       expect(val).toEqual(obj);
     });
 
     it('returns null for invalid json', async () => {
       const { service, repo } = createService();
-      repo.findOne.mockResolvedValue({ key: 'schedule.hour_weights', value: 'INVALID', type: 'json', accountId: '' } as any);
-      const val = await service.get('schedule.hour_weights');
+      repo.findOne.mockResolvedValue({ key: 'cfg', value: 'INVALID', type: 'json', accountId: '' } as any);
+      const val = await service.get('cfg');
       expect(val).toBeNull();
     });
 
     it('prefers account-specific row over global row', async () => {
       const { service, repo } = createService();
       repo.findOne
-        .mockResolvedValueOnce({ key: 'tweets_per_day', value: '10', type: 'number', accountId: 'acc-1' } as any)
+        .mockResolvedValueOnce({ key: 'max_attempts', value: '10', type: 'number', accountId: 'acc-1' } as any)
         .mockResolvedValue(null);
-      const val = await service.get<number>('tweets_per_day', 20, 'acc-1');
+      const val = await service.get<number>('max_attempts', 20, 'acc-1');
       expect(val).toBe(10);
-      expect(repo.findOne).toHaveBeenCalledWith({ where: { key: 'tweets_per_day', accountId: 'acc-1' } });
+      expect(repo.findOne).toHaveBeenCalledWith({ where: { key: 'max_attempts', accountId: 'acc-1' } });
     });
 
     it('falls back to global row when no account-specific row', async () => {
       const { service, repo } = createService();
       repo.findOne
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ key: 'tweets_per_day', value: '15', type: 'number', accountId: '' } as any);
-      const val = await service.get<number>('tweets_per_day', 20, 'acc-1');
+        .mockResolvedValueOnce({ key: 'max_attempts', value: '15', type: 'number', accountId: '' } as any);
+      const val = await service.get<number>('max_attempts', 20, 'acc-1');
       expect(val).toBe(15);
     });
 
     it('caches value and does not query db on second call', async () => {
       const { service, repo } = createService();
-      repo.findOne.mockResolvedValue({ key: 'tweets_per_day', value: '5', type: 'number', accountId: '' } as any);
-      await service.get<number>('tweets_per_day');
-      await service.get<number>('tweets_per_day');
+      repo.findOne.mockResolvedValue({ key: 'max_attempts', value: '5', type: 'number', accountId: '' } as any);
+      await service.get<number>('max_attempts');
+      await service.get<number>('max_attempts');
       expect(repo.findOne).toHaveBeenCalledTimes(1);
     });
   });
@@ -92,9 +92,9 @@ describe('SettingsService', () => {
     it('calls repo.upsert with correct fields for number', async () => {
       const { service, repo } = createService();
       repo.upsert = jest.fn().mockResolvedValue(undefined);
-      await service.set('tweets_per_day', 30);
+      await service.set('max_attempts', 30);
       expect(repo.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ key: 'tweets_per_day', value: '30', type: 'number' }),
+        expect.objectContaining({ key: 'max_attempts', value: '30', type: 'number' }),
         ['key', 'accountId'],
       );
     });
@@ -102,9 +102,9 @@ describe('SettingsService', () => {
     it('calls repo.upsert with json type for objects', async () => {
       const { service, repo } = createService();
       repo.upsert = jest.fn().mockResolvedValue(undefined);
-      await service.set('schedule.hour_weights', { '9': 0.3 });
+      await service.set('cfg', { a: 1 });
       expect(repo.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'json', value: JSON.stringify({ '9': 0.3 }) }),
+        expect.objectContaining({ type: 'json', value: JSON.stringify({ a: 1 }) }),
         ['key', 'accountId'],
       );
     });
@@ -112,7 +112,7 @@ describe('SettingsService', () => {
     it('calls repo.upsert with boolean type', async () => {
       const { service, repo } = createService();
       repo.upsert = jest.fn().mockResolvedValue(undefined);
-      await service.set('auto_collect.enabled', true);
+      await service.set('flag', true);
       expect(repo.upsert).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'boolean', value: 'true' }),
         ['key', 'accountId'],
@@ -122,11 +122,11 @@ describe('SettingsService', () => {
     it('invalidates cache after set', async () => {
       const { service, repo } = createService();
       repo.upsert = jest.fn().mockResolvedValue(undefined);
-      repo.findOne.mockResolvedValue({ key: 'tweets_per_day', value: '5', type: 'number', accountId: '' } as any);
-      await service.get<number>('tweets_per_day');
-      await service.set('tweets_per_day', 99);
-      repo.findOne.mockResolvedValue({ key: 'tweets_per_day', value: '99', type: 'number', accountId: '' } as any);
-      const val = await service.get<number>('tweets_per_day');
+      repo.findOne.mockResolvedValue({ key: 'max_attempts', value: '5', type: 'number', accountId: '' } as any);
+      await service.get<number>('max_attempts');
+      await service.set('max_attempts', 99);
+      repo.findOne.mockResolvedValue({ key: 'max_attempts', value: '99', type: 'number', accountId: '' } as any);
+      const val = await service.get<number>('max_attempts');
       expect(val).toBe(99);
     });
   });
@@ -139,7 +139,7 @@ describe('SettingsService', () => {
 
     it('clears specific key', () => {
       const { service } = createService();
-      service.invalidateCache('tweets_per_day');
+      service.invalidateCache('max_attempts');
     });
   });
 
@@ -148,56 +148,7 @@ describe('SettingsService', () => {
       const { service } = createService();
       const defs = service.getDefs();
       expect(defs.length).toBeGreaterThan(0);
-      expect(defs.find((d) => d.key === 'tweets_per_day')).toBeDefined();
-    });
-  });
-
-  describe('getScoringWeights()', () => {
-    it('returns all 15 scoring keys with defaults when no rows', async () => {
-      const { service, repo } = createService();
-      repo.findOne.mockResolvedValue(null);
-      const weights = await service.getScoringWeights();
-      expect(weights.relevanceHigh).toBe(20);
-      expect(weights.popularityHigh).toBe(25);
-      expect(Object.keys(weights)).toHaveLength(15);
-    });
-  });
-
-  describe('getFormatWeights()', () => {
-    it('returns format weight map with defaults', async () => {
-      const { service, repo } = createService();
-      repo.findOne.mockResolvedValue(null);
-      const weights = await service.getFormatWeights();
-      expect(weights.no_link_hook).toBe(5);
-      expect(weights.question).toBe(4);
-    });
-  });
-
-  describe('getThreadDays()', () => {
-    it('parses "2,4" into [2,4]', async () => {
-      const { service, repo } = createService();
-      repo.findOne.mockResolvedValue({ key: 'thread.days', value: '2,4', type: 'string', accountId: '' } as any);
-      const days = await service.getThreadDays();
-      expect(days).toEqual([2, 4]);
-    });
-
-    it('returns empty array for empty string', async () => {
-      const { service, repo } = createService();
-      repo.findOne.mockResolvedValue(null);
-      jest.spyOn(service, 'get').mockResolvedValue('' as any);
-      const days = await service.getThreadDays();
-      expect(days).toEqual([]);
-    });
-  });
-
-  describe('getSourceQualityWeights()', () => {
-    it('returns 6 source quality weights with defaults', async () => {
-      const { service, repo } = createService();
-      repo.findOne.mockResolvedValue(null);
-      const weights = await service.getSourceQualityWeights();
-      expect(weights.sourceTrust).toBe(20);
-      expect(weights.topicFit).toBe(25);
-      expect(Object.keys(weights)).toHaveLength(6);
+      expect(defs.find((d) => d.key === 'max_attempts')).toBeDefined();
     });
   });
 });

@@ -1,20 +1,21 @@
-import { Controller, Get, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Post, Query, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { AdminTokenGuard } from '../admin-api/admin-token.guard';
+import { ApiKeyGuard, getAuthContext } from '../auth/api-key.guard';
 import { McpService } from './mcp.service';
 
 @Controller('mcp')
-@UseGuards(AdminTokenGuard)
+@UseGuards(ApiKeyGuard)
 export class McpController {
   constructor(private readonly mcpService: McpService) {}
 
   @Get('sse')
   async sse(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const ctx = getAuthContext(req);
     const transport = new SSEServerTransport('/mcp/messages', res);
-    const server = this.mcpService.createServer();
+    const server = this.mcpService.createServer(ctx.userId);
 
-    this.mcpService.setTransport(transport.sessionId, transport);
+    this.mcpService.setTransport(transport.sessionId, transport, ctx.userId);
     req.on('close', () => this.mcpService.deleteTransport(transport.sessionId));
 
     await server.connect(transport);
@@ -26,10 +27,14 @@ export class McpController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const ctx = getAuthContext(req);
     const transport = this.mcpService.getTransport(sessionId);
     if (!transport) {
-      res.status(404).json({ error: 'Session not found or expired' });
-      return;
+      throw new NotFoundException('Session not found or expired');
+    }
+    const sessionUserId = this.mcpService.getSessionUserId(sessionId);
+    if (sessionUserId !== ctx.userId) {
+      throw new UnauthorizedException('Session does not belong to caller');
     }
     await transport.handlePostMessage(req, res);
   }

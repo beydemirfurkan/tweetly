@@ -85,6 +85,7 @@ describe('AccountsService', () => {
 
     const account = await service.upsertAccount({
       id: 'test-account',
+      userId: 'user-1',
       displayName: 'Test Account',
       authToken: 'auth-token',
       ct0: 'ct0-token',
@@ -93,9 +94,37 @@ describe('AccountsService', () => {
     expect(account).toBe(saved);
     expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({
       id: 'test-account',
+      userId: 'user-1',
       authToken: 'auth-token',
       ct0: 'ct0-token',
       status: 'active',
     }));
+  });
+
+  it('rejects upsert if account belongs to a different user', async () => {
+    const { service, repo } = createService();
+    repo.findOne.mockResolvedValue({
+      id: 'shared',
+      userId: 'user-A',
+    } as AccountEntity);
+
+    await expect(
+      service.upsertAccount({ id: 'shared', userId: 'user-B', authToken: 'tok' }),
+    ).rejects.toThrow('account belongs to a different user');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('listAllForUser scopes find to userId', async () => {
+    const { service, repo } = createService();
+    repo.find.mockResolvedValue([] as AccountEntity[]);
+    await service.listAllForUser('user-X');
+    expect(repo.find).toHaveBeenCalledWith({ where: { userId: 'user-X' }, order: { id: 'ASC' } });
+  });
+
+  it('findByIdForUser scopes lookup to userId', async () => {
+    const { service, repo } = createService();
+    repo.findOne.mockResolvedValue(null);
+    await service.findByIdForUser('acc-1', 'user-X');
+    expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 'acc-1', userId: 'user-X' } });
   });
 });

@@ -1,4 +1,7 @@
 export { AccountEntity } from './account.entity';
+export { UserEntity } from './user.entity';
+export { ApiKeyEntity } from './api-key.entity';
+export { MagicLinkEntity } from './magic-link.entity';
 export { SettingEntity } from './setting.entity';
 export { ContentMemoryEntity } from './content-memory.entity';
 export { AnalyticsEventEntity } from './analytics-event.entity';
@@ -11,6 +14,5 @@ export { LikeActionEntity } from './like-action.entity';
 export { FollowActionEntity } from './follow-action.entity';
 export { QuoteActionEntity } from './quote-action.entity';
 export { BookmarkActionEntity } from './bookmark-action.entity';
-export { EngagementConfigEntity } from './engagement-config.entity';
 export { MonitorEntity } from './monitor.entity';
 export { WebhookDeliveryEntity } from './webhook-delivery.entity';

@@ -8,6 +8,7 @@ const AUTH_FAILURE_PAUSE_THRESHOLD = parseInt(process.env.AUTH_FAILURE_PAUSE_THR
 
 export interface AccountUpsertInput {
   id: string;
+  userId: string;
   displayName?: string | null;
   authToken?: string;
   authMulti?: string | null;
@@ -28,23 +29,39 @@ export class AccountsService {
     return this.repo.findOne({ where: { id } });
   }
 
+  async findByIdForUser(id: string, userId: string): Promise<AccountEntity | null> {
+    return this.repo.findOne({ where: { id, userId } });
+  }
+
   async listActive(): Promise<AccountEntity[]> {
     return this.repo.find({ where: { status: 'active' } });
+  }
+
+  async listActiveForUser(userId: string): Promise<AccountEntity[]> {
+    return this.repo.find({ where: { status: 'active', userId } });
   }
 
   async listAll(): Promise<AccountEntity[]> {
     return this.repo.find({ order: { id: 'ASC' } });
   }
 
+  async listAllForUser(userId: string): Promise<AccountEntity[]> {
+    return this.repo.find({ where: { userId }, order: { id: 'ASC' } });
+  }
+
   async upsertAccount(input: AccountUpsertInput): Promise<AccountEntity> {
     const id = input.id.trim();
     const existing = await this.findById(id);
+    if (existing && existing.userId !== input.userId) {
+      throw new Error('account belongs to a different user');
+    }
     if (!existing && !input.authToken) {
       throw new Error('authToken is required for new account');
     }
 
     const saved = await this.repo.save({
       id,
+      userId: input.userId,
       displayName: input.displayName ?? existing?.displayName ?? id,
       authToken: input.authToken ?? existing?.authToken ?? '',
       authMulti: input.authMulti ?? existing?.authMulti ?? null,

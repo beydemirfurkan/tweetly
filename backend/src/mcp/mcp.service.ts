@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Server } from '@modelcontextprotocol/sdk/server';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -6,16 +6,10 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import { AccountsService } from '../accounts/accounts.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
 import { SettingsService } from '../settings/settings.service';
-import { WorkflowDispatchService } from '../workflows/workflow-dispatch.service';
 import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
-import { EngagementConfigService } from '../engagement/engagement-config.service';
-import { EngagementCounterService } from '../engagement/engagement-counter.service';
-import { TimelineDiscoveryScheduler } from '../engagement/timeline-discovery-scheduler.service';
 import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES, ACTION_STATUSES } from '../domain/types/action.types';
 import { XDirectService } from '../x-automation/x-direct.service';
-import { GithubTrendingSource } from '../trending-source/github-trending.source';
-import { ExternalTechSource } from '../trending-source/external-tech.source';
 import { MonitoringService } from '../monitoring/monitoring.service';
 
 const TOOL_DEFINITIONS = [
@@ -107,25 +101,24 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'post_thread',
-    description: 'Post multiple tweets as a thread (each tweet is enqueued sequentially)',
+    description: 'Post multiple tweets as a thread',
     inputSchema: {
       type: 'object',
       properties: {
-        tweets: { type: 'array', items: { type: 'string' }, description: 'Array of tweet texts to post as a thread' },
+        tweets: { type: 'array', items: { type: 'string' }, description: 'Array of tweet texts' },
         account_id: { type: 'string', description: 'Account ID (optional)' },
       },
       required: ['tweets'],
     },
   },
-  // ── Undo Write Actions (direct/synchronous) ───────────────────────────────
   {
     name: 'unlike_tweet',
     description: 'Remove a like from a tweet',
     inputSchema: {
       type: 'object',
       properties: {
-        tweet_url: { type: 'string', description: 'URL of the tweet to unlike (must contain /status/)' },
-        account_id: { type: 'string', description: 'Account ID (optional)' },
+        tweet_url: { type: 'string' },
+        account_id: { type: 'string' },
       },
       required: ['tweet_url'],
     },
@@ -136,8 +129,8 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        tweet_url: { type: 'string', description: 'URL of the retweeted tweet (must contain /status/)' },
-        account_id: { type: 'string', description: 'Account ID (optional)' },
+        tweet_url: { type: 'string' },
+        account_id: { type: 'string' },
       },
       required: ['tweet_url'],
     },
@@ -148,8 +141,8 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        target_handle: { type: 'string', description: 'Handle to unfollow (without @)' },
-        account_id: { type: 'string', description: 'Account ID (optional)' },
+        target_handle: { type: 'string' },
+        account_id: { type: 'string' },
       },
       required: ['target_handle'],
     },
@@ -160,8 +153,8 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        tweet_url: { type: 'string', description: 'URL of the tweet to delete (must contain /status/)' },
-        account_id: { type: 'string', description: 'Account ID (optional)' },
+        tweet_url: { type: 'string' },
+        account_id: { type: 'string' },
       },
       required: ['tweet_url'],
     },
@@ -172,9 +165,9 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        target_handle: { type: 'string', description: 'Recipient handle (without @)' },
-        message: { type: 'string', description: 'Message text to send' },
-        account_id: { type: 'string', description: 'Account ID (optional)' },
+        target_handle: { type: 'string' },
+        message: { type: 'string' },
+        account_id: { type: 'string' },
       },
       required: ['target_handle', 'message'],
     },
@@ -185,61 +178,60 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Display name' },
-        bio: { type: 'string', description: 'Profile bio/description' },
-        location: { type: 'string', description: 'Location field' },
-        website: { type: 'string', description: 'Website URL' },
-        account_id: { type: 'string', description: 'Account ID (optional)' },
+        name: { type: 'string' },
+        bio: { type: 'string' },
+        location: { type: 'string' },
+        website: { type: 'string' },
+        account_id: { type: 'string' },
       },
     },
   },
-  // ── Read Operations (synchronous via Patchright) ──────────────────────────
   {
     name: 'search_tweets',
-    description: 'Search Twitter/X for tweets matching a query (returns live results)',
+    description: 'Search Twitter/X for tweets matching a query',
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Search query (supports operators: from:handle, min_faves:N, lang:tr, etc.)' },
-        limit: { type: 'number', description: 'Max results to return (default 20, max 50)' },
-        account_id: { type: 'string', description: 'Account ID to use for browsing (optional)' },
+        query: { type: 'string' },
+        limit: { type: 'number', description: 'Max results (default 20, max 50)' },
+        account_id: { type: 'string' },
       },
       required: ['query'],
     },
   },
   {
     name: 'get_user',
-    description: 'Get a Twitter/X user profile (display name, bio, follower/following counts)',
+    description: 'Get a Twitter/X user profile',
     inputSchema: {
       type: 'object',
       properties: {
-        handle: { type: 'string', description: 'Twitter handle to look up (without @)' },
-        account_id: { type: 'string', description: 'Account ID to use for browsing (optional)' },
+        handle: { type: 'string' },
+        account_id: { type: 'string' },
       },
       required: ['handle'],
     },
   },
   {
     name: 'get_tweet',
-    description: 'Get details of a specific tweet (text, stats, author)',
+    description: 'Get details of a specific tweet',
     inputSchema: {
       type: 'object',
       properties: {
-        tweet_url: { type: 'string', description: 'Full tweet URL (must contain /status/)' },
-        account_id: { type: 'string', description: 'Account ID to use for browsing (optional)' },
+        tweet_url: { type: 'string' },
+        account_id: { type: 'string' },
       },
       required: ['tweet_url'],
     },
   },
   {
     name: 'get_user_tweets',
-    description: "Get a user's recent tweets from their profile timeline",
+    description: "Get a user's recent tweets",
     inputSchema: {
       type: 'object',
       properties: {
-        handle: { type: 'string', description: 'Twitter handle (without @)' },
-        limit: { type: 'number', description: 'Max tweets to return (default 20, max 50)' },
-        account_id: { type: 'string', description: 'Account ID to use for browsing (optional)' },
+        handle: { type: 'string' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
       },
       required: ['handle'],
     },
@@ -250,9 +242,9 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Name or handle to search for' },
-        limit: { type: 'number', description: 'Max results (default 20, max 50)' },
-        account_id: { type: 'string', description: 'Account ID to use for browsing (optional)' },
+        query: { type: 'string' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
       },
       required: ['query'],
     },
@@ -263,9 +255,9 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        handle: { type: 'string', description: 'Twitter handle (without @)' },
-        limit: { type: 'number', description: 'Max followers to return (default 50, max 200)' },
-        account_id: { type: 'string', description: 'Account ID to use for browsing (optional)' },
+        handle: { type: 'string' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
       },
       required: ['handle'],
     },
@@ -275,47 +267,21 @@ const TOOL_DEFINITIONS = [
     description: 'Get current trending topics on Twitter/X',
     inputSchema: {
       type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Account ID to use for browsing (optional)' },
-      },
+      properties: { account_id: { type: 'string' } },
     },
   },
-  // ── Radar (multi-source trending) ─────────────────────────────────────────
-  {
-    name: 'get_radar',
-    description: 'Get trending topics from multiple sources: GitHub Trending, Hacker News, dev.to',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        sources: {
-          type: 'array',
-          items: { type: 'string', enum: ['github', 'hackernews', 'devto'] },
-          description: 'Sources to include (default: all)',
-        },
-        github_since: {
-          type: 'string',
-          enum: ['daily', 'weekly', 'monthly'],
-          description: 'GitHub trending period (default: daily)',
-        },
-        github_language: { type: 'string', description: 'Filter GitHub trending by programming language (optional)' },
-        limit: { type: 'number', description: 'Max items per source (default 25)' },
-      },
-    },
-  },
-  // ── Monitoring ────────────────────────────────────────────────────────────
   {
     name: 'create_monitor',
-    description: 'Monitor a Twitter/X account and receive webhook notifications when they post new tweets',
+    description: 'Monitor an account and receive webhook notifications when they post new tweets',
     inputSchema: {
       type: 'object',
       properties: {
-        target_handle: { type: 'string', description: 'Handle to monitor (without @)' },
-        webhook_url: { type: 'string', description: 'HTTPS URL to POST events to' },
-        account_id: { type: 'string', description: 'Which of your accounts to use for checking (optional)' },
+        target_handle: { type: 'string' },
+        webhook_url: { type: 'string' },
+        account_id: { type: 'string' },
         event_types: {
           type: 'array',
           items: { type: 'string', enum: ['tweet.new'] },
-          description: 'Event types to watch (default: [tweet.new])',
         },
       },
       required: ['target_handle', 'webhook_url'],
@@ -323,17 +289,15 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'list_monitors',
-    description: 'List all configured monitors with their status and last check time',
+    description: 'List your monitors',
     inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'get_monitor',
-    description: 'Get details and recent webhook delivery history for a monitor',
+    description: 'Get monitor details and recent webhook deliveries',
     inputSchema: {
       type: 'object',
-      properties: {
-        monitor_id: { type: 'string', description: 'Monitor UUID' },
-      },
+      properties: { monitor_id: { type: 'string' } },
       required: ['monitor_id'],
     },
   },
@@ -342,48 +306,34 @@ const TOOL_DEFINITIONS = [
     description: 'Permanently delete a monitor',
     inputSchema: {
       type: 'object',
-      properties: {
-        monitor_id: { type: 'string', description: 'Monitor UUID' },
-      },
+      properties: { monitor_id: { type: 'string' } },
       required: ['monitor_id'],
     },
   },
   {
     name: 'pause_monitor',
-    description: 'Pause a monitor without deleting it (can be re-enabled by creating it again)',
+    description: 'Pause a monitor without deleting it',
     inputSchema: {
       type: 'object',
-      properties: {
-        monitor_id: { type: 'string', description: 'Monitor UUID' },
-      },
+      properties: { monitor_id: { type: 'string' } },
       required: ['monitor_id'],
     },
   },
   {
     name: 'get_accounts',
-    description: 'List all configured Twitter/X accounts',
-    inputSchema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'get_status',
-    description: 'Get system status: queue depth, pending/dead actions, and last 7-day posting performance',
-    inputSchema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'get_queue_depth',
-    description: 'Get pending and dead action counts per action type',
+    description: 'List your configured Twitter/X accounts',
     inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'list_actions',
-    description: 'List actions filtered by type, status, account, and limit',
+    description: 'List your actions filtered by type/status/account',
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', enum: ACTION_TYPES, description: 'Action type' },
-        status: { type: 'string', description: 'Filter by status (pending, running, succeeded, failed, dead, cancelled)' },
-        account_id: { type: 'string', description: 'Filter by account ID (optional)' },
-        limit: { type: 'number', description: 'Max results (1-200, default 50)' },
+        type: { type: 'string', enum: ACTION_TYPES },
+        status: { type: 'string' },
+        account_id: { type: 'string' },
+        limit: { type: 'number' },
       },
       required: ['type'],
     },
@@ -394,119 +344,43 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', enum: ACTION_TYPES, description: 'Action type' },
-        action_id: { type: 'string', description: 'Action UUID' },
+        type: { type: 'string', enum: ACTION_TYPES },
+        action_id: { type: 'string' },
       },
       required: ['type', 'action_id'],
     },
   },
   {
     name: 'replay_action',
-    description: 'Replay a failed or dead action by re-enqueueing it as pending',
+    description: 'Replay a failed or dead action',
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', enum: ACTION_TYPES, description: 'Action type' },
-        action_id: { type: 'string', description: 'Action UUID' },
+        type: { type: 'string', enum: ACTION_TYPES },
+        action_id: { type: 'string' },
       },
       required: ['type', 'action_id'],
     },
   },
   {
-    name: 'trigger_content_collection',
-    description: 'Trigger the AI content collection workflow (GitHub trending → AI tweet generation)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Run for specific account only (optional, runs all if omitted)' },
-      },
-    },
-  },
-  {
     name: 'get_settings',
-    description: 'Get current settings (global or per-account)',
+    description: 'Get account-scoped settings',
     inputSchema: {
       type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Account ID for per-account settings (optional)' },
-      },
+      properties: { account_id: { type: 'string' } },
+      required: ['account_id'],
     },
-  },
-  {
-    name: 'get_setting_definitions',
-    description: 'Get all available setting keys with their types and defaults',
-    inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'update_settings',
-    description: 'Update one or more settings',
+    description: 'Update account-scoped settings',
     inputSchema: {
       type: 'object',
       properties: {
-        settings: { type: 'object', description: 'Key-value pairs of settings to update' },
-        account_id: { type: 'string', description: 'Account ID for per-account settings (optional, updates global if omitted)' },
+        settings: { type: 'object' },
+        account_id: { type: 'string' },
       },
-      required: ['settings'],
-    },
-  },
-  {
-    name: 'get_engagement_counters',
-    description: 'Get daily engagement counters (likes, retweets, quotes, bookmarks) for an account',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Account ID' },
-      },
-      required: ['account_id'],
-    },
-  },
-  {
-    name: 'get_engagement_config',
-    description: 'Get engagement configuration (daily limits) for an account',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Account ID' },
-      },
-      required: ['account_id'],
-    },
-  },
-  {
-    name: 'update_engagement_config',
-    description: 'Update engagement limits for an account',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Account ID' },
-        config: {
-          type: 'object',
-          description: 'Engagement config fields to update (maxLikesPerDay, maxRetweetsPerDay, maxQuotesPerDay, maxBookmarksPerDay)',
-        },
-      },
-      required: ['account_id', 'config'],
-    },
-  },
-  {
-    name: 'trigger_timeline_discovery',
-    description: 'Trigger timeline discovery to find tweets for engagement',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Account ID' },
-      },
-      required: ['account_id'],
-    },
-  },
-  {
-    name: 'list_discovered_tweets',
-    description: 'List tweets discovered via timeline for engagement',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        account_id: { type: 'string', description: 'Account ID' },
-        limit: { type: 'number', description: 'Max results (1-100, default 20)' },
-      },
-      required: ['account_id'],
+      required: ['settings', 'account_id'],
     },
   },
 ] as const;
@@ -514,20 +388,15 @@ const TOOL_DEFINITIONS = [
 @Injectable()
 export class McpService {
   private transports = new Map<string, SSEServerTransport>();
+  private sessionUserMap = new Map<string, string>();
 
   constructor(
     private readonly adminApi: AdminApiService,
     private readonly accounts: AccountsService,
     private readonly settings: SettingsService,
-    private readonly dispatch: WorkflowDispatchService,
     private readonly enqueue: ActionEnqueueService,
-    private readonly engagementConfig: EngagementConfigService,
-    private readonly engagementCounter: EngagementCounterService,
-    private readonly discoveryScheduler: TimelineDiscoveryScheduler,
     private readonly dataSource: DataSource,
     private readonly xDirect: XDirectService,
-    private readonly githubTrending: GithubTrendingSource,
-    private readonly externalTech: ExternalTechSource,
     private readonly monitoringService: MonitoringService,
   ) {}
 
@@ -535,15 +404,21 @@ export class McpService {
     return this.transports.get(sessionId);
   }
 
-  setTransport(sessionId: string, transport: SSEServerTransport): void {
+  setTransport(sessionId: string, transport: SSEServerTransport, userId: string): void {
     this.transports.set(sessionId, transport);
+    this.sessionUserMap.set(sessionId, userId);
   }
 
   deleteTransport(sessionId: string): void {
     this.transports.delete(sessionId);
+    this.sessionUserMap.delete(sessionId);
   }
 
-  createServer(): Server {
+  getSessionUserId(sessionId: string): string | undefined {
+    return this.sessionUserMap.get(sessionId);
+  }
+
+  createServer(userId: string): Server {
     const server = new Server(
       { name: 'tweetly-mcp', version: '1.0.0' },
       { capabilities: { tools: {} } },
@@ -555,18 +430,19 @@ export class McpService {
 
     server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const args = (req.params.arguments ?? {}) as Record<string, unknown>;
-      return this.handleTool(req.params.name, args);
+      return this.handleTool(userId, req.params.name, args);
     });
 
     return server;
   }
 
   private async handleTool(
+    userId: string,
     name: string,
     args: Record<string, unknown>,
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
     try {
-      const result = await this.dispatch_tool(name, args);
+      const result = await this.dispatch_tool(userId, name, args);
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -574,18 +450,18 @@ export class McpService {
     }
   }
 
-  private async dispatch_tool(name: string, args: Record<string, unknown>): Promise<unknown> {
-    const accountId = (args.account_id as string | undefined) ?? '';
-
+  private async dispatch_tool(
+    userId: string,
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<unknown> {
     switch (name) {
       case 'post_tweet': {
         const text = args.text as string;
         if (!text) throw new Error('text is required');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         return this.enqueue.enqueuePost({
-          accountId,
-          text,
-          scheduledAt: new Date(),
-          metadata: { source: 'mcp' },
+          accountId, text, scheduledAt: new Date(), metadata: { source: 'mcp' },
         });
       }
 
@@ -594,34 +470,27 @@ export class McpService {
         const parentTweetUrl = args.parent_tweet_url as string;
         if (!text) throw new Error('text is required');
         if (!parentTweetUrl?.includes('/status/')) throw new Error('parent_tweet_url must contain /status/');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         return this.enqueue.enqueueReply({
-          accountId,
-          text,
-          parentTweetUrl,
-          scheduledAt: new Date(),
-          metadata: { source: 'mcp' },
+          accountId, text, parentTweetUrl, scheduledAt: new Date(), metadata: { source: 'mcp' },
         });
       }
 
       case 'like_tweet': {
         const tweetUrl = args.tweet_url as string;
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         return this.enqueue.enqueueLike({
-          accountId,
-          targetTweetUrl: tweetUrl,
-          scheduledAt: new Date(),
-          metadata: { source: 'mcp' },
+          accountId, targetTweetUrl: tweetUrl, scheduledAt: new Date(), metadata: { source: 'mcp' },
         });
       }
 
       case 'retweet': {
         const tweetUrl = args.tweet_url as string;
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         return this.enqueue.enqueueRetweet({
-          accountId,
-          targetTweetUrl: tweetUrl,
-          scheduledAt: new Date(),
-          metadata: { source: 'mcp' },
+          accountId, targetTweetUrl: tweetUrl, scheduledAt: new Date(), metadata: { source: 'mcp' },
         });
       }
 
@@ -630,46 +499,39 @@ export class McpService {
         const tweetUrl = args.tweet_url as string;
         if (!text) throw new Error('text is required');
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         return this.enqueue.enqueueQuote({
-          accountId,
-          text,
-          targetTweetUrl: tweetUrl,
-          scheduledAt: new Date(),
-          metadata: { source: 'mcp' },
+          accountId, text, targetTweetUrl: tweetUrl, scheduledAt: new Date(), metadata: { source: 'mcp' },
         });
       }
 
       case 'bookmark_tweet': {
         const tweetUrl = args.tweet_url as string;
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         return this.enqueue.enqueueBookmark({
-          accountId,
-          targetTweetUrl: tweetUrl,
-          scheduledAt: new Date(),
-          metadata: { source: 'mcp' },
+          accountId, targetTweetUrl: tweetUrl, scheduledAt: new Date(), metadata: { source: 'mcp' },
         });
       }
 
       case 'follow_account': {
         const targetHandle = args.target_handle as string;
         if (!targetHandle) throw new Error('target_handle is required');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         return this.enqueue.enqueueFollow({
-          accountId,
-          targetHandle,
-          scheduledAt: new Date(),
-          metadata: { source: 'mcp' },
+          accountId, targetHandle, scheduledAt: new Date(), metadata: { source: 'mcp' },
         });
       }
 
       case 'post_thread': {
         const tweets = args.tweets as string[];
         if (!Array.isArray(tweets) || tweets.length === 0) throw new Error('tweets must be a non-empty array');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         const results: Array<{ index: number; id: string | null }> = [];
         const now = new Date();
         for (let i = 0; i < tweets.length; i++) {
           const r = await this.enqueue.enqueuePost({
-            accountId,
-            text: tweets[i],
+            accountId, text: tweets[i],
             scheduledAt: new Date(now.getTime() + i * 5000),
             metadata: { source: 'mcp-thread', threadIndex: i, threadLength: tweets.length },
           });
@@ -678,30 +540,32 @@ export class McpService {
         return { enqueued: results.length, actions: results };
       }
 
-      // ── Undo Write Actions (direct/synchronous via Patchright) ─────────────
-
       case 'unlike_tweet': {
         const tweetUrl = args.tweet_url as string;
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
-        return this.xDirect.unlikeTweet(tweetUrl, accountId || undefined);
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.unlikeTweet(tweetUrl, accountId);
       }
 
       case 'unretweet': {
         const tweetUrl = args.tweet_url as string;
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
-        return this.xDirect.unretweetTweet(tweetUrl, accountId || undefined);
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.unretweetTweet(tweetUrl, accountId);
       }
 
       case 'unfollow_account': {
         const targetHandle = args.target_handle as string;
         if (!targetHandle) throw new Error('target_handle is required');
-        return this.xDirect.unfollowAccount(targetHandle, accountId || undefined);
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.unfollowAccount(targetHandle, accountId);
       }
 
       case 'delete_tweet': {
         const tweetUrl = args.tweet_url as string;
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
-        return this.xDirect.deleteTweet(tweetUrl, accountId || undefined);
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.deleteTweet(tweetUrl, accountId);
       }
 
       case 'send_dm': {
@@ -709,7 +573,8 @@ export class McpService {
         const message = args.message as string;
         if (!targetHandle) throw new Error('target_handle is required');
         if (!message) throw new Error('message is required');
-        return this.xDirect.sendDm(targetHandle, message, accountId || undefined);
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.sendDm(targetHandle, message, accountId);
       }
 
       case 'update_profile': {
@@ -719,115 +584,80 @@ export class McpService {
           location: args.location as string | undefined,
           website: args.website as string | undefined,
         };
-        if (!Object.values(fields).some(Boolean)) throw new Error('At least one field (name, bio, location, website) is required');
-        return this.xDirect.updateProfile(fields, accountId || undefined);
+        if (!Object.values(fields).some(Boolean)) throw new Error('At least one of name, bio, location, website is required');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.updateProfile(fields, accountId);
       }
-
-      // ── Read Operations (synchronous via Patchright) ───────────────────────
 
       case 'search_tweets': {
         const query = args.query as string;
         if (!query) throw new Error('query is required');
         const limit = Math.min(Number(args.limit ?? 20), 50);
-        return this.xDirect.searchTweets(query, limit, accountId || undefined);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.searchTweets(query, limit, accountId);
       }
 
       case 'get_user': {
         const handle = args.handle as string;
         if (!handle) throw new Error('handle is required');
-        return this.xDirect.getUser(handle, accountId || undefined);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getUser(handle, accountId);
       }
 
       case 'get_tweet': {
         const tweetUrl = args.tweet_url as string;
         if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
-        return this.xDirect.getTweet(tweetUrl, accountId || undefined);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getTweet(tweetUrl, accountId);
       }
 
       case 'get_user_tweets': {
         const handle = args.handle as string;
         if (!handle) throw new Error('handle is required');
         const limit = Math.min(Number(args.limit ?? 20), 50);
-        return this.xDirect.getUserTweets(handle, limit, accountId || undefined);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getUserTweets(handle, limit, accountId);
       }
 
       case 'search_users': {
         const query = args.query as string;
         if (!query) throw new Error('query is required');
         const limit = Math.min(Number(args.limit ?? 20), 50);
-        return this.xDirect.searchUsers(query, limit, accountId || undefined);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.searchUsers(query, limit, accountId);
       }
 
       case 'get_user_followers': {
         const handle = args.handle as string;
         if (!handle) throw new Error('handle is required');
         const limit = Math.min(Number(args.limit ?? 50), 200);
-        return this.xDirect.getUserFollowers(handle, limit, accountId || undefined);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getUserFollowers(handle, limit, accountId);
       }
 
       case 'get_x_trending': {
-        return this.xDirect.getXTrending(accountId || undefined);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getXTrending(accountId);
       }
-
-      // ── Radar ─────────────────────────────────────────────────────────────
-
-      case 'get_radar': {
-        const sources = (args.sources as string[] | undefined) ?? ['github', 'hackernews', 'devto'];
-        const limit = Number(args.limit ?? 25);
-        const since = (args.github_since as 'daily' | 'weekly' | 'monthly' | undefined) ?? 'daily';
-        const language = (args.github_language as string | undefined) ?? '';
-
-        const results: Record<string, unknown[]> = {};
-
-        const tasks = await Promise.allSettled([
-          sources.includes('github')
-            ? this.githubTrending.fetchTrending({ since, language }).then(r => { results.github = r.slice(0, limit); })
-            : Promise.resolve(),
-          sources.includes('hackernews') || sources.includes('devto')
-            ? this.externalTech.fetchCandidates({
-                includeHackerNews: sources.includes('hackernews'),
-                includeDevTo: sources.includes('devto'),
-                hackerNewsLimit: limit,
-                devToLimit: limit,
-              }).then(items => {
-                if (sources.includes('hackernews')) {
-                  results.hackernews = items.filter(i => i.sourceId === 'hacker_news').slice(0, limit);
-                }
-                if (sources.includes('devto')) {
-                  results.devto = items.filter(i => i.sourceId === 'dev_to').slice(0, limit);
-                }
-              })
-            : Promise.resolve(),
-        ]);
-
-        const errors = tasks
-          .filter((t): t is PromiseRejectedResult => t.status === 'rejected')
-          .map(t => t.reason instanceof Error ? t.reason.message : String(t.reason));
-
-        return { sources: Object.keys(results), results, errors: errors.length ? errors : undefined };
-      }
-
-      // ── Monitoring ────────────────────────────────────────────────────────
 
       case 'create_monitor': {
         const targetHandle = args.target_handle as string;
         const webhookUrl = args.webhook_url as string;
         if (!targetHandle) throw new Error('target_handle is required');
-        if (!webhookUrl) throw new Error('webhook_url is required');
-        if (!webhookUrl.startsWith('http')) throw new Error('webhook_url must be a valid HTTP/HTTPS URL');
-
+        if (!webhookUrl?.startsWith('http')) throw new Error('webhook_url must be a valid HTTP/HTTPS URL');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
         const monitor = await this.monitoringService.create({
-          accountId: accountId || (await this.accounts.listActive().then(a => a[0]?.id ?? '')),
-          targetHandle,
-          webhookUrl,
+          accountId, targetHandle, webhookUrl,
           eventTypes: (args.event_types as string[] | undefined) ?? ['tweet.new'],
         });
         return { ok: true, monitor };
       }
 
       case 'list_monitors': {
-        const monitors = await this.monitoringService.listAll();
-        return { count: monitors.length, monitors };
+        const allowedIds = await this.userAccountIdSet(userId);
+        const all = await this.monitoringService.listAll();
+        const filtered = all.filter((m) => allowedIds.has(m.accountId));
+        return { count: filtered.length, monitors: filtered };
       }
 
       case 'get_monitor': {
@@ -835,6 +665,7 @@ export class McpService {
         if (!id) throw new Error('monitor_id is required');
         const monitor = await this.monitoringService.findById(id);
         if (!monitor) throw new Error(`Monitor ${id} not found`);
+        await this.assertAccountOwnership(userId, monitor.accountId);
         const deliveries = await this.monitoringService.listDeliveries(id, 10);
         return { monitor, recentDeliveries: deliveries };
       }
@@ -842,6 +673,9 @@ export class McpService {
       case 'delete_monitor': {
         const id = args.monitor_id as string;
         if (!id) throw new Error('monitor_id is required');
+        const monitor = await this.monitoringService.findById(id);
+        if (!monitor) throw new Error(`Monitor ${id} not found`);
+        await this.assertAccountOwnership(userId, monitor.accountId);
         const ok = await this.monitoringService.delete(id);
         if (!ok) throw new Error(`Monitor ${id} not found`);
         return { ok: true };
@@ -850,13 +684,16 @@ export class McpService {
       case 'pause_monitor': {
         const id = args.monitor_id as string;
         if (!id) throw new Error('monitor_id is required');
+        const monitor = await this.monitoringService.findById(id);
+        if (!monitor) throw new Error(`Monitor ${id} not found`);
+        await this.assertAccountOwnership(userId, monitor.accountId);
         const ok = await this.monitoringService.disable(id);
         if (!ok) throw new Error(`Monitor ${id} not found`);
         return { ok: true, status: 'paused' };
       }
 
       case 'get_accounts': {
-        const list = await this.accounts.listAll();
+        const list = await this.accounts.listAllForUser(userId);
         return {
           count: list.length,
           accounts: list.map((a) => ({
@@ -870,24 +707,6 @@ export class McpService {
         };
       }
 
-      case 'get_status': {
-        const [depth, perf] = await Promise.all([
-          this.adminApi.getQueueDepth(),
-          this.adminApi.getFormatPerformanceLast7d(),
-        ]);
-        const totalDead = depth.reduce((s: number, d: { dead: number }) => s + d.dead, 0);
-        const totalPending = depth.reduce((s: number, d: { pending: number }) => s + d.pending, 0);
-        return {
-          ok: totalDead === 0,
-          now: new Date().toISOString(),
-          queue: { byType: depth, totalPending, totalDead },
-          analytics: { last7dPosts: perf.reduce((s: number, f: { total: number }) => s + f.total, 0), formatPerformance: perf },
-        };
-      }
-
-      case 'get_queue_depth':
-        return this.adminApi.getQueueDepth();
-
       case 'list_actions': {
         const type = args.type as ActionType;
         if (!ACTION_TYPES.includes(type)) throw new Error(`type must be one of: ${ACTION_TYPES.join(', ')}`);
@@ -896,19 +715,23 @@ export class McpService {
         const status = rawStatus && ACTION_STATUSES.includes(rawStatus as ActionStatus)
           ? (rawStatus as ActionStatus)
           : undefined;
-        const rows = await this.adminApi.listActions(
-          type,
-          status,
-          (args.account_id as string) || undefined,
-          limit,
-        );
-        return { type, count: rows.length, rows };
+        const allowedIds = await this.userAccountIdSet(userId);
+        if (allowedIds.size === 0) return { type, count: 0, rows: [] };
+
+        const argAccountId = args.account_id as string | undefined;
+        if (argAccountId && !allowedIds.has(argAccountId)) {
+          throw new Error(`Account ${argAccountId} not found`);
+        }
+        const rows = await this.adminApi.listActions(type, status, argAccountId, limit);
+        const filtered = argAccountId ? rows : rows.filter((r) => allowedIds.has(r.account_id));
+        return { type, count: filtered.length, rows: filtered };
       }
 
       case 'cancel_action': {
         const type = args.type as ActionType;
         const id = args.action_id as string;
         if (!ACTION_TYPES.includes(type)) throw new Error(`Unknown action type: ${type}`);
+        await this.assertActionOwnership(userId, type, id);
         const ok = await this.adminApi.cancelAction(type, id);
         if (!ok) throw new Error(`Action ${id} not found or not cancellable`);
         return { ok: true, id, status: 'cancelled' };
@@ -918,95 +741,85 @@ export class McpService {
         const type = args.type as ActionType;
         const id = args.action_id as string;
         if (!ACTION_TYPES.includes(type)) throw new Error(`Unknown action type: ${type}`);
+        await this.assertActionOwnership(userId, type, id);
         const ok = await this.adminApi.replayAction(type, id);
-        if (!ok) throw new Error(`Action ${id} not found or not in a replayable state`);
+        if (!ok) throw new Error(`Action ${id} not found or not replayable`);
         return { ok: true, id, status: 'pending' };
       }
 
-      case 'trigger_content_collection': {
-        if (accountId) {
-          await this.dispatch.runForAccount(accountId);
-        } else {
-          await this.dispatch.runAll();
-        }
-        return { ok: true };
-      }
-
       case 'get_settings': {
+        const accountId = args.account_id as string | undefined;
+        if (!accountId) throw new Error('account_id is required');
+        await this.assertAccountOwnership(userId, accountId);
         const defs = this.settings.getDefs();
         const entries = await Promise.all(
-          defs.map(async (d) => [d.key, await this.settings.get(d.key, d.defaultValue, accountId || undefined)] as const),
+          defs.map(async (d) => [d.key, await this.settings.get(d.key, d.defaultValue, accountId)] as const),
         );
         return Object.fromEntries(entries);
       }
 
-      case 'get_setting_definitions':
-        return this.settings.getDefs().map((d) => ({ key: d.key, type: d.type, defaultValue: d.defaultValue }));
-
       case 'update_settings': {
+        const accountId = args.account_id as string | undefined;
+        if (!accountId) throw new Error('account_id is required');
+        await this.assertAccountOwnership(userId, accountId);
         const settings = args.settings as Record<string, unknown>;
         if (!settings || typeof settings !== 'object') throw new Error('settings must be an object');
         const repo = this.dataSource.getRepository('settings');
         const now = new Date();
-        const acctId = accountId || '';
         for (const [key, value] of Object.entries(settings)) {
           const type = inferType(value);
           const raw = type === 'json' ? JSON.stringify(value) : String(value);
-          await repo.upsert({ key, accountId: acctId, value: raw, type, updatedAt: now }, ['key', 'accountId']);
+          await repo.upsert(
+            { key, accountId, value: raw, type, updatedAt: now },
+            ['key', 'accountId'],
+          );
         }
         this.settings.invalidateCache();
         return { ok: true, updated: Object.keys(settings).length };
       }
 
-      case 'get_engagement_counters': {
-        if (!accountId) throw new Error('account_id is required');
-        const [counts, config] = await Promise.all([
-          this.engagementCounter.getAllDailyCounts(accountId),
-          this.engagementConfig.get(accountId),
-        ]);
-        return {
-          date: new Date().toISOString().split('T')[0],
-          counts,
-          limits: {
-            likes: config.maxLikesPerDay,
-            retweets: config.maxRetweetsPerDay,
-            quotes: config.maxQuotesPerDay,
-            bookmarks: config.maxBookmarksPerDay,
-          },
-        };
-      }
-
-      case 'get_engagement_config': {
-        if (!accountId) throw new Error('account_id is required');
-        return this.engagementConfig.get(accountId);
-      }
-
-      case 'update_engagement_config': {
-        if (!accountId) throw new Error('account_id is required');
-        const config = args.config as Record<string, unknown>;
-        if (!config || typeof config !== 'object') throw new Error('config must be an object');
-        return this.engagementConfig.upsert(accountId, config as Parameters<typeof this.engagementConfig.upsert>[1]);
-      }
-
-      case 'trigger_timeline_discovery': {
-        if (!accountId) throw new Error('account_id is required');
-        await this.discoveryScheduler.runForAccount(accountId);
-        return { ok: true };
-      }
-
-      case 'list_discovered_tweets': {
-        if (!accountId) throw new Error('account_id is required');
-        const n = Math.min(Number(args.limit ?? 20), 100);
-        return this.dataSource.query(
-          `SELECT tweet_url, author_handle, content_text, relevance_score, engagement_type, discovered_at
-           FROM discovered_tweets WHERE account_id = $1 ORDER BY discovered_at DESC LIMIT $2`,
-          [accountId, n],
-        );
-      }
-
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
+  }
+
+  private async resolveAccountId(userId: string, candidate?: string): Promise<string> {
+    if (candidate) {
+      const acct = await this.accounts.findByIdForUser(candidate, userId);
+      if (!acct) throw new NotFoundException(`Account ${candidate} not found`);
+      return acct.id;
+    }
+    const active = await this.accounts.listActiveForUser(userId);
+    if (active.length === 0) {
+      throw new Error('no active account; specify account_id or connect one first');
+    }
+    return active[0].id;
+  }
+
+  private async resolveAccountIdOptional(userId: string, candidate?: string): Promise<string | undefined> {
+    if (candidate) {
+      const acct = await this.accounts.findByIdForUser(candidate, userId);
+      if (!acct) throw new NotFoundException(`Account ${candidate} not found`);
+      return acct.id;
+    }
+    const active = await this.accounts.listActiveForUser(userId);
+    return active[0]?.id;
+  }
+
+  private async userAccountIdSet(userId: string): Promise<Set<string>> {
+    const list = await this.accounts.listAllForUser(userId);
+    return new Set(list.map((a) => a.id));
+  }
+
+  private async assertAccountOwnership(userId: string, accountId: string): Promise<void> {
+    const acct = await this.accounts.findByIdForUser(accountId, userId);
+    if (!acct) throw new NotFoundException(`Account ${accountId} not found`);
+  }
+
+  private async assertActionOwnership(userId: string, type: ActionType, id: string): Promise<void> {
+    const accountId = await this.adminApi.findActionAccountId(type, id);
+    if (!accountId) throw new NotFoundException(`Action ${id} not found`);
+    await this.assertAccountOwnership(userId, accountId);
   }
 }
 

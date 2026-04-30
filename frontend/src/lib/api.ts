@@ -13,7 +13,9 @@ function resolveApiOrigin(): string {
 }
 
 export function apiUrl(path: string): string {
-  return `${resolveApiOrigin()}/admin${path}`;
+  const origin = resolveApiOrigin();
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${origin}${normalized}`;
 }
 
 function loginUrl(): string {
@@ -22,17 +24,19 @@ function loginUrl(): string {
   return `/login?next=${encodeURIComponent(next)}`;
 }
 
+const TOKEN_KEY = 'tweetly_session_key';
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('tweetly_admin_token');
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem('tweetly_admin_token', token);
+  localStorage.setItem(TOKEN_KEY, token);
 }
 
 export function clearToken(): void {
-  localStorage.removeItem('tweetly_admin_token');
+  localStorage.removeItem(TOKEN_KEY);
 }
 
 export class ApiError extends Error {
@@ -47,7 +51,7 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(
   path: string,
-  options?: RequestInit,
+  options?: RequestInit & { skipAuthRedirect?: boolean },
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -55,13 +59,14 @@ export async function apiFetch<T>(
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options?.headers as Record<string, string> | undefined),
   };
+  const { skipAuthRedirect, ...rest } = options ?? {};
 
   const res = await fetch(apiUrl(path), {
-    ...options,
+    ...rest,
     headers,
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && !skipAuthRedirect) {
     clearToken();
     if (typeof window !== 'undefined') {
       window.location.href = loginUrl();
@@ -79,37 +84,39 @@ export async function apiFetch<T>(
   return JSON.parse(text) as T;
 }
 
-export interface StatusResponse {
+// ── Auth ──────────────────────────────────────────────────────────────────
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  status: 'active' | 'suspended';
+}
+
+export interface ConsumeResponse {
   ok: boolean;
-  now: string;
-  queue: {
-    byType: QueueDepth[];
-    totalPending: number;
-    totalDead: number;
-  };
-  analytics: {
-    last7dPosts: number;
-    formatPerformance: FormatStats[];
-  };
+  sessionKey: string;
+  user: { id: string; email: string };
 }
 
-export interface QueueDepth {
-  type: string;
-  pending: number;
-  claimed: number;
-  running: number;
-  failed: number;
-  dead: number;
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  revokedAt: string | null;
 }
 
-export interface FormatStats {
-  format: string;
-  total: number;
-  success: number;
-  failure: number;
-  successRate: number;
-  avgDurationMs: number;
+export interface CreatedApiKey {
+  id: string;
+  key: string;
+  prefix: string;
+  name: string;
 }
+
+// ── Accounts (user-scoped /api/v1) ────────────────────────────────────────
 
 export interface RedactedAccount {
   id: string;
@@ -137,15 +144,25 @@ export interface AccountUpdateBody {
   status?: 'active' | 'paused' | 'banned';
 }
 
-export interface SecretsStatus {
-  openrouterApiKeyConfigured: boolean;
-  adminTokenConfigured: boolean;
+// ── Actions / system ──────────────────────────────────────────────────────
+
+export interface QueueDepth {
+  type: string;
+  pending: number;
+  claimed: number;
+  running: number;
+  failed: number;
+  dead: number;
 }
 
-export interface SettingDef {
-  key: string;
-  type: 'string' | 'number' | 'boolean' | 'json';
-  defaultValue: string;
+export interface StatusResponse {
+  ok: boolean;
+  now: string;
+  queue: {
+    byType: QueueDepth[];
+    totalPending: number;
+    totalDead: number;
+  };
 }
 
 export interface ActionRow {

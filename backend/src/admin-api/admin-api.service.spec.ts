@@ -14,9 +14,8 @@ jest.mock('../action-engine/repositories/action-repository', () => ({
 
 function createService() {
   const ds = { query: jest.fn() };
-  const analytics = { getFormatPerformance: jest.fn().mockResolvedValue([]) };
-  const service = new AdminApiService(ds as any, analytics as any);
-  return { service, ds, analytics };
+  const service = new AdminApiService(ds as any);
+  return { service, ds };
 }
 
 describe('AdminApiService', () => {
@@ -154,16 +153,19 @@ describe('AdminApiService', () => {
     });
   });
 
-  describe('getFormatPerformanceLast7d()', () => {
-    it('calls analytics.getFormatPerformance with date 7 days ago', async () => {
-      const { service, analytics } = createService();
-      analytics.getFormatPerformance.mockResolvedValue([{ format: 'question', total: 5 }]);
-      const result = await service.getFormatPerformanceLast7d();
-      expect(analytics.getFormatPerformance).toHaveBeenCalledWith(expect.any(Date));
-      const date = analytics.getFormatPerformance.mock.calls[0][0] as Date;
-      const diffDays = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
-      expect(diffDays).toBeCloseTo(7, 0);
-      expect(result[0].format).toBe('question');
+  describe('findActionAccountId()', () => {
+    it('returns account_id when found', async () => {
+      const { service, ds } = createService();
+      ds.query.mockResolvedValue([{ account_id: 'acc-7' }]);
+      const result = await service.findActionAccountId('post', 'action-1');
+      expect(result).toBe('acc-7');
+    });
+
+    it('returns null when missing', async () => {
+      const { service, ds } = createService();
+      ds.query.mockResolvedValue([]);
+      const result = await service.findActionAccountId('reply', 'missing');
+      expect(result).toBeNull();
     });
   });
 });

@@ -1,6 +1,9 @@
 import type { DataSourceOptions, EntitySchema, MixedList } from 'typeorm';
 import {
   AccountEntity,
+  UserEntity,
+  ApiKeyEntity,
+  MagicLinkEntity,
   SettingEntity,
   ContentMemoryEntity,
   AnalyticsEventEntity,
@@ -12,7 +15,6 @@ import {
   FollowActionEntity,
   QuoteActionEntity,
   BookmarkActionEntity,
-  EngagementConfigEntity,
   MonitorEntity,
   WebhookDeliveryEntity,
 } from '../persistence/entities';
@@ -62,6 +64,9 @@ function parseDatabaseUrl(rawUrl: string, env: NodeJS.ProcessEnv): DatabaseEnv {
 
 const ENTITY_LIST: MixedList<Function | string | EntitySchema<unknown>> = [
   AccountEntity,
+  UserEntity,
+  ApiKeyEntity,
+  MagicLinkEntity,
   SettingEntity,
   ContentMemoryEntity,
   AnalyticsEventEntity,
@@ -73,7 +78,6 @@ const ENTITY_LIST: MixedList<Function | string | EntitySchema<unknown>> = [
   FollowActionEntity,
   QuoteActionEntity,
   BookmarkActionEntity,
-  EngagementConfigEntity,
   MonitorEntity,
   WebhookDeliveryEntity,
 ];

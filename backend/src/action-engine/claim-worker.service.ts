@@ -1,5 +1,4 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { ExecutorRegistry } from './executor-registry.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
@@ -7,8 +6,6 @@ import { RetryPolicy } from '../domain/services/retry-policy';
 import { ACTION_TABLE_CONFIG, ClaimedActionRow, GenericActionRepository } from './repositories/action-repository';
 import type { ActionType } from '../domain/types/action.types';
 import type { ActionContext, ExecutionResult } from '../domain/ports/x-action-executor.port';
-import { PostActionHook } from '../engagement/post-action-hook.service';
-import type { PostSucceededPayload } from '../engagement/post-action-hook.service';
 import { AccountsService } from '../accounts/accounts.service';
 
 interface WorkerOptions {
@@ -32,7 +29,6 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly registry: ExecutorRegistry,
     private readonly circuitBreaker: CircuitBreakerService,
     private readonly retry: RetryPolicy,
-    private readonly moduleRef: ModuleRef,
     private readonly accounts: AccountsService,
   ) {
     this.options = {
@@ -157,19 +153,6 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
       }
       await this.circuitBreaker.recordSuccess(row.account_id);
       await this.accounts.recordSessionSuccess(row.account_id);
-
-      if (type === 'post' && payload.kind === 'tweet') {
-        this.triggerPostActionHook({
-          actionId: row.id,
-          accountId: row.account_id,
-          tweetId: payload.tweetId,
-          tweetUrl: payload.tweetUrl,
-          metadata: row.metadata ?? {},
-        }).catch((err) =>
-          this.log.warn(`PostActionHook error: ${err instanceof Error ? err.message : String(err)}`),
-        );
-      }
-
       return;
     }
 
@@ -194,15 +177,6 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
     await this.circuitBreaker.recordFailure(row.account_id, result.message);
     if (result.errorClass === 'auth') {
       await this.accounts.recordSessionFailure(row.account_id, result.message);
-    }
-  }
-
-  private async triggerPostActionHook(params: PostSucceededPayload): Promise<void> {
-    try {
-      const hook = this.moduleRef.get(PostActionHook, { strict: false });
-      if (hook) await hook.onPostSucceeded(params);
-    } catch {
-      // EngagementModule not loaded — skip
     }
   }
 

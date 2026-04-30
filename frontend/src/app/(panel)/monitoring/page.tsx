@@ -54,7 +54,7 @@ function MonitorRow({ monitor, onDelete, onPause, onExpand, expanded }: {
     if (!detail) {
       setLoadingDetail(true);
       try {
-        const res = await apiFetch<MonitorDetailResponse>(`/monitors/${monitor.id}`);
+        const res = await apiFetch<MonitorDetailResponse>(`/api/v1/monitors/${monitor.id}`);
         setDetail(res);
       } catch {
         // ignore
@@ -173,7 +173,7 @@ export default function MonitoringPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await apiFetch<MonitorsResponse>('/monitors');
+      const res = await apiFetch<MonitorsResponse>('/api/v1/monitors');
       setMonitors(res.monitors);
     } catch (err) {
       setError((err as Error).message);
@@ -191,7 +191,7 @@ export default function MonitoringPage() {
     setCreating(true);
     setFormError('');
     try {
-      await apiFetch('/monitors', {
+      await apiFetch('/api/v1/monitors', {
         method: 'POST',
         body: JSON.stringify({
           targetHandle: form.targetHandle.trim().replace(/^@/, ''),
@@ -213,7 +213,7 @@ export default function MonitoringPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Bu monitörü silmek istediğinizden emin misiniz?')) return;
     try {
-      await apiFetch(`/monitors/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/v1/monitors/${id}`, { method: 'DELETE' });
       setMonitors((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
       alert((err as Error).message);
@@ -222,7 +222,7 @@ export default function MonitoringPage() {
 
   const handlePause = async (id: string) => {
     try {
-      await apiFetch(`/monitors/${id}/pause`, { method: 'PATCH' });
+      await apiFetch(`/api/v1/monitors/${id}/pause`, { method: 'PATCH' });
       setMonitors((prev) =>
         prev.map((m) => (m.id === id ? { ...m, enabled: false } : m)),
       );

@@ -61,7 +61,7 @@ export default function ActionsPage() {
     setLoading(true);
     setLoadError('');
     try {
-      let path = `/actions?type=${type}&limit=100`;
+      let path = `/api/v1/actions?type=${type}&limit=100`;
       if (status) path += `&status=${status}`;
       const res = await apiFetch<{ rows: ActionRow[] }>(path);
       setRows(res.rows);
@@ -77,12 +77,12 @@ export default function ActionsPage() {
   }, [load]);
 
   const replay = async (id: string) => {
-    await apiFetch(`/actions/${type}/${id}/replay`, { method: 'POST' });
+    await apiFetch(`/api/v1/actions/${type}/${id}/replay`, { method: 'POST' });
     load();
   };
 
   const cancel = async (id: string) => {
-    await apiFetch(`/actions/${type}/${id}/cancel`, { method: 'POST' });
+    await apiFetch(`/api/v1/actions/${type}/${id}/cancel`, { method: 'POST' });
     load();
   };
 

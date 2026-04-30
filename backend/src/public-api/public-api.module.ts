@@ -1,25 +1,21 @@
 import { Module } from '@nestjs/common';
 import { AccountsModule } from '../accounts/accounts.module';
 import { ActionEngineModule } from '../action-engine/action-engine.module';
-import { SettingsModule } from '../settings/settings.module';
 import { AdminApiModule } from '../admin-api/admin-api.module';
 import { AuthModule } from '../auth/auth.module';
-import { XAutomationModule } from '../x-automation/x-automation.module';
 import { MonitoringModule } from '../monitoring/monitoring.module';
-import { McpController } from './mcp.controller';
-import { McpService } from './mcp.service';
+import { XAutomationModule } from '../x-automation/x-automation.module';
+import { PublicApiController } from './public-api.controller';
 
 @Module({
   imports: [
-    AdminApiModule,
     AccountsModule,
     ActionEngineModule,
-    SettingsModule,
+    AdminApiModule,
     AuthModule,
-    XAutomationModule,
     MonitoringModule,
+    XAutomationModule,
   ],
-  controllers: [McpController],
-  providers: [McpService],
+  controllers: [PublicApiController],
 })
-export class McpModule {}
+export class PublicApiModule {}

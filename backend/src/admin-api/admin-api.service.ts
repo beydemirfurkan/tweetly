@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { AnalyticsService, type FormatStats } from '../analytics/analytics.service';
 import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TABLE_CONFIG } from '../action-engine/repositories/action-repository';
 
@@ -28,10 +27,7 @@ export interface ActionRow {
 
 @Injectable()
 export class AdminApiService {
-  constructor(
-    private readonly dataSource: DataSource,
-    private readonly analytics: AnalyticsService,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
 
   async getQueueDepth(): Promise<QueueDepth[]> {
     const results: QueueDepth[] = [];
@@ -111,9 +107,12 @@ export class AdminApiService {
     return result.length > 0;
   }
 
-  async getFormatPerformanceLast7d(): Promise<FormatStats[]> {
-    const since = new Date();
-    since.setDate(since.getDate() - 7);
-    return this.analytics.getFormatPerformance(since);
+  async findActionAccountId(type: ActionType, id: string): Promise<string | null> {
+    const cfg = ACTION_TABLE_CONFIG[type];
+    const rows: Array<{ account_id: string }> = await this.dataSource.query(
+      `SELECT account_id FROM ${cfg.table} WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    return rows[0]?.account_id ?? null;
   }
 }

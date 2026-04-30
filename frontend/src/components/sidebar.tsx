@@ -7,10 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Zap,
-  Settings,
-  Heart,
   KeyRound,
-  Send,
   Radio,
   LogOut,
   Bird,
@@ -21,16 +18,13 @@ const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/accounts', label: 'Hesaplar', icon: Users },
   { href: '/actions', label: 'Aksiyonlar', icon: Zap },
-  { href: '/engagement', label: 'Etkileşim', icon: Heart },
-  { href: '/collect', label: 'İçerik Topla', icon: Send },
-  { href: '/monitoring', label: 'Monitoring', icon: Radio },
-  { href: '/secrets', label: 'Gizli Anahtarlar', icon: KeyRound },
-  { href: '/settings', label: 'Ayarlar', icon: Settings },
+  { href: '/monitoring', label: 'Monitörler', icon: Radio },
+  { href: '/api-keys', label: 'API Anahtarları', icon: KeyRound },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar">
@@ -45,8 +39,8 @@ export function Sidebar() {
           >
             Tweetly
           </span>
-          <span className="block text-[10px] tracking-wider text-muted-foreground">
-            Admin Panel
+          <span className="block truncate text-[10px] tracking-wider text-muted-foreground">
+            {user?.email ?? 'MCP Platform'}
           </span>
         </div>
       </div>

@@ -68,7 +68,7 @@ export default function AccountsPage() {
     setLoading(true);
     setLoadError('');
     try {
-      const res = await apiFetch<AccountsResponse>('/accounts');
+      const res = await apiFetch<AccountsResponse>('/api/v1/accounts');
       const list = Array.isArray(res?.accounts)
         ? res.accounts
         : Array.isArray(res)
@@ -100,7 +100,7 @@ export default function AccountsPage() {
     if (editForm.ct0 !== undefined) body.ct0 = editForm.ct0;
     if (editForm.twid !== undefined) body.twid = editForm.twid;
 
-    await apiFetch(`/accounts/${String(editAccount.id)}`, {
+    await apiFetch(`/api/v1/accounts/${String(editAccount.id)}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     });

@@ -6,6 +6,10 @@ export class AccountEntity {
   @PrimaryColumn({ type: 'text' })
   id!: string;
 
+  @Index()
+  @Column({ name: 'user_id', type: 'uuid' })
+  userId!: string;
+
   @Column({ name: 'display_name', type: 'text', nullable: true })
   displayName!: string | null;
 
