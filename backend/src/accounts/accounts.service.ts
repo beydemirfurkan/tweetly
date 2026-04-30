@@ -79,6 +79,34 @@ export class AccountsService {
     await this.repo.update({ id }, { lastUsedAt: new Date() });
   }
 
+  async deleteAccount(id: string, userId: string): Promise<boolean> {
+    const existing = await this.findByIdForUser(id, userId);
+    if (!existing) return false;
+
+    const actionTables = [
+      'post_actions',
+      'reply_actions',
+      'like_actions',
+      'bookmark_actions',
+      'retweet_actions',
+      'quote_actions',
+      'follow_actions',
+    ];
+    await this.dataSource.transaction(async (manager) => {
+      for (const table of actionTables) {
+        await manager.query(
+          `UPDATE ${table} SET status = 'cancelled', updated_at = now()
+            WHERE account_id = $1 AND status IN ('pending', 'failed')`,
+          [id],
+        );
+      }
+      await manager.query(`DELETE FROM control_state WHERE account_id = $1`, [id]);
+      await manager.query(`DELETE FROM content_memory WHERE account_id = $1`, [id]);
+      await manager.query(`DELETE FROM accounts WHERE id = $1 AND user_id = $2`, [id, userId]);
+    });
+    return true;
+  }
+
   async recordSessionSuccess(id: string): Promise<void> {
     const now = new Date().toISOString();
     await this.touchLastUsed(id);

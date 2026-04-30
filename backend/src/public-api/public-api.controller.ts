@@ -89,6 +89,25 @@ export class PublicApiController {
     return { count: accounts.length, accounts: accounts.map(redact) };
   }
 
+  @Delete('accounts/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('accounts')
+  @RateLimitDelete()
+  @ApiOperation({
+    summary: 'Disconnect an X account',
+    description:
+      'Deletes the account, its monitors (cascaded), and clears related session/content state. ' +
+      'Pending and failed actions are cancelled; succeeded/dead rows are kept for audit.',
+  })
+  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiResponse({ status: 404, description: 'Account not found or not yours' })
+  async deleteAccount(@Req() req: Request, @Param('id') id: string) {
+    const ctx = getAuthContext(req);
+    const ok = await this.accounts.deleteAccount(id, ctx.userId);
+    if (!ok) throw new NotFoundException(`Account ${id} not found`);
+    return { ok: true };
+  }
+
   @Put('accounts/:id')
   @HttpCode(HttpStatus.OK)
   @ApiTags('accounts')

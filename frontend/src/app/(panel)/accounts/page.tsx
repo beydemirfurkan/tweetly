@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, RefreshCw, Users, CheckCircle2, XCircle } from 'lucide-react';
+import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
@@ -106,6 +106,16 @@ export default function AccountsPage() {
     });
     setEditAccount(null);
     loadAccounts();
+  };
+
+  const deleteAccount = async (id: string) => {
+    if (!confirm(`"${id}" hesabını silmek istediğinizden emin misiniz?\nBağlı monitörler ve bekleyen aksiyonlar da iptal edilir.`)) return;
+    try {
+      await apiFetch(`/api/v1/accounts/${id}`, { method: 'DELETE' });
+      loadAccounts();
+    } catch (err) {
+      alert((err as Error).message);
+    }
   };
 
   if (loadError) {
@@ -225,14 +235,26 @@ export default function AccountsPage() {
                             : '—'}
                         </td>
                         <td className="py-3 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEdit(acc)}
-                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(acc)}
+                              className="h-7 w-7 p-0"
+                              title="Düzenle"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteAccount(accId)}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              title="Sil"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
