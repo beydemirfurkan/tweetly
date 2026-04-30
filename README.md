@@ -218,6 +218,52 @@ docker compose up --build
 
 ---
 
+## Tek instance vs çoklu instance
+
+Tweetly tek bir Node process'inde sıfır ek konfigürasyonla çalışır.
+Yatay ölçekleme istiyorsan dikkat edilecek dört koordinasyon noktası
+var; üçü kod tarafında halledildi, biri load balancer ayarı:
+
+| Bileşen | Multi-instance ayarı |
+|---|---|
+| **Action ClaimWorker** | Postgres `FOR UPDATE SKIP LOCKED` ile zaten safe — ek ayar yok |
+| **Rate limiter** | `REDIS_URL` set et — ortak counter Redis'te, tüm instance'lar aynı limit'e sayar |
+| **Monitor poller** | `pg_try_advisory_lock` ile leader election — her cycle yalnız bir instance poll yapar, ek ayar yok |
+| **MCP SSE** | Load balancer'da **sticky session** zorunlu (aşağı bakın) |
+
+### Sticky session (LB tarafı)
+
+MCP SSE bağlantısı uzun ömürlü; aynı kullanıcının `/mcp/messages` POST'ları
+SSE'yi açtığı instance'a düşmek zorunda. Aksi halde "session not found"
+yerine `502 session_on_other_instance` alırsın (Tweetly bunu Redis kaydından
+tespit edip operatöre işaret eder).
+
+Caddy / nginx / Traefik için `Authorization` header üzerinden hash-based
+sticky veya cookie-based affinity yeterli. Coolify'da "Session affinity"
+seçeneğini açman yeterli.
+
+### REDIS_URL ne zaman gerekli?
+
+| Senaryo | REDIS_URL |
+|---|---|
+| Tek instance dev/prod | gerekmez |
+| 2+ instance | **gerekli** (rate limit + MCP session registry) |
+
+Kurulum: `redis://localhost:6379` veya Coolify'da managed Redis service-name.
+
+### Doğrulama
+
+İki instance ayağa kaldır, aynı user için 31 PUT request at: ikinci
+instance'da da 30. ve sonrası 429 dönmeli (Redis ortak counter). Tek
+instance'da idi: ikinci instance'ın ayrı counter'ı olur, 60 isteğe
+kadar geçerdi.
+
+Monitor poller: log'larda yalnız bir instance "Polling N monitor(s)
+(leader)" yazar, diğerleri "skipped — another instance holds the leader
+lock" der.
+
+---
+
 ## Prometheus Metrikleri
 
 `GET /metrics` (Bearer auth):

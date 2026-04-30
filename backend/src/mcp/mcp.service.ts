@@ -11,6 +11,7 @@ import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES, ACTION_STATUSES } from '../domain/types/action.types';
 import { XDirectService } from '../x-automation/x-direct.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
+import { McpSessionRouter } from './mcp-session-router.service';
 
 const TOOL_DEFINITIONS = [
   {
@@ -398,7 +399,12 @@ export class McpService {
     private readonly dataSource: DataSource,
     private readonly xDirect: XDirectService,
     private readonly monitoringService: MonitoringService,
+    private readonly sessionRouter: McpSessionRouter,
   ) {}
+
+  get instanceId(): string {
+    return this.sessionRouter.instanceId;
+  }
 
   getTransport(sessionId: string): SSEServerTransport | undefined {
     return this.transports.get(sessionId);
@@ -407,11 +413,17 @@ export class McpService {
   setTransport(sessionId: string, transport: SSEServerTransport, userId: string): void {
     this.transports.set(sessionId, transport);
     this.sessionUserMap.set(sessionId, userId);
+    this.sessionRouter.register(sessionId).catch(() => undefined);
   }
 
   deleteTransport(sessionId: string): void {
     this.transports.delete(sessionId);
     this.sessionUserMap.delete(sessionId);
+    this.sessionRouter.unregister(sessionId).catch(() => undefined);
+  }
+
+  async lookupSessionHost(sessionId: string): Promise<string | null> {
+    return this.sessionRouter.lookupHost(sessionId);
   }
 
   getSessionUserId(sessionId: string): string | undefined {

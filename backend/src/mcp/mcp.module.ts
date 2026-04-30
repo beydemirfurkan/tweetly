@@ -8,6 +8,7 @@ import { XAutomationModule } from '../x-automation/x-automation.module';
 import { MonitoringModule } from '../monitoring/monitoring.module';
 import { McpController } from './mcp.controller';
 import { McpService } from './mcp.service';
+import { McpSessionRouter } from './mcp-session-router.service';
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { McpService } from './mcp.service';
     MonitoringModule,
   ],
   controllers: [McpController],
-  providers: [McpService],
+  providers: [McpService, McpSessionRouter],
 })
 export class McpModule {}
