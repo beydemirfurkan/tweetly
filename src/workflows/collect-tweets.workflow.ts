@@ -243,11 +243,17 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
     if (slot.isThread && slot.format === 'mini_thread') {
       const tweets = await this.openrouter.generateThread(repo, repo.url);
       const threadGroupId = crypto.randomBytes(4).toString('hex');
+      const threadCfg = getFormatConfig('mini_thread');
+      const threadMedia =
+        threadCfg.media === 'og_image' && (!repo.sourceType || repo.sourceType === 'github')
+          ? (await this.media.fetchHeroOrOg(repo)) ?? undefined
+          : undefined;
       const threadItems: EnqueueItem[] = tweets.map((text, i) => {
         this.contentMemory.add(repo.slug, text, accountId).catch(() => void 0);
         return {
           repo,
           text,
+          mediaPath: i === 0 ? threadMedia : undefined,
           scheduledAt: slots[slotIdx + i] ?? new Date(Date.now() + (slotIdx + i) * FALLBACK_INTERVAL_MS),
           format: 'mini_thread' as ContentFormat,
           objective: 'dwell' as EngagementObjective,
@@ -276,7 +282,7 @@ export class GithubTrendingWorkflow implements IContentWorkflow {
 
     const cfg = getFormatConfig(slot.format);
     const mediaPath = cfg.media === 'og_image' && (!repo.sourceType || repo.sourceType === 'github')
-      ? (await this.media.fetchRepoOgImage(repo)) ?? undefined
+      ? (await this.media.fetchHeroOrOg(repo)) ?? undefined
       : undefined;
     const linkAsReply =
       slot.format === 'repo_drop' && (cfg.linkAsReply ?? false)

@@ -63,6 +63,7 @@ coding agent'lara frontend yaptırınca sorun çoğu zaman model değil, zevk ve
     needsLink: false,
     isThread: false,
     threadCount: 1,
+    media: 'og_image',
   },
 
   question: {
@@ -84,6 +85,7 @@ agent'a test yazdırmak mı daha güvenilir, refactor yaptırmak mı? gerçek pr
     needsLink: false,
     isThread: false,
     threadCount: 1,
+    media: 'og_image',
   },
 
   comparison: {
@@ -105,6 +107,7 @@ cursor, copilot, windsurf tartışmasında asıl fark model değil gibi geliyor;
     needsLink: false,
     isThread: false,
     threadCount: 1,
+    media: 'og_image',
   },
 
   mini_thread: {
@@ -133,6 +136,7 @@ repo: https://github.com/example/frontend-skills`,
     needsLink: true,
     isThread: true,
     threadCount: 3,
+    media: 'og_image',
   },
 
   bookmark_bait: {
@@ -178,6 +182,7 @@ coding agent ekosisteminde herkes daha fazla otomasyon konuşuyor ama bence ası
     needsLink: false,
     isThread: false,
     threadCount: 1,
+    media: 'og_image',
   },
 
   weekly_digest: {

@@ -98,7 +98,7 @@ const DEFS: SettingDef[] = [
   { key: 'format.comparison.weight', defaultValue: 3, type: 'number' },
   { key: 'format.bookmark_bait.weight', defaultValue: 1, type: 'number' },
   { key: 'format.hot_take.weight', defaultValue: 3, type: 'number' },
-  { key: 'format.mini_thread.weight', defaultValue: 0, type: 'number' },
+  { key: 'format.mini_thread.weight', defaultValue: 1, type: 'number' },
   { key: 'format.weekly_digest.weight', defaultValue: 0, type: 'number' },
   { key: 'format.repo_drop.link_as_reply', defaultValue: false, type: 'boolean' },
   { key: 'format.adaptive.enabled', defaultValue: false, type: 'boolean' },
@@ -106,7 +106,7 @@ const DEFS: SettingDef[] = [
   { key: 'format.adaptive.boost_factor', defaultValue: 1.5, type: 'number' },
   { key: 'format.adaptive.cut_factor', defaultValue: 0.5, type: 'number' },
   { key: 'digest.day', defaultValue: 5, type: 'number' },
-  { key: 'thread.days', defaultValue: '', type: 'string' },
+  { key: 'thread.days', defaultValue: '2,4', type: 'string' },
   { key: 'scenario.type', defaultValue: 'github_trending', type: 'string' },
   { key: 'scenario.wallpaper.subreddit', defaultValue: 'wallpaper', type: 'string' },
   { key: 'scenario.wallpaper.per_day', defaultValue: 3, type: 'number' },
@@ -227,7 +227,7 @@ export class SettingsService {
       ['format.comparison.weight', 3, 'comparison'],
       ['format.bookmark_bait.weight', 1, 'bookmark_bait'],
       ['format.hot_take.weight', 3, 'hot_take'],
-      ['format.mini_thread.weight', 0, 'mini_thread'],
+      ['format.mini_thread.weight', 1, 'mini_thread'],
       ['format.weekly_digest.weight', 0, 'weekly_digest'],
     ];
     const values = await Promise.all(keys.map(([k, d]) => this.get<number>(k, d)));
