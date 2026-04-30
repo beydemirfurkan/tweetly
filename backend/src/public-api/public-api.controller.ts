@@ -75,6 +75,40 @@ export class PublicApiController {
     private readonly monitoring: MonitoringService,
   ) {}
 
+  // ── Summary (per-user dashboard) ──────────────────────────────────────────
+
+  @Get('me/summary')
+  @ApiTags('accounts')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({
+    summary: 'Per-user dashboard summary',
+    description:
+      'Returns the caller\'s account counts, user-scoped queue depth across all action ' +
+      'types, and the number of actions that succeeded in the last 24 hours.',
+  })
+  async getSummary(@Req() req: Request) {
+    const ctx = getAuthContext(req);
+    const userAccounts = await this.accounts.listAllForUser(ctx.userId);
+    const accountIds = userAccounts.map((a) => a.id);
+    const [queue, succeeded24h] = await Promise.all([
+      this.admin.getQueueDepthForAccounts(accountIds),
+      this.admin.getRecentSucceededCount(accountIds, 24 * 60 * 60 * 1000),
+    ]);
+    const totalPending = queue.reduce((s, q) => s + q.pending, 0);
+    const totalDead = queue.reduce((s, q) => s + q.dead, 0);
+    return {
+      accounts: {
+        total: userAccounts.length,
+        active: userAccounts.filter((a) => a.status === 'active').length,
+        paused: userAccounts.filter((a) => a.status === 'paused').length,
+        banned: userAccounts.filter((a) => a.status === 'banned').length,
+      },
+      queue: { byType: queue, totalPending, totalDead },
+      activity: { succeededLast24h: succeeded24h },
+    };
+  }
+
   // ── Accounts ──────────────────────────────────────────────────────────────
 
   @Get('accounts')

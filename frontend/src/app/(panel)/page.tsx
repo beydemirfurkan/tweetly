@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiFetch, type AccountsResponse, type ApiKey } from '@/lib/api';
+import { apiFetch, type ApiKey, type UserSummary } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth-context';
-import { AlertTriangle, Users, KeyRound, Radio, ArrowRight } from 'lucide-react';
+import { AlertTriangle, Users, KeyRound, Radio, ArrowRight, Activity, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DashboardData {
-  totalAccounts: number;
-  activeAccounts: number;
+  summary: UserSummary;
   activeKeys: number;
 }
 
@@ -21,14 +20,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<AccountsResponse>('/api/v1/accounts'),
+      apiFetch<UserSummary>('/api/v1/me/summary'),
       apiFetch<ApiKey[]>('/auth/api-keys'),
     ])
-      .then(([accountsRes, keys]) => {
-        const accounts = accountsRes.accounts ?? [];
+      .then(([summary, keys]) => {
         setData({
-          totalAccounts: accounts.length,
-          activeAccounts: accounts.filter((a) => a.status === 'active').length,
+          summary,
           activeKeys: keys.filter((k) => !k.revokedAt).length,
         });
       })
@@ -60,10 +57,10 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Hesaplar"
-          value={`${data.activeAccounts}/${data.totalAccounts}`}
+          value={`${data.summary.accounts.active}/${data.summary.accounts.total}`}
           subtitle="aktif / toplam"
           icon={<Users className="h-4 w-4" />}
         />
@@ -74,12 +71,59 @@ export default function DashboardPage() {
           icon={<KeyRound className="h-4 w-4" />}
         />
         <StatCard
-          title="MCP"
-          value={data.activeKeys > 0 ? 'Hazır' : 'Anahtar yok'}
-          subtitle={data.activeKeys > 0 ? 'kullanıma hazır' : 'önce bir anahtar oluştur'}
-          icon={<Radio className="h-4 w-4" />}
+          title="Bekleyen Aksiyon"
+          value={data.summary.queue.totalPending}
+          subtitle={data.summary.queue.totalDead > 0 ? `${data.summary.queue.totalDead} dead` : 'sıra temiz'}
+          icon={<Clock className="h-4 w-4" />}
+        />
+        <StatCard
+          title="24 Saatlik Başarılı"
+          value={data.summary.activity.succeededLast24h}
+          subtitle="aksiyon tamamlandı"
+          icon={<Activity className="h-4 w-4" />}
         />
       </div>
+
+      {data.summary.queue.byType.some((q) => q.pending + q.dead + q.failed > 0) && (
+        <Card className="border-border/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <span className="h-1 w-3 rounded-full bg-primary" />
+              Kuyruk Durumu
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <div className="grid grid-cols-5 gap-2 pb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="col-span-2">Tip</span>
+                <span className="text-right">Bekleyen</span>
+                <span className="text-right">Çalışıyor</span>
+                <span className="text-right text-destructive/80">Dead</span>
+              </div>
+              {data.summary.queue.byType
+                .filter((q) => q.pending + q.dead + q.claimed + q.running > 0)
+                .map((q) => (
+                  <div
+                    key={q.type}
+                    className="grid grid-cols-5 gap-2 rounded-md px-1 py-2 text-xs transition-colors hover:bg-accent/50"
+                  >
+                    <span className="col-span-2 font-mono font-medium text-foreground">{q.type}</span>
+                    <span className="text-right font-mono text-muted-foreground">{q.pending}</span>
+                    <span className="text-right font-mono text-muted-foreground">{q.claimed + q.running}</span>
+                    <span
+                      className={cn(
+                        'text-right font-mono',
+                        q.dead > 0 ? 'text-destructive' : 'text-muted-foreground',
+                      )}
+                    >
+                      {q.dead}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border/60">
         <CardHeader className="pb-3">
@@ -91,7 +135,7 @@ export default function DashboardPage() {
         <CardContent>
           <ol className="space-y-3 text-sm">
             <Step
-              done={data.totalAccounts > 0}
+              done={data.summary.accounts.total > 0}
               text="X hesabını bağla (auth_token + ct0 + twid)"
               href="/accounts"
               cta="Hesaplar"
@@ -103,7 +147,7 @@ export default function DashboardPage() {
               cta="API Anahtarları"
             />
             <Step
-              done={false}
+              done={data.summary.activity.succeededLast24h > 0}
               text="Claude Code (veya Codex) ile bağlan ve aksiyonları çalıştır"
             />
           </ol>

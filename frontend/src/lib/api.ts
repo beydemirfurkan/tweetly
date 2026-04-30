@@ -206,6 +206,12 @@ export interface MonitorsResponse {
   monitors: Monitor[];
 }
 
+export interface UserSummary {
+  accounts: { total: number; active: number; paused: number; banned: number };
+  queue: { byType: QueueDepth[]; totalPending: number; totalDead: number };
+  activity: { succeededLast24h: number };
+}
+
 export interface MonitorDetailResponse {
   monitor: Monitor;
   recentDeliveries: WebhookDelivery[];

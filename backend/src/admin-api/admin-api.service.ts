@@ -30,12 +30,28 @@ export class AdminApiService {
   constructor(private readonly dataSource: DataSource) {}
 
   async getQueueDepth(): Promise<QueueDepth[]> {
+    return this.queueDepthInternal(null);
+  }
+
+  async getQueueDepthForAccounts(accountIds: string[]): Promise<QueueDepth[]> {
+    if (accountIds.length === 0) {
+      return (Object.keys(ACTION_TABLE_CONFIG) as ActionType[]).map((type) => ({
+        type, pending: 0, claimed: 0, running: 0, failed: 0, dead: 0,
+      }));
+    }
+    return this.queueDepthInternal(accountIds);
+  }
+
+  private async queueDepthInternal(accountIds: string[] | null): Promise<QueueDepth[]> {
     const results: QueueDepth[] = [];
     for (const [type, cfg] of Object.entries(ACTION_TABLE_CONFIG) as Array<[ActionType, typeof ACTION_TABLE_CONFIG[ActionType]]>) {
+      const filter = accountIds
+        ? `WHERE status IN ('pending','claimed','running','failed','dead') AND account_id = ANY($1)`
+        : `WHERE status IN ('pending','claimed','running','failed','dead')`;
+      const params = accountIds ? [accountIds] : [];
       const rows: Array<{ status: ActionStatus; cnt: string }> = await this.dataSource.query(
-        `SELECT status, COUNT(*)::text AS cnt FROM ${cfg.table}
-          WHERE status IN ('pending','claimed','running','failed','dead')
-          GROUP BY status`,
+        `SELECT status, COUNT(*)::text AS cnt FROM ${cfg.table} ${filter} GROUP BY status`,
+        params,
       );
       const counts: Record<string, number> = {};
       for (const r of rows) counts[r.status] = parseInt(r.cnt, 10);
@@ -49,6 +65,21 @@ export class AdminApiService {
       });
     }
     return results;
+  }
+
+  async getRecentSucceededCount(accountIds: string[], windowMs: number): Promise<number> {
+    if (accountIds.length === 0) return 0;
+    const since = new Date(Date.now() - windowMs).toISOString();
+    let total = 0;
+    for (const cfg of Object.values(ACTION_TABLE_CONFIG)) {
+      const rows: Array<{ cnt: string }> = await this.dataSource.query(
+        `SELECT COUNT(*)::text AS cnt FROM ${cfg.table}
+          WHERE status = 'succeeded' AND account_id = ANY($1) AND updated_at >= $2`,
+        [accountIds, since],
+      );
+      total += parseInt(rows[0]?.cnt ?? '0', 10);
+    }
+    return total;
   }
 
   async listActions(
