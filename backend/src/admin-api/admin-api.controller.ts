@@ -9,19 +9,23 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
 import { SettingsService } from '../settings/settings.service';
 import { UsersService } from '../auth/users.service';
 
-interface SecretUpdateBody {
+class SecretUpdateBody {
+  @ApiProperty({ required: false, description: 'New persistent admin token (replaces BOOTSTRAP_ADMIN_TOKEN)' })
   adminToken?: string;
 }
 
-interface CreateUserBody {
+class CreateUserBody {
+  @ApiProperty({ example: 'first-user@yourdomain.com' })
   email?: string;
 }
 
+@ApiTags('admin')
 @Controller('admin')
 @UseGuards(AdminTokenGuard)
 export class AdminApiController {
@@ -32,6 +36,7 @@ export class AdminApiController {
   ) {}
 
   @Get('status')
+  @ApiOperation({ summary: 'System-wide queue health (bootstrap-only)' })
   async getStatus() {
     const depth = await this.service.getQueueDepth();
     const totalDead = depth.reduce((s, d) => s + d.dead, 0);
@@ -48,11 +53,13 @@ export class AdminApiController {
   }
 
   @Get('queue/depth')
+  @ApiOperation({ summary: 'System-wide queue depth (bootstrap-only)' })
   async getQueueDepth() {
     return this.service.getQueueDepth();
   }
 
   @Get('secrets')
+  @ApiOperation({ summary: 'Whether persistent admin token is configured' })
   async getSecretsStatus() {
     const adminToken = await this.settings.get<string>('secrets.admin_token', '');
     return { adminTokenConfigured: Boolean(adminToken) };
@@ -60,6 +67,7 @@ export class AdminApiController {
 
   @Put('secrets')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set persistent admin token (rotates BOOTSTRAP_ADMIN_TOKEN)' })
   async updateSecrets(@Body() body: SecretUpdateBody) {
     const value = body.adminToken?.trim();
     if (!value) throw new BadRequestException('adminToken is required');
@@ -69,6 +77,12 @@ export class AdminApiController {
 
   @Post('users')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Bootstrap-create a user',
+    description:
+      'Creates a user record so they can request a magic link. Use this only for the first ' +
+      'user; afterwards users self-onboard via /auth/request-link.',
+  })
   async createUser(@Body() body: CreateUserBody) {
     const email = body.email?.trim();
     if (!email) throw new BadRequestException('email is required');

@@ -10,12 +10,28 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ApiKeyGuard, getAuthContext } from './api-key.guard';
 import { ApiKeyService } from './api-key.service';
 import { MagicLinkService } from './magic-link.service';
 import { UsersService } from './users.service';
+import {
+  ApiKeySummaryDto,
+  ConsumeLinkDto,
+  ConsumeResponseDto,
+  CreateApiKeyDto,
+  CreatedApiKeyDto,
+  MeDto,
+  RequestLinkDto,
+} from './dto/auth.dto';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -25,7 +41,14 @@ export class AuthController {
   ) {}
 
   @Post('request-link')
-  async requestLink(@Body() body: { email?: string }) {
+  @ApiOperation({
+    summary: 'Send a magic-link to the given email',
+    description:
+      'Creates the user if missing, then issues a 15-minute magic link. ' +
+      'In development, the link is logged to the server console.',
+  })
+  @ApiResponse({ status: 200, description: 'Link queued for delivery' })
+  async requestLink(@Body() body: RequestLinkDto) {
     const email = body.email?.trim();
     if (!email || !isValidEmail(email)) {
       throw new BadRequestException('valid email is required');
@@ -36,7 +59,15 @@ export class AuthController {
   }
 
   @Post('consume')
-  async consume(@Body() body: { token?: string }) {
+  @ApiOperation({
+    summary: 'Exchange a magic-link token for a session API key',
+    description:
+      'Tokens are single-use and expire after 15 minutes. The returned sessionKey is a ' +
+      'tk_*-prefixed API key with full scope; store it client-side as a Bearer token.',
+  })
+  @ApiResponse({ status: 200, description: 'Session key issued', type: ConsumeResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
+  async consume(@Body() body: ConsumeLinkDto): Promise<ConsumeResponseDto> {
     const token = body.token?.trim();
     if (!token) throw new BadRequestException('token is required');
     const userId = await this.magicLinks.consume(token);
@@ -62,7 +93,11 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(ApiKeyGuard)
-  async me(@Req() req: Request) {
+  @ApiBearerAuth('apiKey')
+  @ApiOperation({ summary: 'Return the user the bearer key belongs to' })
+  @ApiResponse({ status: 200, type: MeDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key' })
+  async me(@Req() req: Request): Promise<MeDto> {
     const ctx = getAuthContext(req);
     const user = await this.users.findById(ctx.userId);
     if (!user) throw new UnauthorizedException();
@@ -71,7 +106,10 @@ export class AuthController {
 
   @Get('api-keys')
   @UseGuards(ApiKeyGuard)
-  async listApiKeys(@Req() req: Request) {
+  @ApiBearerAuth('apiKey')
+  @ApiOperation({ summary: 'List your API keys' })
+  @ApiResponse({ status: 200, type: ApiKeySummaryDto, isArray: true })
+  async listApiKeys(@Req() req: Request): Promise<ApiKeySummaryDto[]> {
     const ctx = getAuthContext(req);
     const keys = await this.apiKeys.listForUser(ctx.userId);
     return keys.map((k) => ({
@@ -79,19 +117,25 @@ export class AuthController {
       name: k.name,
       prefix: k.keyPrefix,
       scopes: k.scopes ?? [],
-      lastUsedAt: k.lastUsedAt,
-      expiresAt: k.expiresAt,
-      createdAt: k.createdAt,
-      revokedAt: k.revokedAt,
+      lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
+      expiresAt: k.expiresAt ? k.expiresAt.toISOString() : null,
+      createdAt: k.createdAt.toISOString(),
+      revokedAt: k.revokedAt ? k.revokedAt.toISOString() : null,
     }));
   }
 
   @Post('api-keys')
   @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('apiKey')
+  @ApiOperation({
+    summary: 'Create a new API key',
+    description: 'The plain key is returned once and never retrievable afterwards.',
+  })
+  @ApiResponse({ status: 201, type: CreatedApiKeyDto })
   async createApiKey(
     @Req() req: Request,
-    @Body() body: { name?: string; scopes?: string[] },
-  ) {
+    @Body() body: CreateApiKeyDto,
+  ): Promise<CreatedApiKeyDto> {
     const name = body.name?.trim();
     if (!name) throw new BadRequestException('name is required');
     const ctx = getAuthContext(req);
@@ -110,6 +154,10 @@ export class AuthController {
 
   @Delete('api-keys/:id')
   @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('apiKey')
+  @ApiOperation({ summary: 'Revoke an API key' })
+  @ApiResponse({ status: 200, description: 'Key revoked' })
+  @ApiResponse({ status: 400, description: 'Key not found or already revoked' })
   async revokeApiKey(@Req() req: Request, @Param('id') id: string) {
     const ctx = getAuthContext(req);
     const ok = await this.apiKeys.revoke(id, ctx.userId);

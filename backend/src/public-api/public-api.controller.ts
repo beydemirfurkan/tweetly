@@ -14,6 +14,13 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ApiKeyGuard, getAuthContext } from '../auth/api-key.guard';
 import { AccountsService } from '../accounts/accounts.service';
@@ -25,32 +32,28 @@ import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES } from '../domain/types/action.types';
 import type { AccountStatus } from '../domain/types/account.types';
 import type { AccountEntity } from '../persistence/entities/account.entity';
+import {
+  AccountUpsertDto,
+  AccountsResponseDto,
+  RedactedAccountDto,
+} from './dto/account.dto';
+import {
+  ActionEnqueueResponseDto,
+  FollowBody,
+  GetTweetBody,
+  InteractionBody,
+  PostActionBody,
+  QuoteActionBody,
+  ReplyActionBody,
+  SendDmBody,
+  ThreadBody,
+  UpdateProfileBody,
+} from './dto/action.dto';
+import { MonitorCreateDto } from './dto/monitor.dto';
 
 const ACCOUNT_STATUSES: AccountStatus[] = ['active', 'paused', 'banned'];
 
-interface AccountUpsertBody {
-  displayName?: string | null;
-  authToken?: string;
-  authMulti?: string | null;
-  ct0?: string | null;
-  twid?: string | null;
-  status?: AccountStatus;
-}
-
-interface PostBody { text: string; account?: string }
-interface ReplyBody { text: string; parentTweetUrl: string; account?: string }
-interface QuoteBody { text: string; targetTweetUrl: string; account?: string }
-interface InteractionBody { targetTweetUrl: string; account?: string }
-interface FollowBody { targetHandle: string; account?: string }
-interface ThreadBody { tweets: string[]; account?: string }
-
-interface MonitorCreateBody {
-  targetHandle: string;
-  webhookUrl: string;
-  accountId?: string;
-  eventTypes?: string[];
-}
-
+@ApiBearerAuth('apiKey')
 @Controller('api/v1')
 @UseGuards(ApiKeyGuard)
 export class PublicApiController {
@@ -65,7 +68,10 @@ export class PublicApiController {
   // ── Accounts ──────────────────────────────────────────────────────────────
 
   @Get('accounts')
-  async listAccounts(@Req() req: Request) {
+  @ApiTags('accounts')
+  @ApiOperation({ summary: 'List your connected X accounts' })
+  @ApiResponse({ status: 200, type: AccountsResponseDto })
+  async listAccounts(@Req() req: Request): Promise<AccountsResponseDto> {
     const ctx = getAuthContext(req);
     const accounts = await this.accounts.listAllForUser(ctx.userId);
     return { count: accounts.length, accounts: accounts.map(redact) };
@@ -73,10 +79,19 @@ export class PublicApiController {
 
   @Put('accounts/:id')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('accounts')
+  @ApiOperation({
+    summary: 'Connect or update an X account',
+    description:
+      'Token-paste connect: provide authToken/ct0/twid copied from a logged-in browser session. ' +
+      'Empty fields preserve existing values on update.',
+  })
+  @ApiResponse({ status: 200, description: 'Account upserted' })
+  @ApiResponse({ status: 400, description: 'Validation error or account belongs to another user' })
   async upsertAccount(
     @Req() req: Request,
     @Param('id') id: string,
-    @Body() body: AccountUpsertBody,
+    @Body() body: AccountUpsertDto,
   ) {
     const ctx = getAuthContext(req);
     const accountId = id.trim();
@@ -105,7 +120,10 @@ export class PublicApiController {
 
   @Post('actions/post')
   @HttpCode(HttpStatus.OK)
-  async enqueuePost(@Req() req: Request, @Body() body: PostBody) {
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a tweet' })
+  @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
+  async enqueuePost(@Req() req: Request, @Body() body: PostActionBody) {
     if (!body.text) throw new BadRequestException('text is required');
     const accountId = await this.resolveAccountId(req, body.account);
     return this.enqueue.enqueuePost({
@@ -118,7 +136,10 @@ export class PublicApiController {
 
   @Post('actions/reply')
   @HttpCode(HttpStatus.OK)
-  async enqueueReply(@Req() req: Request, @Body() body: ReplyBody) {
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a reply' })
+  @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
+  async enqueueReply(@Req() req: Request, @Body() body: ReplyActionBody) {
     if (!body.text) throw new BadRequestException('text is required');
     if (!body.parentTweetUrl?.includes('/status/')) {
       throw new BadRequestException('parentTweetUrl must contain /status/');
@@ -135,6 +156,9 @@ export class PublicApiController {
 
   @Post('actions/like')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a like' })
+  @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
   async enqueueLike(@Req() req: Request, @Body() body: InteractionBody) {
     if (!body.targetTweetUrl?.includes('/status/')) {
       throw new BadRequestException('targetTweetUrl must contain /status/');
@@ -150,6 +174,9 @@ export class PublicApiController {
 
   @Post('actions/retweet')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a retweet' })
+  @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
   async enqueueRetweet(@Req() req: Request, @Body() body: InteractionBody) {
     if (!body.targetTweetUrl?.includes('/status/')) {
       throw new BadRequestException('targetTweetUrl must contain /status/');
@@ -165,7 +192,10 @@ export class PublicApiController {
 
   @Post('actions/quote')
   @HttpCode(HttpStatus.OK)
-  async enqueueQuote(@Req() req: Request, @Body() body: QuoteBody) {
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a quote tweet' })
+  @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
+  async enqueueQuote(@Req() req: Request, @Body() body: QuoteActionBody) {
     if (!body.text) throw new BadRequestException('text is required');
     if (!body.targetTweetUrl?.includes('/status/')) {
       throw new BadRequestException('targetTweetUrl must contain /status/');
@@ -182,6 +212,9 @@ export class PublicApiController {
 
   @Post('actions/bookmark')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a bookmark' })
+  @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
   async enqueueBookmark(@Req() req: Request, @Body() body: InteractionBody) {
     if (!body.targetTweetUrl?.includes('/status/')) {
       throw new BadRequestException('targetTweetUrl must contain /status/');
@@ -197,6 +230,9 @@ export class PublicApiController {
 
   @Post('actions/follow')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a follow' })
+  @ApiResponse({ status: 200, type: ActionEnqueueResponseDto })
   async enqueueFollow(@Req() req: Request, @Body() body: FollowBody) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     const accountId = await this.resolveAccountId(req, body.account);
@@ -210,6 +246,8 @@ export class PublicApiController {
 
   @Post('actions/thread')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Enqueue a multi-tweet thread' })
   async enqueueThread(@Req() req: Request, @Body() body: ThreadBody) {
     if (!Array.isArray(body.tweets) || body.tweets.length === 0) {
       throw new BadRequestException('tweets must be a non-empty array');
@@ -232,6 +270,12 @@ export class PublicApiController {
   // ── Action management ────────────────────────────────────────────────────
 
   @Get('actions')
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'List your actions filtered by type/status/account' })
+  @ApiQuery({ name: 'type', enum: ACTION_TYPES, required: true })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'account', required: false })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   async listActions(
     @Req() req: Request,
     @Query('type') type: string,
@@ -266,6 +310,8 @@ export class PublicApiController {
 
   @Post('actions/:type/:id/cancel')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Cancel a pending action' })
   async cancelAction(@Req() req: Request, @Param('type') type: string, @Param('id') id: string) {
     if (!ACTION_TYPES.includes(type as ActionType)) {
       throw new BadRequestException(`Unknown action type: ${type}`);
@@ -278,6 +324,8 @@ export class PublicApiController {
 
   @Post('actions/:type/:id/replay')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('actions')
+  @ApiOperation({ summary: 'Replay a failed or dead action' })
   async replayAction(@Req() req: Request, @Param('type') type: string, @Param('id') id: string) {
     if (!ACTION_TYPES.includes(type as ActionType)) {
       throw new BadRequestException(`Unknown action type: ${type}`);
@@ -291,6 +339,11 @@ export class PublicApiController {
   // ── X read operations (Patchright direct) ─────────────────────────────────
 
   @Get('x/search/tweets')
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Search tweets matching a query (live)' })
+  @ApiQuery({ name: 'query', required: true })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'account', required: false })
   async searchTweets(
     @Req() req: Request,
     @Query('query') query: string,
@@ -304,6 +357,8 @@ export class PublicApiController {
   }
 
   @Get('x/search/users')
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Search users by name or handle' })
   async searchUsers(
     @Req() req: Request,
     @Query('query') query: string,
@@ -317,6 +372,8 @@ export class PublicApiController {
   }
 
   @Get('x/users/:handle')
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Get a user profile' })
   async getUser(
     @Req() req: Request,
     @Param('handle') handle: string,
@@ -327,6 +384,8 @@ export class PublicApiController {
   }
 
   @Get('x/users/:handle/tweets')
+  @ApiTags('x')
+  @ApiOperation({ summary: "Get a user's recent tweets" })
   async getUserTweets(
     @Req() req: Request,
     @Param('handle') handle: string,
@@ -339,6 +398,8 @@ export class PublicApiController {
   }
 
   @Get('x/users/:handle/followers')
+  @ApiTags('x')
+  @ApiOperation({ summary: "Get a user's followers" })
   async getUserFollowers(
     @Req() req: Request,
     @Param('handle') handle: string,
@@ -352,7 +413,9 @@ export class PublicApiController {
 
   @Post('x/tweets/get')
   @HttpCode(HttpStatus.OK)
-  async getTweet(@Req() req: Request, @Body() body: { tweetUrl: string; account?: string }) {
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Get tweet details by URL' })
+  async getTweet(@Req() req: Request, @Body() body: GetTweetBody) {
     if (!body.tweetUrl?.includes('/status/')) {
       throw new BadRequestException('tweetUrl must contain /status/');
     }
@@ -361,6 +424,8 @@ export class PublicApiController {
   }
 
   @Get('x/trending')
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Get current X trending topics' })
   async getXTrending(@Req() req: Request, @Query('account') accountId: string) {
     const acct = await this.resolveAccountIdOptional(req, accountId);
     return this.xDirect.getXTrending(acct);
@@ -370,6 +435,8 @@ export class PublicApiController {
 
   @Post('x/tweets/unlike')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Remove a like (synchronous)' })
   async unlikeTweet(@Req() req: Request, @Body() body: InteractionBody) {
     if (!body.targetTweetUrl?.includes('/status/')) {
       throw new BadRequestException('targetTweetUrl must contain /status/');
@@ -380,6 +447,8 @@ export class PublicApiController {
 
   @Post('x/tweets/unretweet')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Undo a retweet (synchronous)' })
   async unretweet(@Req() req: Request, @Body() body: InteractionBody) {
     if (!body.targetTweetUrl?.includes('/status/')) {
       throw new BadRequestException('targetTweetUrl must contain /status/');
@@ -390,6 +459,8 @@ export class PublicApiController {
 
   @Post('x/tweets/delete')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Delete a tweet (synchronous)' })
   async deleteTweet(@Req() req: Request, @Body() body: InteractionBody) {
     if (!body.targetTweetUrl?.includes('/status/')) {
       throw new BadRequestException('targetTweetUrl must contain /status/');
@@ -400,6 +471,8 @@ export class PublicApiController {
 
   @Post('x/follows/unfollow')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Unfollow an account (synchronous)' })
   async unfollow(@Req() req: Request, @Body() body: FollowBody) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     const acct = await this.resolveAccountId(req, body.account);
@@ -408,10 +481,9 @@ export class PublicApiController {
 
   @Post('x/dm/send')
   @HttpCode(HttpStatus.OK)
-  async sendDm(
-    @Req() req: Request,
-    @Body() body: { targetHandle: string; message: string; account?: string },
-  ) {
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Send a direct message' })
+  async sendDm(@Req() req: Request, @Body() body: SendDmBody) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     if (!body.message) throw new BadRequestException('message is required');
     const acct = await this.resolveAccountId(req, body.account);
@@ -420,10 +492,9 @@ export class PublicApiController {
 
   @Put('x/profile')
   @HttpCode(HttpStatus.OK)
-  async updateProfile(
-    @Req() req: Request,
-    @Body() body: { name?: string; bio?: string; location?: string; website?: string; account?: string },
-  ) {
+  @ApiTags('x')
+  @ApiOperation({ summary: 'Update profile fields (name/bio/location/website)' })
+  async updateProfile(@Req() req: Request, @Body() body: UpdateProfileBody) {
     const fields = {
       name: body.name,
       bio: body.bio,
@@ -440,6 +511,8 @@ export class PublicApiController {
   // ── Monitors ──────────────────────────────────────────────────────────────
 
   @Get('monitors')
+  @ApiTags('monitors')
+  @ApiOperation({ summary: 'List your monitors' })
   async listMonitors(@Req() req: Request) {
     const ctx = getAuthContext(req);
     const userAccounts = await this.accounts.listAllForUser(ctx.userId);
@@ -451,7 +524,9 @@ export class PublicApiController {
 
   @Post('monitors')
   @HttpCode(HttpStatus.CREATED)
-  async createMonitor(@Req() req: Request, @Body() body: MonitorCreateBody) {
+  @ApiTags('monitors')
+  @ApiOperation({ summary: 'Create a monitor with webhook delivery' })
+  async createMonitor(@Req() req: Request, @Body() body: MonitorCreateDto) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     if (!body.webhookUrl?.startsWith('http')) {
       throw new BadRequestException('webhookUrl must be a valid HTTP/HTTPS URL');
@@ -467,6 +542,8 @@ export class PublicApiController {
   }
 
   @Get('monitors/:id')
+  @ApiTags('monitors')
+  @ApiOperation({ summary: 'Get monitor + recent webhook deliveries' })
   async getMonitor(@Req() req: Request, @Param('id') id: string) {
     const monitor = await this.monitoring.findById(id);
     if (!monitor) throw new NotFoundException(`Monitor ${id} not found`);
@@ -477,6 +554,8 @@ export class PublicApiController {
 
   @Delete('monitors/:id')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('monitors')
+  @ApiOperation({ summary: 'Delete a monitor' })
   async deleteMonitor(@Req() req: Request, @Param('id') id: string) {
     const monitor = await this.monitoring.findById(id);
     if (!monitor) throw new NotFoundException(`Monitor ${id} not found`);
@@ -524,19 +603,7 @@ export class PublicApiController {
   }
 }
 
-interface RedactedAccount {
-  id: string;
-  displayName: string | null;
-  status: AccountStatus;
-  hasAuthToken: boolean;
-  hasAuthMulti: boolean;
-  hasCt0: boolean;
-  hasTwid: boolean;
-  createdAt: Date;
-  lastUsedAt: Date | null;
-}
-
-function redact(account: AccountEntity): RedactedAccount {
+function redact(account: AccountEntity): RedactedAccountDto {
   return {
     id: account.id,
     displayName: account.displayName,
