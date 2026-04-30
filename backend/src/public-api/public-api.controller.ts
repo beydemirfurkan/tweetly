@@ -37,6 +37,15 @@ import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
 import { XDirectService } from '../x-automation/x-direct.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
+import { CredentialCipherService } from '../common/crypto/credential-cipher.service';
+import { LoginJobsRepository } from '../x-automation/login/login-jobs.repository';
+import {
+  LoginValidationError,
+  assertBase32Secret,
+  normalizeProxyCountry,
+  normalizeUsername,
+  requireString,
+} from '../x-automation/login/login-validation';
 import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES } from '../domain/types/action.types';
 import type { AccountStatus } from '../domain/types/account.types';
@@ -47,6 +56,12 @@ import {
   RedactedAccountDto,
   SessionHealthDto,
 } from './dto/account.dto';
+import {
+  AccountConnectDto,
+  AccountReauthDto,
+  LoginJobAcceptedDto,
+  LoginJobResponseDto,
+} from './dto/account-login.dto';
 import {
   ActionEnqueueResponseDto,
   FollowBody,
@@ -74,6 +89,8 @@ export class PublicApiController {
     private readonly admin: AdminApiService,
     private readonly xDirect: XDirectService,
     private readonly monitoring: MonitoringService,
+    private readonly cipher: CredentialCipherService,
+    private readonly loginJobs: LoginJobsRepository,
   ) {}
 
   // ── Summary (per-user dashboard) ──────────────────────────────────────────
@@ -126,6 +143,139 @@ export class PublicApiController {
       count: accounts.length,
       accounts: accounts.map((a) => redact(a, health.get(a.id) ?? defaultHealth())),
     };
+  }
+
+  @Post('accounts/connect')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiTags('accounts')
+  @RateLimitConnect()
+  @ApiOperation({
+    summary: 'Connect a new X account via server-side login',
+    description:
+      'Queues a headless login job. The browser logs in to x.com with the provided credentials, ' +
+      'extracts the session cookies, and stores them as a new connected account. The response ' +
+      'returns immediately with a job id; poll GET /accounts/login-jobs/:jobId every 2s. ' +
+      'Typical end-to-end duration is 20–40s. Rate-limited to 3 calls per 15 minutes per user.',
+  })
+  @ApiResponse({ status: 202, type: LoginJobAcceptedDto })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
+  async connectAccount(
+    @Req() req: Request,
+    @Body() body: AccountConnectDto,
+  ): Promise<LoginJobAcceptedDto> {
+    const ctx = getAuthContext(req);
+    let username: string, email: string, password: string;
+    let totpSecretRaw: string | null;
+    let proxyCountry: string | null;
+    try {
+      username = normalizeUsername(body.username);
+      email = requireString(body.email, 'email').trim();
+      password = requireString(body.password, 'password');
+      proxyCountry = normalizeProxyCountry(body.proxyCountry);
+      totpSecretRaw = body.totpSecret?.trim() || null;
+      if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
+    } catch (e) {
+      if (e instanceof LoginValidationError) throw new BadRequestException(e.message);
+      throw e;
+    }
+
+    const { id } = await this.loginJobs.create({
+      userId: ctx.userId,
+      kind: 'connect',
+      targetAccountId: null,
+      username,
+      email,
+      encryptedPassword: this.cipher.encrypt(password),
+      encryptedTotpSecret: totpSecretRaw ? this.cipher.encrypt(totpSecretRaw) : null,
+      saveTotpSecret: Boolean(body.saveTotpSecret),
+      proxyCountry,
+    });
+    return { jobId: id, kind: 'connect', pollUrl: `/api/v1/accounts/login-jobs/${id}` };
+  }
+
+  @Get('accounts/login-jobs/:jobId')
+  @ApiTags('accounts')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({
+    summary: 'Poll a login job',
+    description: 'Returns the current state of a connect/reauth job you own. ' +
+      'Encrypted credentials are never exposed.',
+  })
+  @ApiResponse({ status: 200, type: LoginJobResponseDto })
+  @ApiResponse({ status: 404, description: 'Job not found or not yours' })
+  async getLoginJob(
+    @Req() req: Request,
+    @Param('jobId') jobId: string,
+  ): Promise<LoginJobResponseDto> {
+    const ctx = getAuthContext(req);
+    const job = await this.loginJobs.findByIdForUser(jobId, ctx.userId);
+    if (!job) throw new NotFoundException(`Login job ${jobId} not found`);
+    return {
+      id: job.id,
+      kind: job.kind,
+      status: job.status,
+      targetAccountId: job.targetAccountId,
+      failureReason: job.failureReason,
+      failureDetail: job.failureDetail,
+      createdAt: job.createdAt,
+      startedAt: job.startedAt,
+      finishedAt: job.finishedAt,
+    };
+  }
+
+  @Post('accounts/:id/reauth')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiTags('accounts')
+  @RateLimitConnect()
+  @ApiOperation({
+    summary: 'Re-authenticate an existing X account',
+    description:
+      'Use when a connected account becomes unhealthy (session expired, paused after auth ' +
+      'failures). Provides fresh credentials for a server-side login that overwrites cookies ' +
+      'on the existing account row. The handle of the logged-in session must match the ' +
+      'target account; otherwise the job fails with invalid_credentials.',
+  })
+  @ApiResponse({ status: 202, type: LoginJobAcceptedDto })
+  @ApiResponse({ status: 404, description: 'Account not found or not yours' })
+  async reauthAccount(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: AccountReauthDto,
+  ): Promise<LoginJobAcceptedDto> {
+    const ctx = getAuthContext(req);
+    const accountId = id.trim().toLowerCase();
+    const account = await this.accounts.findByIdForUser(accountId, ctx.userId);
+    if (!account) throw new NotFoundException(`Account ${id} not found`);
+
+    let password: string, totpSecretRaw: string | null, proxyCountry: string | null;
+    try {
+      password = requireString(body.password, 'password');
+      proxyCountry = normalizeProxyCountry(body.proxyCountry) ?? account.proxyCountry;
+      totpSecretRaw = body.totpSecret?.trim() || null;
+      if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
+    } catch (e) {
+      if (e instanceof LoginValidationError) throw new BadRequestException(e.message);
+      throw e;
+    }
+    // Reuse stored TOTP secret when caller didn't pass one.
+    const encryptedTotp = totpSecretRaw
+      ? this.cipher.encrypt(totpSecretRaw)
+      : account.totpSecretEncrypted;
+
+    const { id: jobId } = await this.loginJobs.create({
+      userId: ctx.userId,
+      kind: 'reauth',
+      targetAccountId: account.id,
+      username: account.id,
+      email: body.email?.trim() || null,
+      encryptedPassword: this.cipher.encrypt(password),
+      encryptedTotpSecret: encryptedTotp,
+      saveTotpSecret: Boolean(body.saveTotpSecret) || (totpSecretRaw === null && Boolean(account.totpSecretEncrypted)),
+      proxyCountry,
+    });
+    return { jobId, kind: 'reauth', pollUrl: `/api/v1/accounts/login-jobs/${jobId}` };
   }
 
   @Delete('accounts/:id')

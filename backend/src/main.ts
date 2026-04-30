@@ -5,8 +5,14 @@ import { Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { loadMasterKeyFromEnv } from './common/crypto/credential-cipher.service';
 
 dotenv.config();
+
+function ensureEncryptionKey(): void {
+  // Fail fast at boot — DI would surface this lazily on first cipher use.
+  loadMasterKeyFromEnv();
+}
 
 function ensureExecutorMode(isProd: boolean): void {
   if (process.env.X_EXECUTOR_MODE) return;
@@ -51,6 +57,7 @@ function buildCorsOptions(isProd: boolean): {
 
 async function bootstrap(): Promise<void> {
   const isProd = process.env.NODE_ENV === 'production';
+  ensureEncryptionKey();
   ensureExecutorMode(isProd);
 
   const app = await NestFactory.create(AppModule, {

@@ -24,8 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield } from 'lucide-react';
+import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield, Plus, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ConnectAccountDialog } from '@/components/connect-account-dialog';
 
 
 const STATUS_STYLES: Record<
@@ -98,6 +99,9 @@ export default function AccountsPage() {
   const [loadError, setLoadError] = useState('');
   const [editAccount, setEditAccount] = useState<RedactedAccount | null>(null);
   const [editForm, setEditForm] = useState<AccountUpdateBody>({});
+  const [editAdvancedOpen, setEditAdvancedOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [reauthAccount, setReauthAccount] = useState<RedactedAccount | null>(null);
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
@@ -124,6 +128,7 @@ export default function AccountsPage() {
   const openEdit = (account: RedactedAccount) => {
     setEditAccount(account);
     setEditForm({});
+    setEditAdvancedOpen(false);
   };
 
   const saveEdit = async () => {
@@ -176,16 +181,22 @@ export default function AccountsPage() {
             Kayıtlı Twitter hesaplarını yönetin
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={loadAccounts}
-          disabled={loading}
-          className="gap-1.5"
-        >
-          <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin-slow')} />
-          Yenile
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadAccounts}
+            disabled={loading}
+            className="gap-1.5"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin-slow')} />
+            Yenile
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => setConnectOpen(true)}>
+            <Plus className="h-3.5 w-3.5" />
+            Hesap Ekle
+          </Button>
+        </div>
       </div>
 
       <Card className="border-border/60">
@@ -274,6 +285,17 @@ export default function AccountsPage() {
                         </td>
                         <td className="py-3 text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {acc.session.health === 'unhealthy' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setReauthAccount(acc)}
+                                className="h-7 w-7 p-0 text-amber-400 opacity-100"
+                                title="Yeniden doğrula"
+                              >
+                                <KeyRound className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -353,49 +375,88 @@ export default function AccountsPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Auth Token
-                </Label>
-                <Input
-                  type="password"
-                  placeholder="Boş bırakırsanız değişmez"
-                  value={editForm.authToken ?? ''}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, authToken: e.target.value }))
-                  }
-                  className="font-mono"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (editAccount) setReauthAccount(editAccount);
+                  setEditAccount(null);
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors',
+                  editAccount.session.health === 'unhealthy'
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                    : 'border-border/60 bg-muted/30 text-foreground hover:bg-muted/50',
+                )}
+              >
+                <KeyRound className="h-4 w-4 flex-shrink-0" />
+                <div>
+                  <div className="font-medium">Bu hesabı yeniden doğrula</div>
+                  <div className="text-[11px] opacity-80">
+                    Şifre + (gerekiyorsa) 2FA secret ile yeni session aç.
+                  </div>
+                </div>
+              </button>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                  CT0 (CSRF)
-                </Label>
-                <Input
-                  type="password"
-                  placeholder="Boş bırakırsanız değişmez"
-                  value={editForm.ct0 ?? ''}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, ct0: e.target.value }))
-                  }
-                  className="font-mono"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => setEditAdvancedOpen((v) => !v)}
+                className="flex w-full items-center justify-between rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30"
+              >
+                <span>Gelişmiş: manuel cookie yapıştır</span>
+                {editAdvancedOpen ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+              </button>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                  TWID
-                </Label>
-                <Input
-                  placeholder="Boş bırakırsanız değişmez"
-                  value={editForm.twid ?? ''}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, twid: e.target.value }))
-                  }
-                  className="font-mono"
-                />
-              </div>
+              {editAdvancedOpen && (
+                <div className="space-y-4 rounded-md border border-border/40 bg-muted/20 p-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Auth Token
+                    </Label>
+                    <Input
+                      type="password"
+                      placeholder="Boş bırakırsanız değişmez"
+                      value={editForm.authToken ?? ''}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, authToken: e.target.value }))
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      CT0 (CSRF)
+                    </Label>
+                    <Input
+                      type="password"
+                      placeholder="Boş bırakırsanız değişmez"
+                      value={editForm.ct0 ?? ''}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, ct0: e.target.value }))
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      TWID
+                    </Label>
+                    <Input
+                      placeholder="Boş bırakırsanız değişmez"
+                      value={editForm.twid ?? ''}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, twid: e.target.value }))
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setEditAccount(null)}>
@@ -407,6 +468,21 @@ export default function AccountsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConnectAccountDialog
+        open={connectOpen}
+        onOpenChange={setConnectOpen}
+        mode="connect"
+        onSuccess={loadAccounts}
+      />
+
+      <ConnectAccountDialog
+        open={!!reauthAccount}
+        onOpenChange={(o) => !o && setReauthAccount(null)}
+        mode="reauth"
+        targetAccountId={reauthAccount?.id}
+        onSuccess={loadAccounts}
+      />
     </div>
   );
 }

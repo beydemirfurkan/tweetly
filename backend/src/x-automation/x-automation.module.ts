@@ -19,6 +19,9 @@ import { XBrowserService } from './browser/x-browser.service';
 import { XPostFlowService } from './browser/x-post-flow.service';
 import { SelectorRegistry } from './browser/selector-registry';
 import { XDirectService } from './x-direct.service';
+import { XLoginService } from './login/x-login.service';
+import { LoginJobsRepository } from './login/login-jobs.repository';
+import { LoginWorker } from './login/login-worker.service';
 
 /**
  * X otomasyon adapter modülü.
@@ -52,7 +55,11 @@ import { XDirectService } from './x-direct.service';
     PatchrightQuoteExecutor,
     // direct (synchronous) service
     XDirectService,
+    // login flow (server-side headless X login)
+    XLoginService,
+    LoginJobsRepository,
+    LoginWorker,
   ],
-  exports: [XDirectService],
+  exports: [XDirectService, XLoginService, LoginJobsRepository],
 })
 export class XAutomationModule {}

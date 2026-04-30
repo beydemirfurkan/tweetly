@@ -1,6 +1,7 @@
 import type { DataSourceOptions, EntitySchema, MixedList } from 'typeorm';
 import {
   AccountEntity,
+  AccountLoginJobEntity,
   UserEntity,
   ApiKeyEntity,
   MagicLinkEntity,
@@ -64,6 +65,7 @@ function parseDatabaseUrl(rawUrl: string, env: NodeJS.ProcessEnv): DatabaseEnv {
 
 const ENTITY_LIST: MixedList<Function | string | EntitySchema<unknown>> = [
   AccountEntity,
+  AccountLoginJobEntity,
   UserEntity,
   ApiKeyEntity,
   MagicLinkEntity,

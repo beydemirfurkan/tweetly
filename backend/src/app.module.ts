@@ -16,6 +16,7 @@ import { McpModule } from './mcp/mcp.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { AuthModule } from './auth/auth.module';
 import { PublicApiModule } from './public-api/public-api.module';
+import { CryptoModule } from './common/crypto/crypto.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { PublicApiModule } from './public-api/public-api.module';
         };
       },
     }),
+    CryptoModule,
     PersistenceModule,
     DomainModule,
     AccountsModule,

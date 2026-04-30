@@ -153,6 +153,64 @@ export interface AccountUpdateBody {
   status?: 'active' | 'paused' | 'banned';
 }
 
+// ── Server-side X login (connect / reauth) ────────────────────────────────
+
+export interface AccountConnectBody {
+  username: string;
+  email: string;
+  password: string;
+  totpSecret?: string | null;
+  saveTotpSecret?: boolean;
+  proxyCountry?: string | null;
+}
+
+export interface AccountReauthBody {
+  password: string;
+  totpSecret?: string | null;
+  saveTotpSecret?: boolean;
+  email?: string | null;
+  proxyCountry?: string | null;
+}
+
+export type LoginJobStatus = 'queued' | 'running' | 'success' | 'failed';
+export type LoginJobFailureReason =
+  | 'invalid_credentials'
+  | 'captcha_required'
+  | 'email_challenge'
+  | 'login_cooldown'
+  | 'unknown';
+
+export interface LoginJobAccepted {
+  jobId: string;
+  kind: 'connect' | 'reauth';
+  pollUrl: string;
+}
+
+export interface LoginJobResponse {
+  id: string;
+  kind: 'connect' | 'reauth';
+  status: LoginJobStatus;
+  targetAccountId: string | null;
+  failureReason: LoginJobFailureReason | null;
+  failureDetail: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export const FAILURE_REASON_TR: Record<LoginJobFailureReason, string> = {
+  invalid_credentials:
+    'Kullanıcı adı veya şifre hatalı. X panelinden giriş yapabildiğinizi doğrulayın, sonra tekrar deneyin.',
+  captcha_required:
+    'X bir captcha doğrulaması istedi. Şu anda otomatik çözemiyoruz — manuel cookie yapıştırma yöntemine geçebilirsiniz.',
+  email_challenge:
+    'X "olağandışı giriş" doğrulama kodu istedi. 2FA secret kayıtlı değilse onu girin; ya da manuel cookie yapıştırın.',
+  login_cooldown:
+    'X çok fazla giriş denemesi tespit etti. 30-60 dakika bekleyip tekrar deneyin.',
+  unknown:
+    'Beklenmeyen bir hata oluştu. Sorun devam ederse manuel cookie yapıştırma yöntemine geçebilirsiniz.',
+};
+
 // ── Actions / system ──────────────────────────────────────────────────────
 
 export interface QueueDepth {

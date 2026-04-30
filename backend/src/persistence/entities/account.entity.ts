@@ -29,6 +29,12 @@ export class AccountEntity {
   @Column({ type: 'text', default: 'active' })
   status!: AccountStatus;
 
+  @Column({ name: 'totp_secret_encrypted', type: 'text', nullable: true })
+  totpSecretEncrypted!: string | null;
+
+  @Column({ name: 'proxy_country', type: 'text', nullable: true })
+  proxyCountry!: string | null;
+
   @Column({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
   createdAt!: Date;
 

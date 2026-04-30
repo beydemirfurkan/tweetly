@@ -12,6 +12,15 @@ import { ACTION_TYPES, ACTION_STATUSES } from '../domain/types/action.types';
 import { XDirectService } from '../x-automation/x-direct.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
 import { McpSessionRouter } from './mcp-session-router.service';
+import { CredentialCipherService } from '../common/crypto/credential-cipher.service';
+import { LoginJobsRepository } from '../x-automation/login/login-jobs.repository';
+import {
+  LoginValidationError,
+  assertBase32Secret,
+  normalizeProxyCountry,
+  normalizeUsername,
+  requireString,
+} from '../x-automation/login/login-validation';
 
 const TOOL_DEFINITIONS = [
   {
@@ -326,6 +335,54 @@ const TOOL_DEFINITIONS = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'connect_x_account',
+    description:
+      'Queue a server-side login job that connects a new X account using username/email/password ' +
+      '(plus optional TOTP base32 secret). Returns a job_id; call get_x_login_job to poll status. ' +
+      'Typical login takes 20-40 seconds. Credentials are encrypted at rest; the password is wiped ' +
+      'after the login completes. Set save_totp_secret=true to persist the TOTP secret for future reauth.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', description: 'X handle (without @)' },
+        email: { type: 'string' },
+        password: { type: 'string' },
+        totp_secret: { type: 'string', description: 'Base32 TOTP secret (NOT the 6-digit code)' },
+        save_totp_secret: { type: 'boolean', default: false },
+        proxy_country: { type: 'string', description: '2-letter country code; needs LOGIN_PROXY_<CC> env' },
+      },
+      required: ['username', 'email', 'password'],
+    },
+  },
+  {
+    name: 'reauth_x_account',
+    description:
+      'Re-authenticate an existing connected X account whose session has expired. Same flow as ' +
+      'connect_x_account but writes the new cookies onto an existing account row. The login must ' +
+      'resolve to the same handle as account_id; otherwise the job fails with invalid_credentials.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'The X handle of the account being re-authed' },
+        password: { type: 'string' },
+        totp_secret: { type: 'string', description: 'Optional; reuses stored secret if account opted in' },
+        save_totp_secret: { type: 'boolean', default: false },
+        email: { type: 'string', description: 'Optional; updates stored email' },
+        proxy_country: { type: 'string' },
+      },
+      required: ['account_id', 'password'],
+    },
+  },
+  {
+    name: 'get_x_login_job',
+    description: 'Poll a connect_x_account or reauth_x_account job. Returns status: queued|running|success|failed.',
+    inputSchema: {
+      type: 'object',
+      properties: { job_id: { type: 'string' } },
+      required: ['job_id'],
+    },
+  },
+  {
     name: 'list_actions',
     description: 'List your actions filtered by type/status/account',
     inputSchema: {
@@ -400,6 +457,8 @@ export class McpService {
     private readonly xDirect: XDirectService,
     private readonly monitoringService: MonitoringService,
     private readonly sessionRouter: McpSessionRouter,
+    private readonly cipher: CredentialCipherService,
+    private readonly loginJobs: LoginJobsRepository,
   ) {}
 
   get instanceId(): string {
@@ -716,6 +775,99 @@ export class McpService {
             createdAt: a.createdAt,
             lastUsedAt: a.lastUsedAt,
           })),
+        };
+      }
+
+      case 'connect_x_account': {
+        let username: string, email: string, password: string;
+        let totpRaw: string | null, proxyCountry: string | null;
+        try {
+          username = normalizeUsername(args.username);
+          email = requireString(args.email, 'email').trim();
+          password = requireString(args.password, 'password');
+          proxyCountry = normalizeProxyCountry(args.proxy_country);
+          const t = args.totp_secret;
+          totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
+          if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
+        } catch (e) {
+          if (e instanceof LoginValidationError) throw new Error(e.message);
+          throw e;
+        }
+        const { id } = await this.loginJobs.create({
+          userId,
+          kind: 'connect',
+          targetAccountId: null,
+          username,
+          email,
+          encryptedPassword: this.cipher.encrypt(password),
+          encryptedTotpSecret: totpRaw ? this.cipher.encrypt(totpRaw) : null,
+          saveTotpSecret: Boolean(args.save_totp_secret),
+          proxyCountry,
+        });
+        return {
+          job_id: id,
+          kind: 'connect',
+          poll_with: { tool: 'get_x_login_job', args: { job_id: id } },
+          hint: 'Poll every 2 seconds. Login typically completes in 20-40s.',
+        };
+      }
+
+      case 'reauth_x_account': {
+        const accountIdRaw = requireString(args.account_id, 'account_id');
+        const accountId = accountIdRaw.trim().toLowerCase();
+        const account = await this.accounts.findByIdForUser(accountId, userId);
+        if (!account) throw new NotFoundException(`Account ${accountId} not found`);
+
+        let password: string, totpRaw: string | null, proxyCountry: string | null;
+        try {
+          password = requireString(args.password, 'password');
+          proxyCountry = normalizeProxyCountry(args.proxy_country) ?? account.proxyCountry;
+          const t = args.totp_secret;
+          totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
+          if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
+        } catch (e) {
+          if (e instanceof LoginValidationError) throw new Error(e.message);
+          throw e;
+        }
+        const encryptedTotp = totpRaw
+          ? this.cipher.encrypt(totpRaw)
+          : account.totpSecretEncrypted;
+
+        const emailArg = args.email;
+        const email = typeof emailArg === 'string' && emailArg.trim() ? emailArg.trim() : null;
+
+        const { id } = await this.loginJobs.create({
+          userId,
+          kind: 'reauth',
+          targetAccountId: account.id,
+          username: account.id,
+          email,
+          encryptedPassword: this.cipher.encrypt(password),
+          encryptedTotpSecret: encryptedTotp,
+          saveTotpSecret: Boolean(args.save_totp_secret) || (totpRaw === null && Boolean(account.totpSecretEncrypted)),
+          proxyCountry,
+        });
+        return {
+          job_id: id,
+          kind: 'reauth',
+          poll_with: { tool: 'get_x_login_job', args: { job_id: id } },
+        };
+      }
+
+      case 'get_x_login_job': {
+        const jobId = requireString(args.job_id, 'job_id');
+        const job = await this.loginJobs.findByIdForUser(jobId, userId);
+        if (!job) throw new NotFoundException(`Login job ${jobId} not found`);
+        return {
+          id: job.id,
+          kind: job.kind,
+          status: job.status,
+          target_account_id: job.targetAccountId,
+          failure_reason: job.failureReason,
+          failure_detail: job.failureDetail,
+          created_at: job.createdAt,
+          started_at: job.startedAt,
+          finished_at: job.finishedAt,
         };
       }
 
