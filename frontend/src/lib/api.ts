@@ -160,3 +160,36 @@ export interface ActionRow {
   idempotency_key: string;
   created_at: string;
 }
+
+export interface Monitor {
+  id: string;
+  accountId: string;
+  targetHandle: string;
+  webhookUrl: string;
+  enabled: boolean;
+  eventTypes: string[];
+  lastCheckAt: string | null;
+  lastTweetUrl: string | null;
+  createdAt: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  monitorId: string;
+  eventType: string;
+  status: 'delivered' | 'failed';
+  attempts: number;
+  lastError: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
+}
+
+export interface MonitorsResponse {
+  count: number;
+  monitors: Monitor[];
+}
+
+export interface MonitorDetailResponse {
+  monitor: Monitor;
+  recentDeliveries: WebhookDelivery[];
+}

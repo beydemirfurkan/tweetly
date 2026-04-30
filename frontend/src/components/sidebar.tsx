@@ -11,6 +11,7 @@ import {
   Heart,
   KeyRound,
   Send,
+  Radio,
   LogOut,
   Bird,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: '/actions', label: 'Aksiyonlar', icon: Zap },
   { href: '/engagement', label: 'Etkileşim', icon: Heart },
   { href: '/collect', label: 'İçerik Topla', icon: Send },
+  { href: '/monitoring', label: 'Monitoring', icon: Radio },
   { href: '/secrets', label: 'Gizli Anahtarlar', icon: KeyRound },
   { href: '/settings', label: 'Ayarlar', icon: Settings },
 ];

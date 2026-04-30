@@ -3,6 +3,8 @@ import {
   Get,
   Post,
   Put,
+  Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -27,6 +29,7 @@ import { TimelineDiscoveryScheduler } from '../engagement/timeline-discovery-sch
 import type { EngagementConfig } from '../engagement/engagement-config.service';
 import type { AccountStatus } from '../domain/types/account.types';
 import type { AccountEntity } from '../persistence/entities/account.entity';
+import { MonitoringService } from '../monitoring/monitoring.service';
 
 const ACCOUNT_STATUSES: AccountStatus[] = ['active', 'paused', 'banned'];
 
@@ -69,6 +72,7 @@ export class AdminApiController {
     private readonly engagementCounter: EngagementCounterService,
     private readonly discoveryScheduler: TimelineDiscoveryScheduler,
     private readonly dataSource: DataSource,
+    private readonly monitoring: MonitoringService,
   ) {}
 
   @Get('status')
@@ -398,6 +402,56 @@ export class AdminApiController {
        FROM discovered_tweets WHERE account_id = $1 ORDER BY discovered_at DESC LIMIT $2`,
       [accountId, n],
     );
+  }
+
+  // ── Monitoring ────────────────────────────────────────────────────────────
+
+  @Get('monitors')
+  async listMonitors() {
+    const monitors = await this.monitoring.listAll();
+    return { count: monitors.length, monitors };
+  }
+
+  @Post('monitors')
+  @HttpCode(HttpStatus.CREATED)
+  async createMonitor(
+    @Body() body: { targetHandle: string; webhookUrl: string; accountId?: string; eventTypes?: string[] },
+  ) {
+    if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
+    if (!body.webhookUrl) throw new BadRequestException('webhookUrl is required');
+    if (!body.webhookUrl.startsWith('http')) throw new BadRequestException('webhookUrl must be a valid HTTP/HTTPS URL');
+
+    const monitor = await this.monitoring.create({
+      accountId: body.accountId ?? '',
+      targetHandle: body.targetHandle,
+      webhookUrl: body.webhookUrl,
+      eventTypes: body.eventTypes ?? ['tweet.new'],
+    });
+    return { ok: true, monitor };
+  }
+
+  @Get('monitors/:id')
+  async getMonitor(@Param('id') id: string) {
+    const monitor = await this.monitoring.findById(id);
+    if (!monitor) throw new NotFoundException(`Monitor ${id} not found`);
+    const deliveries = await this.monitoring.listDeliveries(id, 20);
+    return { monitor, recentDeliveries: deliveries };
+  }
+
+  @Delete('monitors/:id')
+  @HttpCode(HttpStatus.OK)
+  async deleteMonitor(@Param('id') id: string) {
+    const ok = await this.monitoring.delete(id);
+    if (!ok) throw new NotFoundException(`Monitor ${id} not found`);
+    return { ok: true };
+  }
+
+  @Patch('monitors/:id/pause')
+  @HttpCode(HttpStatus.OK)
+  async pauseMonitor(@Param('id') id: string) {
+    const ok = await this.monitoring.disable(id);
+    if (!ok) throw new NotFoundException(`Monitor ${id} not found`);
+    return { ok: true, status: 'paused' };
   }
 }
 
