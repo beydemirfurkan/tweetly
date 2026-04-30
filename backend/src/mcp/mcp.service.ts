@@ -508,13 +508,13 @@ export class McpService {
     userId: string,
     name: string,
     args: Record<string, unknown>,
-  ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
+  ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
     try {
       const result = await this.dispatch_tool(userId, name, args);
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return { content: [{ type: 'text', text: `Error: ${message}` }] };
+      return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
     }
   }
 

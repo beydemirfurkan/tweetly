@@ -66,6 +66,6 @@ export class McpController {
     if (sessionUserId !== ctx.userId) {
       throw new UnauthorizedException('Session does not belong to caller');
     }
-    await transport.handlePostMessage(req, res);
+    await transport.handlePostMessage(req, res, req.body);
   }
 }
