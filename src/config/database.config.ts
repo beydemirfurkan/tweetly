@@ -13,6 +13,8 @@ import {
   QuoteActionEntity,
   BookmarkActionEntity,
   EngagementConfigEntity,
+  MonitorEntity,
+  WebhookDeliveryEntity,
 } from '../persistence/entities';
 
 export interface DatabaseEnv {
@@ -72,6 +74,8 @@ const ENTITY_LIST: MixedList<Function | string | EntitySchema<unknown>> = [
   QuoteActionEntity,
   BookmarkActionEntity,
   EngagementConfigEntity,
+  MonitorEntity,
+  WebhookDeliveryEntity,
 ];
 
 export function buildDataSourceOptions(env: DatabaseEnv = readDatabaseEnv()): DataSourceOptions {

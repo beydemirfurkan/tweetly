@@ -18,6 +18,7 @@ import { PatchrightQuoteExecutor } from './executors/patchright-quote.executor';
 import { XBrowserService } from './browser/x-browser.service';
 import { XPostFlowService } from './browser/x-post-flow.service';
 import { SelectorRegistry } from './browser/selector-registry';
+import { XDirectService } from './x-direct.service';
 
 /**
  * X otomasyon adapter modülü.
@@ -49,7 +50,9 @@ import { SelectorRegistry } from './browser/selector-registry';
     PatchrightRetweetExecutor,
     PatchrightFollowExecutor,
     PatchrightQuoteExecutor,
+    // direct (synchronous) service
+    XDirectService,
   ],
-  exports: [],
+  exports: [XDirectService],
 })
 export class XAutomationModule {}

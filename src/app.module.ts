@@ -14,6 +14,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 import { AdminApiModule } from './admin-api/admin-api.module';
 import { EngagementModule } from './engagement/engagement.module';
+import { McpModule } from './mcp/mcp.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { EngagementModule } from './engagement/engagement.module';
     WorkflowsModule,
     AdminApiModule,
     EngagementModule,
+    McpModule,
+    MonitoringModule,
     HealthModule,
   ],
 })

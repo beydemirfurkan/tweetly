@@ -28,4 +28,31 @@ export class SelectorRegistry {
   followButton(handle: string): string {
     return `[data-testid="${handle}-follow"]`;
   }
+
+  unfollowButton(handle: string): string {
+    return `[data-testid="${handle}-unfollow"]`;
+  }
+
+  // Unretweet
+  readonly unretweetConfirm = '[data-testid="unretweetConfirm"]';
+
+  // Delete tweet
+  readonly moreActionsButton = '[data-testid="caret"]';
+
+  // DM composer
+  readonly dmTextarea = '[data-testid="dmComposerTextInput"]';
+  readonly dmSendButton = '[data-testid="dmComposerSendButton"]';
+  readonly newDmButton = '[data-testid="NewDM_Button"]';
+
+  // Tweet data selectors (for scraping)
+  readonly tweetText = '[data-testid="tweetText"]';
+  readonly tweetLikeCount = '[data-testid="like"] span[data-testid="app-text-transition-container"]';
+  readonly tweetRetweetCount = '[data-testid="retweet"] span[data-testid="app-text-transition-container"]';
+  readonly tweetReplyCount = '[data-testid="reply"] span[data-testid="app-text-transition-container"]';
+
+  // User profile selectors
+  readonly userDescription = '[data-testid="UserDescription"]';
+  readonly userName = '[data-testid="UserName"]';
+  readonly userFollowersCount = 'a[href$="/followers"] span span';
+  readonly userFollowingCount = 'a[href$="/following"] span span';
 }
