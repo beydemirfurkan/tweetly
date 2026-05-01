@@ -251,7 +251,7 @@ export class XDirectService {
       await page.waitForSelector(this.sel.tweetArticle, { timeout: 20_000 });
       await page.waitForTimeout(2_000);
 
-      return this.extractTweets(page, limit);
+      return await this.extractTweets(page, limit);
     } catch (err) {
       this.log.error(`searchTweets error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -267,7 +267,7 @@ export class XDirectService {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.waitForTimeout(5_000);
 
-      return page.evaluate((sel) => {
+      return await page.evaluate((sel) => {
         const nameEl = document.querySelector(sel.userName);
         const bioEl = document.querySelector(sel.userDescription);
         const followersEl = document.querySelector(sel.userFollowersCount);
@@ -292,7 +292,7 @@ export class XDirectService {
         userDescription: this.sel.userDescription,
         userFollowersCount: this.sel.userFollowersCount,
         userFollowingCount: this.sel.userFollowingCount,
-      }) as Promise<UserResult>;
+      });
     } catch (err) {
       this.log.error(`getUser error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -336,7 +336,7 @@ export class XDirectService {
       await page.waitForSelector('[data-testid="UserCell"]', { timeout: 15_000 });
       await page.waitForTimeout(1_500);
 
-      return page.evaluate((params) => {
+      return await page.evaluate((params) => {
         const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
         return cells.map(cell => {
           const nameEl = cell.querySelector('[data-testid="UserName"]');
@@ -354,7 +354,7 @@ export class XDirectService {
             profileUrl: `https://x.com/${handle}`,
           };
         });
-      }, { limit }) as Promise<UserResult[]>;
+      }, { limit });
     } catch (err) {
       this.log.error(`searchUsers error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -378,7 +378,7 @@ export class XDirectService {
         await page.waitForTimeout(1_500);
       }
 
-      return page.evaluate((params) => {
+      return await page.evaluate((params) => {
         const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
         return cells.map(cell => {
           const nameEl = cell.querySelector('[data-testid="UserName"]');
@@ -388,7 +388,7 @@ export class XDirectService {
           const bio = cell.querySelector('[data-testid="UserDescription"]')?.textContent ?? '';
           return { handle, displayName, bio };
         });
-      }, { limit }) as Promise<Array<{ handle: string; displayName: string; bio: string }>>;
+      }, { limit });
     } catch (err) {
       this.log.error(`getUserFollowers error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -406,7 +406,7 @@ export class XDirectService {
       await page.waitForSelector('[data-testid="trend"]', { timeout: 15_000 });
       await page.waitForTimeout(1_500);
 
-      return page.evaluate(() => {
+      return await page.evaluate(() => {
         const trends = Array.from(document.querySelectorAll('[data-testid="trend"]'));
         return trends.map((el, i) => {
           const spans = el.querySelectorAll('span');
@@ -418,7 +418,7 @@ export class XDirectService {
             tweetCount: countEl?.textContent ?? '',
           };
         });
-      }) as Promise<Array<{ rank: number; topic: string; tweetCount: string }>>;
+      });
     } catch (err) {
       this.log.error(`getXTrending error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -430,7 +430,7 @@ export class XDirectService {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   private async extractTweets(page: Page, limit: number): Promise<TweetResult[]> {
-    return page.evaluate((params) => {
+    return await page.evaluate((params) => {
       const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]')).slice(0, params.limit);
       return articles.map(a => {
         const text = a.querySelector('[data-testid="tweetText"]')?.textContent ?? '';

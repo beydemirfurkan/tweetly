@@ -73,6 +73,31 @@ npm run db:migrate         # Migration'ları uygula
 npm run db:migrate:revert  # Son migration'ı geri al
 ```
 
+### Local smoke testleri
+
+Production'a deploy etmeden önce MCP ve REST tool matrisini lokal backend'e
+karşı çalıştır:
+
+```bash
+cd backend
+TWEETLY_API_KEY=tk_... npm run smoke:mcp
+TWEETLY_API_KEY=tk_... npm run smoke:rest
+
+# X read path'lerini dahil et
+TWEETLY_API_KEY=tk_... TWEETLY_SMOKE_SUITE=read npm run smoke:mcp
+TWEETLY_API_KEY=tk_... TWEETLY_SMOKE_SUITE=read npm run smoke:rest
+
+# Queue/write tool'ları bilinçli opt-in ister
+TWEETLY_API_KEY=tk_... TWEETLY_SMOKE_SUITE=queue \
+  TWEETLY_ALLOW_WRITE_SMOKE=true \
+  TWEETLY_TARGET_TWEET_URL=https://x.com/.../status/... \
+  npm run smoke:mcp
+```
+
+`destructive` suite (`delete_tweet`, `update_profile`, `send_dm`, `unfollow`,
+vb.) sadece test hesabıyla ve `TWEETLY_ALLOW_DESTRUCTIVE_SMOKE=true` ile
+çalıştırılmalı.
+
 ---
 
 ## Env Değişkenleri

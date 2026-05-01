@@ -316,14 +316,14 @@ export class XBrowserService implements OnModuleDestroy {
     try {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.waitForTimeout(5_000);
-      return this.extractTweetCards(page, limit);
+      return await this.extractTweetCards(page, limit);
     } finally {
       await this.release(context);
     }
   }
 
   private async extractTweetCards(page: Page, limit: number): Promise<BrowserTweetResult[]> {
-    return page.evaluate((params) => {
+    return await page.evaluate((params) => {
       const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]')).slice(0, params.limit);
       return articles.map((article) => {
         const tweetLink = article.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null;

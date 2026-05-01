@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   Put,
@@ -132,12 +133,14 @@ export class AdminApiController {
   @Get('browser/diagnostics')
   @ApiOperation({ summary: 'Browser runtime diagnostics (no secrets, no browser launch)' })
   async getBrowserDiagnostics() {
+    this.assertDebugEndpointsEnabled();
     return this.browser.getDiagnostics();
   }
 
   @Get('browser/probe')
   @ApiOperation({ summary: 'Probe Patchright launch/release without navigation' })
   async probeBrowser(@Query('account') accountId?: string) {
+    this.assertDebugEndpointsEnabled();
     return this.browser.probeLaunch(accountId?.trim() || undefined);
   }
 
@@ -150,6 +153,7 @@ export class AdminApiController {
     @Query('selector') selector?: string,
     @Query('extractTweets') extractTweets?: string,
   ) {
+    this.assertDebugEndpointsEnabled();
     const targetUrl = url?.trim() || 'https://x.com';
     if (!targetUrl.startsWith('https://x.com/')) {
       throw new BadRequestException('url must start with https://x.com/');
@@ -169,8 +173,15 @@ export class AdminApiController {
     @Query('account') accountId?: string,
     @Query('limit') limitStr?: string,
   ) {
+    this.assertDebugEndpointsEnabled();
     const limit = Math.min(Number(limitStr ?? 3), 10);
     return this.xDirect.getUserTweets(handle, limit, accountId?.trim() || undefined);
+  }
+
+  private assertDebugEndpointsEnabled(): void {
+    if (process.env.ADMIN_DEBUG_ENDPOINTS_ENABLED !== 'true') {
+      throw new NotFoundException('Not found');
+    }
   }
 
   @Put('secrets')

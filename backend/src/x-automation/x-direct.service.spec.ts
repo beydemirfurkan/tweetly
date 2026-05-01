@@ -94,6 +94,22 @@ describe('XDirectService', () => {
       const result = await service.searchTweets('test');
       expect(result).toEqual([fakeTweet]);
     });
+
+    it('waits for tweet extraction before releasing the browser context', async () => {
+      const { service, browser, page, context } = createService();
+      const fakeTweet = { url: 'https://x.com/u/status/1', text: 'test', handle: 'u', displayName: 'U', likeCount: '1', retweetCount: '0', replyCount: '0', postedAt: '' };
+      let resolveEvaluate: (value: unknown) => void = () => undefined;
+      page.evaluate.mockReturnValue(new Promise((resolve) => { resolveEvaluate = resolve; }));
+      browser.launch.mockResolvedValue({ context, page });
+
+      const result = service.searchTweets('test');
+      await Promise.resolve();
+
+      expect(browser.release).not.toHaveBeenCalled();
+      resolveEvaluate([fakeTweet]);
+      await expect(result).resolves.toEqual([fakeTweet]);
+      expect(browser.release).toHaveBeenCalledWith(context);
+    });
   });
 
   describe('unlikeTweet', () => {
