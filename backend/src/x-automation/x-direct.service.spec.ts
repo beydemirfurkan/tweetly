@@ -137,15 +137,15 @@ describe('XDirectService', () => {
       );
     });
 
-    it('continues when the profile shell loads before tweet articles', async () => {
+    it('polls for the profile shell before extracting tweets', async () => {
       const { service, browser, page } = createService();
       browser.launch.mockResolvedValue({ context: {}, page });
 
       await service.getUserTweets('testuser', 5, 'acc-1');
 
-      expect(page.waitForSelector).toHaveBeenCalledWith(
+      expect(page.evaluate).toHaveBeenCalledWith(
+        expect.any(Function),
         '[data-testid="tweet"], [data-testid="UserName"]',
-        { timeout: 20_000 },
       );
     });
   });
