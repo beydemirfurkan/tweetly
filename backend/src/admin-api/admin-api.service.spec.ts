@@ -156,8 +156,8 @@ describe('AdminApiService', () => {
   describe('archiveDeadActions()', () => {
     it('archives dead rows across all action tables', async () => {
       const { service, ds } = createService();
-      ds.query.mockResolvedValueOnce([{ id: 'post-1' }]);
-      ds.query.mockResolvedValue([]);
+      ds.query.mockResolvedValueOnce([{ archived: '1' }]);
+      ds.query.mockResolvedValue([{ archived: '0' }]);
 
       const result = await service.archiveDeadActions();
 
@@ -176,6 +176,7 @@ describe('AdminApiService', () => {
       expect(sql).toContain("status='cancelled'");
       expect(sql).toContain("WHERE status='dead'");
       expect(sql).toContain('RETURNING id');
+      expect(sql).toContain('SELECT COUNT(*)::text AS archived');
     });
   });
 

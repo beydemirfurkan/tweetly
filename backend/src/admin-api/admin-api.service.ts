@@ -146,13 +146,16 @@ export class AdminApiService {
   async archiveDeadActions(): Promise<ArchivedDeadActions[]> {
     const results: ArchivedDeadActions[] = [];
     for (const [type, cfg] of Object.entries(ACTION_TABLE_CONFIG) as Array<[ActionType, typeof ACTION_TABLE_CONFIG[ActionType]]>) {
-      const rows: Array<{ id: string }> = await this.dataSource.query(
-        `UPDATE ${cfg.table}
-            SET status='cancelled', locked_until=NULL, locked_by=NULL, updated_at=now()
-          WHERE status='dead'
-          RETURNING id`,
+      const rows: Array<{ archived: string }> = await this.dataSource.query(
+        `WITH archived AS (
+           UPDATE ${cfg.table}
+              SET status='cancelled', locked_until=NULL, locked_by=NULL, updated_at=now()
+            WHERE status='dead'
+            RETURNING id
+         )
+         SELECT COUNT(*)::text AS archived FROM archived`,
       );
-      results.push({ type, archived: rows.length });
+      results.push({ type, archived: parseInt(rows[0]?.archived ?? '0', 10) });
     }
     return results;
   }
