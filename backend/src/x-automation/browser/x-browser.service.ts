@@ -63,6 +63,12 @@ export interface BrowserProbeResult {
   error: string | null;
 }
 
+export interface BrowserNavigateProbeResult extends BrowserProbeResult {
+  targetUrl: string;
+  gotoMs: number | null;
+  title: string | null;
+}
+
 @Injectable()
 export class XBrowserService implements OnModuleDestroy {
   private readonly log = new Logger(XBrowserService.name);
@@ -203,6 +209,57 @@ export class XBrowserService implements OnModuleDestroy {
         releaseMs: null,
         pageCount: null,
         url: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  async probeNavigate(targetUrl: string, accountId?: string): Promise<BrowserNavigateProbeResult> {
+    const startedAt = Date.now();
+    let context: BrowserContext | null = null;
+    let launchMs: number | null = null;
+    try {
+      const launched = await this.launch(accountId);
+      context = launched.context;
+      launchMs = Date.now() - startedAt;
+
+      const gotoStartedAt = Date.now();
+      await launched.page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const gotoMs = Date.now() - gotoStartedAt;
+      const title = await launched.page.title().catch(() => null);
+      const url = launched.page.url();
+
+      const releaseStartedAt = Date.now();
+      await this.release(context);
+      context = null;
+
+      return {
+        ok: true,
+        accountId: accountId ?? null,
+        targetUrl,
+        launchMs,
+        gotoMs,
+        releaseMs: Date.now() - releaseStartedAt,
+        pageCount: launched.context.pages().length,
+        url,
+        title,
+        error: null,
+      };
+    } catch (err) {
+      if (context) {
+        await this.release(context);
+      }
+
+      return {
+        ok: false,
+        accountId: accountId ?? null,
+        targetUrl,
+        launchMs,
+        gotoMs: null,
+        releaseMs: null,
+        pageCount: null,
+        url: null,
+        title: null,
         error: err instanceof Error ? err.message : String(err),
       };
     }

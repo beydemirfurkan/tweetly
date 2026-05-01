@@ -139,6 +139,20 @@ export class AdminApiController {
     return this.browser.probeLaunch(accountId?.trim() || undefined);
   }
 
+  @Get('browser/navigate-probe')
+  @ApiOperation({ summary: 'Probe Patchright navigation to an x.com URL' })
+  async probeBrowserNavigation(
+    @Query('url') url?: string,
+    @Query('account') accountId?: string,
+  ) {
+    const targetUrl = url?.trim() || 'https://x.com';
+    if (!targetUrl.startsWith('https://x.com/')) {
+      throw new BadRequestException('url must start with https://x.com/');
+    }
+
+    return this.browser.probeNavigate(targetUrl, accountId?.trim() || undefined);
+  }
+
   @Put('secrets')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
