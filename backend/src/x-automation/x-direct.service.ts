@@ -266,7 +266,6 @@ export class XDirectService {
     try {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.waitForTimeout(5_000);
-      await this.browser.assertSessionHealthy(page, acctId);
 
       return page.evaluate((sel) => {
         const nameEl = document.querySelector(sel.userName);
@@ -328,7 +327,6 @@ export class XDirectService {
     try {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.waitForTimeout(5_000);
-      await this.browser.assertSessionHealthy(page, acctId);
 
       return this.extractTweets(page, limit);
     } catch (err) {
