@@ -90,6 +90,15 @@ export class AdminApiController {
     return this.service.getQueueDepth();
   }
 
+  @Post('actions/dead/archive')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Archive dead actions as cancelled without deleting audit rows' })
+  async archiveDeadActions() {
+    const byType = await this.service.archiveDeadActions();
+    const totalArchived = byType.reduce((sum, row) => sum + row.archived, 0);
+    return { ok: true, totalArchived, byType };
+  }
+
   @Post('accounts/:accountId/circuit-breaker/clear')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Manually clear an account circuit-breaker pause' })

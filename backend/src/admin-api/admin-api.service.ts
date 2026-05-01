@@ -25,6 +25,11 @@ export interface ActionRow {
   created_at: string;
 }
 
+export interface ArchivedDeadActions {
+  type: ActionType;
+  archived: number;
+}
+
 @Injectable()
 export class AdminApiService {
   constructor(private readonly dataSource: DataSource) {}
@@ -136,6 +141,20 @@ export class AdminApiService {
       [id],
     );
     return result.length > 0;
+  }
+
+  async archiveDeadActions(): Promise<ArchivedDeadActions[]> {
+    const results: ArchivedDeadActions[] = [];
+    for (const [type, cfg] of Object.entries(ACTION_TABLE_CONFIG) as Array<[ActionType, typeof ACTION_TABLE_CONFIG[ActionType]]>) {
+      const rows: Array<{ id: string }> = await this.dataSource.query(
+        `UPDATE ${cfg.table}
+            SET status='cancelled', locked_until=NULL, locked_by=NULL, updated_at=now()
+          WHERE status='dead'
+          RETURNING id`,
+      );
+      results.push({ type, archived: rows.length });
+    }
+    return results;
   }
 
   async findActionAccountId(type: ActionType, id: string): Promise<string | null> {

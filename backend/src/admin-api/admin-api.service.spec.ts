@@ -153,6 +153,32 @@ describe('AdminApiService', () => {
     });
   });
 
+  describe('archiveDeadActions()', () => {
+    it('archives dead rows across all action tables', async () => {
+      const { service, ds } = createService();
+      ds.query.mockResolvedValueOnce([{ id: 'post-1' }]);
+      ds.query.mockResolvedValue([]);
+
+      const result = await service.archiveDeadActions();
+
+      expect(result).toHaveLength(7);
+      expect(result.find((row) => row.type === 'post')?.archived).toBe(1);
+      expect(ds.query).toHaveBeenCalledTimes(7);
+    });
+
+    it('keeps audit rows by changing status to cancelled', async () => {
+      const { service, ds } = createService();
+      ds.query.mockResolvedValue([]);
+
+      await service.archiveDeadActions();
+
+      const sql = ds.query.mock.calls[0][0] as string;
+      expect(sql).toContain("status='cancelled'");
+      expect(sql).toContain("WHERE status='dead'");
+      expect(sql).toContain('RETURNING id');
+    });
+  });
+
   describe('findActionAccountId()', () => {
     it('returns account_id when found', async () => {
       const { service, ds } = createService();
