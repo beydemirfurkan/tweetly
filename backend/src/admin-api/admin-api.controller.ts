@@ -19,6 +19,7 @@ import { UsersService } from '../auth/users.service';
 import { MagicLinkService } from '../auth/magic-link.service';
 import { CircuitBreakerService } from '../action-engine/circuit-breaker.service';
 import { XBrowserService } from '../x-automation/browser/x-browser.service';
+import { XDirectService } from '../x-automation/x-direct.service';
 
 class SecretUpdateBody {
   @ApiProperty({ required: false, description: 'New persistent admin token (replaces BOOTSTRAP_ADMIN_TOKEN)' })
@@ -62,6 +63,7 @@ export class AdminApiController {
     private readonly magicLinks: MagicLinkService,
     private readonly circuitBreaker: CircuitBreakerService,
     private readonly browser: XBrowserService,
+    private readonly xDirect: XDirectService,
   ) {}
 
   @Get('status')
@@ -156,6 +158,17 @@ export class AdminApiController {
       waitMs: waitMs ? Number(waitMs) : undefined,
       selector,
     });
+  }
+
+  @Get('x-direct/users/:handle/tweets')
+  @ApiOperation({ summary: 'Admin-only XDirect getUserTweets probe' })
+  async probeXDirectUserTweets(
+    @Param('handle') handle: string,
+    @Query('account') accountId?: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    const limit = Math.min(Number(limitStr ?? 3), 10);
+    return this.xDirect.getUserTweets(handle, limit, accountId?.trim() || undefined);
   }
 
   @Put('secrets')
