@@ -37,6 +37,32 @@ export class SessionHealthDto {
   authFailureCount!: number;
 }
 
+export class AccountProfileDto {
+  @ApiProperty()
+  displayName!: string;
+
+  @ApiProperty()
+  bio!: string;
+
+  @ApiProperty()
+  followersCount!: string;
+
+  @ApiProperty()
+  followingCount!: string;
+
+  @ApiProperty()
+  tweetsCount!: string;
+
+  @ApiProperty()
+  profileImageUrl!: string;
+
+  @ApiProperty()
+  verified!: boolean;
+
+  @ApiProperty()
+  fetchedAt!: Date;
+}
+
 export class RedactedAccountDto {
   @ApiProperty()
   id!: string;
@@ -67,6 +93,9 @@ export class RedactedAccountDto {
 
   @ApiProperty({ type: SessionHealthDto })
   session!: SessionHealthDto;
+
+  @ApiProperty({ type: AccountProfileDto, nullable: true })
+  profile!: AccountProfileDto | null;
 }
 
 export class AccountsResponseDto {

@@ -34,6 +34,7 @@ import {
   TieredThrottlerGuard,
 } from '../auth/tiered-throttler.guard';
 import { AccountsService } from '../accounts/accounts.service';
+import { ProfileCacheService } from '../accounts/profile-cache.service';
 import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
 import { XDirectService } from '../x-automation/x-direct.service';
@@ -86,6 +87,7 @@ const ACCOUNT_STATUSES: AccountStatus[] = ['active', 'paused', 'banned'];
 export class PublicApiController {
   constructor(
     private readonly accounts: AccountsService,
+    private readonly profileCache: ProfileCacheService,
     private readonly enqueue: ActionEnqueueService,
     private readonly admin: AdminApiService,
     private readonly xDirect: XDirectService,
@@ -140,10 +142,54 @@ export class PublicApiController {
   async listAccounts(@Req() req: Request): Promise<AccountsResponseDto> {
     const ctx = getAuthContext(req);
     const accounts = await this.accounts.listAllForUser(ctx.userId);
-    const health = await this.accounts.getSessionHealthForAccounts(accounts.map((a) => a.id));
+    const ids = accounts.map((a) => a.id);
+    const [health, profiles] = await Promise.all([
+      this.accounts.getSessionHealthForAccounts(ids),
+      this.profileCache.getMany(ids),
+    ]);
     return {
       count: accounts.length,
-      accounts: accounts.map((a) => redact(a, health.get(a.id) ?? defaultHealth())),
+      accounts: accounts.map((a) => {
+        const dto = redact(a, health.get(a.id) ?? defaultHealth());
+        const p = profiles.get(a.id);
+        dto.profile = p
+          ? {
+              displayName: p.displayName,
+              bio: p.bio,
+              followersCount: p.followersCount,
+              followingCount: p.followingCount,
+              tweetsCount: p.tweetsCount,
+              profileImageUrl: p.profileImageUrl,
+              verified: p.verified,
+              fetchedAt: p.fetchedAt,
+            }
+          : null;
+        return dto;
+      }),
+    };
+  }
+
+  @Post('accounts/:id/refresh-profile')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('accounts')
+  @RequiresScope('write')
+  @RateLimitWrite()
+  @ApiOperation({ summary: 'Refresh cached profile data for an account' })
+  async refreshProfile(@Req() req: Request, @Param('id') id: string) {
+    await this.assertAccountOwnership(req, id);
+    const profile = await this.profileCache.refresh(id);
+    return {
+      ok: true,
+      profile: {
+        displayName: profile.displayName,
+        bio: profile.bio,
+        followersCount: profile.followersCount,
+        followingCount: profile.followingCount,
+        tweetsCount: profile.tweetsCount,
+        profileImageUrl: profile.profileImageUrl,
+        verified: profile.verified,
+        fetchedAt: profile.fetchedAt,
+      },
     };
   }
 
@@ -909,6 +955,7 @@ function redact(account: AccountEntity, session: SessionHealthDto): RedactedAcco
     createdAt: account.createdAt,
     lastUsedAt: account.lastUsedAt,
     session,
+    profile: null,
   };
 }
 

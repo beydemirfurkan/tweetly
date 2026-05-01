@@ -1,7 +1,8 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CredentialCipherService } from '../../common/crypto/credential-cipher.service';
 import { AccountsService } from '../../accounts/accounts.service';
+import { ProfileCacheService } from '../../accounts/profile-cache.service';
 import { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
 import { XLoginService } from './x-login.service';
 import type { XLoginInput, XLoginResult } from './login.types';
@@ -27,6 +28,8 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly login: XLoginService,
     private readonly cipher: CredentialCipherService,
     private readonly accounts: AccountsService,
+    @Inject(forwardRef(() => ProfileCacheService))
+    private readonly profileCache: ProfileCacheService,
   ) {
     this.options = {
       pollIntervalMs: parseInt(process.env.LOGIN_WORKER_POLL_MS ?? '3000', 10),
@@ -209,6 +212,8 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     await this.accounts
       .recordSessionSuccess(accountId)
       .catch((e) => this.log.warn(`recordSessionSuccess swallow: ${e}`));
+
+    this.profileCache.refreshInBackground(accountId);
 
     this.log.log(`success job=${job.id} accountId=${accountId} duration=${result.durationMs}ms`);
   }

@@ -80,7 +80,11 @@ function makeWorker(opts: {
     transaction: jest.fn(async (fn: (m: EntityManager) => Promise<unknown>) => fn(manager as unknown as EntityManager)),
   } as unknown as DataSource;
 
-  const worker = new LoginWorker(dataSource, jobs, login, cipher, accounts);
+  const profileCache = {
+    refreshInBackground: jest.fn(),
+  };
+
+  const worker = new LoginWorker(dataSource, jobs, login, cipher, accounts, profileCache as any);
   return { worker, jobs, accounts, manager };
 }
 

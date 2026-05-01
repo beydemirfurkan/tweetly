@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 
 import type { AccountsService } from '../accounts/accounts.service';
+import type { ProfileCacheService } from '../accounts/profile-cache.service';
 import type { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import type { AdminApiService } from '../admin-api/admin-api.service';
 import type { CredentialCipherService } from '../common/crypto/credential-cipher.service';
@@ -24,6 +25,7 @@ function makeController(loginJobsOverrides: Partial<jest.Mocked<LoginJobsReposit
   } as unknown as CredentialCipherService;
   const controller = new PublicApiController(
     {} as unknown as AccountsService,
+    {} as unknown as ProfileCacheService,
     {} as unknown as ActionEnqueueService,
     {} as unknown as AdminApiService,
     {} as unknown as XDirectService,

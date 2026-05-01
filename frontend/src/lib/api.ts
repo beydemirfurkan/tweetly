@@ -126,6 +126,17 @@ export interface SessionHealth {
   authFailureCount: number;
 }
 
+export interface AccountProfile {
+  displayName: string;
+  bio: string;
+  followersCount: string;
+  followingCount: string;
+  tweetsCount: string;
+  profileImageUrl: string;
+  verified: boolean;
+  fetchedAt: string;
+}
+
 export interface RedactedAccount {
   id: string;
   displayName: string | null;
@@ -137,6 +148,7 @@ export interface RedactedAccount {
   createdAt: string;
   lastUsedAt: string | null;
   session: SessionHealth;
+  profile: AccountProfile | null;
 }
 
 export interface XUserProfile {

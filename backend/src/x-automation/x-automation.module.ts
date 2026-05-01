@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ActionEngineModule } from '../action-engine/action-engine.module';
 import { AccountsModule } from '../accounts/accounts.module';
 import { NoOpPostExecutor } from './executors/noop-post.executor';
@@ -32,7 +32,7 @@ import { LoginWorker } from './login/login-worker.service';
  *   - `patchright`: Gerçek Patchright tabanlı executor'lar (prod)
  */
 @Module({
-  imports: [ActionEngineModule, AccountsModule],
+  imports: [ActionEngineModule, forwardRef(() => AccountsModule)],
   providers: [
     SelectorRegistry,
     XBrowserService,

@@ -6,9 +6,9 @@ import {
   type AccountsResponse,
   type RedactedAccount,
   type AccountUpdateBody,
-  type XUserProfile,
+  type AccountProfile,
 } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,27 +25,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield, Plus, KeyRound, ChevronDown, ChevronUp, ExternalLink, UserCheck, UserPlus, FileText } from 'lucide-react';
+import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield, Plus, KeyRound, ChevronDown, ChevronUp, ExternalLink, UserCheck, UserPlus, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConnectAccountDialog } from '@/components/connect-account-dialog';
 
-
 const STATUS_STYLES: Record<
   string,
-  { variant: 'default' | 'secondary' | 'destructive'; label: string; className: string }
+  { label: string; className: string }
 > = {
   active: {
-    variant: 'default',
     label: 'Aktif',
     className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
   },
   paused: {
-    variant: 'secondary',
     label: 'Duraklatıldı',
     className: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
   },
   banned: {
-    variant: 'destructive',
     label: 'Yasaklı',
     className: 'border-destructive/25 bg-destructive/10 text-destructive',
   },
@@ -94,33 +90,42 @@ function SessionHealthBadge({ session }: { session: RedactedAccount['session'] }
   );
 }
 
+function StatPill({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="text-xs font-semibold text-foreground">{value}</span>
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
 function ProfileCard({
   account,
-  profile,
-  profileLoading,
   onEdit,
   onDelete,
   onReauth,
+  onRefreshProfile,
+  refreshing,
 }: {
   account: RedactedAccount;
-  profile: XUserProfile | null;
-  profileLoading: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onReauth: () => void;
+  onRefreshProfile: () => void;
+  refreshing: boolean;
 }) {
   const accId = String(account.id ?? '');
   const statusKey = typeof account.status === 'string' ? account.status : '';
   const statusStyle = STATUS_STYLES[statusKey] ?? STATUS_STYLES.paused;
+  const profile = account.profile;
 
   return (
     <Card className="border-border/60 overflow-hidden">
       <CardContent className="p-0">
         <div className="flex gap-4 p-4">
           <div className="shrink-0">
-            {profileLoading ? (
-              <div className="h-16 w-16 rounded-full bg-muted animate-pulse" />
-            ) : profile?.profileImageUrl ? (
+            {profile?.profileImageUrl ? (
               <img
                 src={profile.profileImageUrl}
                 alt={profile.displayName}
@@ -180,6 +185,16 @@ function ProfileCard({
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={onRefreshProfile}
+                  disabled={refreshing}
+                  className="h-7 w-7 p-0"
+                  title="Profili yenile"
+                >
+                  <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={onEdit}
                   className="h-7 w-7 p-0"
                   title="Düzenle"
@@ -201,17 +216,17 @@ function ProfileCard({
             <div className="mt-3 flex items-center gap-4">
               <StatPill
                 icon={<UserCheck className="h-3 w-3" />}
-                value={profileLoading ? '...' : (profile?.followersCount ?? '—')}
+                value={profile?.followersCount ?? '—'}
                 label="Takipçi"
               />
               <StatPill
                 icon={<UserPlus className="h-3 w-3" />}
-                value={profileLoading ? '...' : (profile?.followingCount ?? '—')}
+                value={profile?.followingCount ?? '—'}
                 label="Takip"
               />
               <StatPill
                 icon={<FileText className="h-3 w-3" />}
-                value={profileLoading ? '...' : (profile?.tweetsCount ?? '—')}
+                value={profile?.tweetsCount ?? '—'}
                 label="Gönderi"
               />
             </div>
@@ -233,27 +248,17 @@ function ProfileCard({
             </span>
           </div>
           <a
-            href={`https://x.com/${encodeURIComponent(String(account.id))}`}
+            href={`https://x.com/${encodeURIComponent(accId)}`}
             target="_blank"
             rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
-            >
-              Profili gör
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
+          >
+            Profili gör
+            <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function StatPill({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-muted-foreground">{icon}</span>
-      <span className="text-xs font-semibold text-foreground">{value}</span>
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-    </div>
   );
 }
 
@@ -266,8 +271,7 @@ export default function AccountsPage() {
   const [editAdvancedOpen, setEditAdvancedOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [reauthAccount, setReauthAccount] = useState<RedactedAccount | null>(null);
-  const [profiles, setProfiles] = useState<Record<string, XUserProfile>>({});
-  const [profilesLoading, setProfilesLoading] = useState<Record<string, boolean>>({});
+  const [refreshingProfile, setRefreshingProfile] = useState<string | null>(null);
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
@@ -291,34 +295,18 @@ export default function AccountsPage() {
     loadAccounts();
   }, [loadAccounts]);
 
-  useEffect(() => {
-    if (accounts.length === 0) return;
-
-    const missing = accounts.filter((acc) => !profiles[String(acc.id)] && !profilesLoading[String(acc.id)]);
-    if (missing.length === 0) return;
-
-    setProfilesLoading((prev) => {
-      const next = { ...prev };
-      for (const acc of missing) next[String(acc.id)] = true;
-      return next;
-    });
-
-    Promise.allSettled(
-      missing.map((acc) =>
-        apiFetch<XUserProfile>(`/api/v1/x/users/${encodeURIComponent(String(acc.id))}`)
-          .then((profile) => {
-            setProfiles((prev) => ({ ...prev, [String(acc.id)]: profile }));
-          })
-          .catch(() => {}),
-      ),
-    ).finally(() => {
-      setProfilesLoading((prev) => {
-        const next = { ...prev };
-        for (const acc of missing) next[String(acc.id)] = false;
-        return next;
+  const refreshProfile = async (id: string) => {
+    setRefreshingProfile(id);
+    try {
+      await apiFetch(`/api/v1/accounts/${encodeURIComponent(id)}/refresh-profile`, {
+        method: 'POST',
       });
-    });
-  }, [accounts, profiles, profilesLoading]);
+      await loadAccounts();
+    } catch {
+    } finally {
+      setRefreshingProfile(null);
+    }
+  };
 
   const openEdit = (account: RedactedAccount) => {
     setEditAccount(account);
@@ -419,11 +407,11 @@ export default function AccountsPage() {
               <div key={accId} className="group">
                 <ProfileCard
                   account={acc}
-                  profile={profiles[accId] ?? null}
-                  profileLoading={profilesLoading[accId] ?? false}
                   onEdit={() => openEdit(acc)}
                   onDelete={() => deleteAccount(accId)}
                   onReauth={() => setReauthAccount(acc)}
+                  onRefreshProfile={() => refreshProfile(accId)}
+                  refreshing={refreshingProfile === accId}
                 />
               </div>
             );

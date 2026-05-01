@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     const cipher = new CredentialCipherService();
     const jobs = new LoginJobsRepository(dataSource);
     const accounts = new AccountsService(dataSource.getRepository(AccountEntity), dataSource);
-    const worker = new LoginWorker(dataSource, jobs, new XLoginService(), cipher, accounts);
+    const worker = new LoginWorker(dataSource, jobs, new XLoginService(), cipher, accounts, { refreshInBackground: async () => {} } as any);
     const user = await findOrCreateUser(dataSource, tweetlyUserEmail);
 
     const { id } = await jobs.create({
