@@ -232,17 +232,15 @@ function ProfileCard({
                 : '—'}
             </span>
           </div>
-          {profile?.profileUrl && (
-            <a
-              href={profile.profileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+          <a
+            href={`https://x.com/${encodeURIComponent(String(account.id))}`}
+            target="_blank"
+            rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
             >
               Profili gör
               <ExternalLink className="h-3 w-3" />
             </a>
-          )}
         </div>
       </CardContent>
     </Card>
