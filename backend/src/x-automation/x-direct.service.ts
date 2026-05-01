@@ -282,32 +282,45 @@ export class XDirectService {
         const rawHandle = handleEl?.textContent?.replace('@', '') ?? params.handle;
 
         let tweetsCount = '';
-        const statsLinks = document.querySelectorAll('a[href$="/verified_followers"], a[href$="/followers"], a[href$="/following"]');
-        for (const link of statsLinks) {
-          const spans = link.querySelectorAll('span');
-          for (const span of spans) {
-            const text = span.textContent ?? '';
-            if (text.toLowerCase().includes('gönderi') || text.toLowerCase().includes('posts')) {
-              const prev = span.previousElementSibling?.textContent ?? '';
-              if (prev) tweetsCount = prev;
+        const profileHandle = `/${rawHandle}`;
+        const allStatLinks = document.querySelectorAll(`a[href="${profileHandle}"], a[href="${profileHandle}/"]`);
+        for (const link of allStatLinks) {
+          const text = link.textContent ?? '';
+          if (text.match(/gönderi|posts/i)) {
+            const numMatch = text.match(/([\d.,]+\s*[KkMmBb]?)/);
+            if (numMatch) {
+              tweetsCount = numMatch[1].trim();
               break;
             }
           }
         }
 
         if (!tweetsCount) {
-          const allLinks = document.querySelectorAll('header a[href]');
-          for (const link of allLinks) {
+          const navLinks = document.querySelectorAll('nav a[href], [role="tablist"] a[href], [role="tab"]');
+          for (const link of navLinks) {
             const href = link.getAttribute('href') ?? '';
-            if (href.includes('/verified_followers') || href.includes('/followers') || href.includes('/following')) continue;
-            const spans = link.querySelectorAll('span');
-            if (spans.length >= 2) {
-              const val = spans[0].textContent ?? '';
-              const label = spans[1].textContent ?? '';
-              if (label.toLowerCase().includes('gönderi') || label.toLowerCase().includes('posts')) {
-                tweetsCount = val;
+            if (href.includes('/followers') || href.includes('/following') || href.includes('/verified_followers')) continue;
+            const text = link.textContent ?? '';
+            if (text.match(/gönderi|posts/i)) {
+              const numMatch = text.match(/([\d.,]+\s*[KkMmBb]?)/);
+              if (numMatch) {
+                tweetsCount = numMatch[1].trim();
                 break;
               }
+            }
+          }
+        }
+
+        if (!tweetsCount) {
+          const allLinks = document.querySelectorAll('a[href]');
+          for (const link of allLinks) {
+            const href = link.getAttribute('href') ?? '';
+            if (href !== profileHandle && href !== profileHandle + '/') continue;
+            const text = link.textContent ?? '';
+            const numMatch = text.match(/([\d.,]+\s*[KkMmBb]?)/);
+            if (numMatch) {
+              tweetsCount = numMatch[1].trim();
+              break;
             }
           }
         }
