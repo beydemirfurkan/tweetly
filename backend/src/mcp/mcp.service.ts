@@ -10,6 +10,7 @@ import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import type { ActionType, ActionStatus } from '../domain/types/action.types';
 import { ACTION_TYPES, ACTION_STATUSES } from '../domain/types/action.types';
 import { XDirectService } from '../x-automation/x-direct.service';
+import { XBrowserService } from '../x-automation/browser/x-browser.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
 import { McpSessionRouter } from './mcp-session-router.service';
 import { CredentialCipherService } from '../common/crypto/credential-cipher.service';
@@ -452,6 +453,7 @@ export class McpService {
     private readonly enqueue: ActionEnqueueService,
     private readonly dataSource: DataSource,
     private readonly xDirect: XDirectService,
+    private readonly xBrowser: XBrowserService,
     private readonly monitoringService: MonitoringService,
     private readonly sessionRouter: McpSessionRouter,
     private readonly cipher: CredentialCipherService,
@@ -684,7 +686,8 @@ export class McpService {
         if (!handle) throw new Error('handle is required');
         const limit = Math.min(Number(args.limit ?? 20), 50);
         const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
-        return this.xDirect.getUserTweets(handle, limit, accountId);
+        if (!accountId) return [];
+        return this.xBrowser.readProfileTweets(handle, limit, accountId);
       }
 
       case 'search_users': {

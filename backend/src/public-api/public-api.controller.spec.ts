@@ -6,6 +6,7 @@ import type { AdminApiService } from '../admin-api/admin-api.service';
 import type { CredentialCipherService } from '../common/crypto/credential-cipher.service';
 import type { MonitoringService } from '../monitoring/monitoring.service';
 import type { LoginJobsRepository } from '../x-automation/login/login-jobs.repository';
+import type { XBrowserService } from '../x-automation/browser/x-browser.service';
 import type { XDirectService } from '../x-automation/x-direct.service';
 import { PublicApiController } from './public-api.controller';
 
@@ -26,6 +27,7 @@ function makeController(loginJobsOverrides: Partial<jest.Mocked<LoginJobsReposit
     {} as unknown as ActionEnqueueService,
     {} as unknown as AdminApiService,
     {} as unknown as XDirectService,
+    {} as unknown as XBrowserService,
     {} as unknown as MonitoringService,
     cipher,
     loginJobs,

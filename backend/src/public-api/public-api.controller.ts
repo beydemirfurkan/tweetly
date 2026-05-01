@@ -37,6 +37,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
 import { XDirectService } from '../x-automation/x-direct.service';
+import { XBrowserService } from '../x-automation/browser/x-browser.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
 import { CredentialCipherService } from '../common/crypto/credential-cipher.service';
 import { LoginJobsRepository } from '../x-automation/login/login-jobs.repository';
@@ -88,6 +89,7 @@ export class PublicApiController {
     private readonly enqueue: ActionEnqueueService,
     private readonly admin: AdminApiService,
     private readonly xDirect: XDirectService,
+    private readonly xBrowser: XBrowserService,
     private readonly monitoring: MonitoringService,
     private readonly cipher: CredentialCipherService,
     private readonly loginJobs: LoginJobsRepository,
@@ -648,7 +650,8 @@ export class PublicApiController {
   ) {
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.resolveAccountIdOptional(req, accountId);
-    return this.xDirect.getUserTweets(handle, limit, acct);
+    if (!acct) return [];
+    return this.xBrowser.readProfileTweets(handle, limit, acct);
   }
 
   @Get('x/users/:handle/followers')
