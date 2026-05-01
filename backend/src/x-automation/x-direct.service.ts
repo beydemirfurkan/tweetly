@@ -267,16 +267,16 @@ export class XDirectService {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.waitForTimeout(5_000);
 
-      return await page.evaluate((sel) => {
-        const nameEl = document.querySelector(sel.userName);
-        const bioEl = document.querySelector(sel.userDescription);
-        const followersEl = document.querySelector(sel.userFollowersCount);
-        const followingEl = document.querySelector(sel.userFollowingCount);
+      return await page.evaluate((params) => {
+        const nameEl = document.querySelector(params.userName);
+        const bioEl = document.querySelector(params.userDescription);
+        const followersEl = document.querySelector(params.userFollowersCount);
+        const followingEl = document.querySelector(params.userFollowingCount);
         const verifiedEl = document.querySelector('svg[data-testid="icon-verified"]');
 
         const fullName = nameEl?.querySelector('span')?.textContent ?? '';
         const handleEl = nameEl?.querySelectorAll('span')?.[1];
-        const rawHandle = handleEl?.textContent?.replace('@', '') ?? handle;
+        const rawHandle = handleEl?.textContent?.replace('@', '') ?? params.handle;
 
         return {
           handle: rawHandle,
@@ -292,6 +292,7 @@ export class XDirectService {
         userDescription: this.sel.userDescription,
         userFollowersCount: this.sel.userFollowersCount,
         userFollowingCount: this.sel.userFollowingCount,
+        handle,
       });
     } catch (err) {
       this.log.error(`getUser error: ${err instanceof Error ? err.message : err}`);

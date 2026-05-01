@@ -72,6 +72,24 @@ describe('XDirectService', () => {
     });
   });
 
+  describe('getUser', () => {
+    it('passes the requested handle into page.evaluate for fallback parsing', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockImplementation(async (fn: (params: unknown) => unknown, params: unknown) => {
+        const nameEl = {
+          querySelector: jest.fn().mockReturnValue({ textContent: 'Furkan' }),
+          querySelectorAll: jest.fn().mockReturnValue([]),
+        };
+        return withFakeSelectors({ [SEL.userName]: nameEl }, () => fn(params));
+      });
+
+      const result = await service.getUser('test-account', 'acc-1');
+
+      expect(result).toEqual(expect.objectContaining({ handle: 'test-account', displayName: 'Furkan' }));
+    });
+  });
+
   describe('searchTweets', () => {
     it('navigates to search URL with encoded query', async () => {
       const { service, browser, page } = createService();
@@ -213,6 +231,18 @@ function withFakeDocument<T>(elements: unknown[], run: () => T): T {
   } finally {
     (global as any).document = originalDocument;
     (global as any).location = originalLocation;
+  }
+}
+
+function withFakeSelectors<T>(selectors: Record<string, unknown>, run: () => T): T {
+  const originalDocument = (global as any).document;
+  (global as any).document = {
+    querySelector: jest.fn((selector: string) => selectors[selector] ?? null),
+  };
+  try {
+    return run();
+  } finally {
+    (global as any).document = originalDocument;
   }
 }
 
