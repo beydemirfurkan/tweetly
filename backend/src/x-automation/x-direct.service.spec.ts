@@ -124,6 +124,22 @@ describe('XDirectService', () => {
     });
   });
 
+  describe('searchUsers', () => {
+    it('extracts handles from profile links instead of relying on span order', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockImplementation(async (fn: (params: { limit: number }) => unknown, params: { limit: number }) => {
+        return withFakeDocument([fakeUserCell({ handle: 'test-account', displayName: 'Furkan', bio: 'builder' })], () => fn(params));
+      });
+
+      const result = await service.searchUsers('test-account', 3, 'acc-1');
+
+      expect(result).toEqual([
+        expect.objectContaining({ handle: 'test-account', displayName: 'Furkan', bio: 'builder', profileUrl: 'https://x.com/test-account' }),
+      ]);
+    });
+  });
+
   describe('getXTrending', () => {
     it('navigates to trending URL', async () => {
       const { service, browser, page } = createService();
@@ -137,6 +153,32 @@ describe('XDirectService', () => {
         expect.any(Object),
       );
       expect(result).toEqual([{ rank: 1, topic: '#AI', tweetCount: '50K' }]);
+    });
+
+    it('filters trend metadata and separators from topics', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockImplementation(async (fn: () => unknown) => {
+        return withFakeDocument([fakeTrend(['Türkiye tarihinde gündemde', '·', 'Ayın 1 indirimi', '12 B gönderi'])], fn);
+      });
+
+      const result = await service.getXTrending('acc-1');
+
+      expect(result).toEqual([{ rank: 1, topic: 'Ayın 1 indirimi', tweetCount: '12 B gönderi' }]);
+    });
+  });
+
+  describe('getUserFollowers', () => {
+    it('extracts follower handles from profile links', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockImplementation(async (fn: (params: { limit: number }) => unknown, params: { limit: number }) => {
+        return withFakeDocument([fakeUserCell({ handle: 'follower', displayName: 'Follower', bio: 'bio' })], () => fn(params));
+      });
+
+      const result = await service.getUserFollowers('test-account', 5, 'acc-1');
+
+      expect(result).toEqual([{ handle: 'follower', displayName: 'Follower', bio: 'bio' }]);
     });
   });
 
@@ -160,3 +202,42 @@ describe('XDirectService', () => {
     });
   });
 });
+
+function withFakeDocument<T>(elements: unknown[], run: () => T): T {
+  const originalDocument = (global as any).document;
+  const originalLocation = (global as any).location;
+  (global as any).document = { querySelectorAll: jest.fn().mockReturnValue(elements) };
+  (global as any).location = { origin: 'https://x.com' };
+  try {
+    return run();
+  } finally {
+    (global as any).document = originalDocument;
+    (global as any).location = originalLocation;
+  }
+}
+
+function fakeUserCell(input: { handle: string; displayName: string; bio: string }) {
+  const nameEl = {
+    querySelectorAll: jest.fn().mockReturnValue([
+      { textContent: input.displayName },
+      { textContent: `@${input.handle}` },
+    ]),
+  };
+  return {
+    querySelector: jest.fn((selector: string) => {
+      if (selector === '[data-testid="UserName"]') return nameEl;
+      if (selector === '[data-testid="UserDescription"]') return { textContent: input.bio };
+      return null;
+    }),
+    querySelectorAll: jest.fn((selector: string) => {
+      if (selector.includes('a[href')) return [{ href: `https://x.com/${input.handle}` }];
+      return [];
+    }),
+  };
+}
+
+function fakeTrend(texts: string[]) {
+  return {
+    querySelectorAll: jest.fn().mockReturnValue(texts.map((textContent) => ({ textContent }))),
+  };
+}

@@ -340,9 +340,9 @@ export class XDirectService {
         const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
         return cells.map(cell => {
           const nameEl = cell.querySelector('[data-testid="UserName"]');
-          const spans = nameEl?.querySelectorAll('span') ?? [];
-          const displayName = spans[0]?.textContent ?? '';
-          const handle = (spans[1]?.textContent ?? '').replace('@', '');
+          const spans = Array.from(nameEl?.querySelectorAll('span') ?? []).map((span) => span.textContent?.trim() ?? '').filter(Boolean);
+          const handle = extractHandleFromCell(cell) ?? spans.find((text) => text.startsWith('@'))?.replace('@', '') ?? '';
+          const displayName = spans.find((text) => !text.startsWith('@') && text !== '·') ?? '';
           const bio = cell.querySelector('[data-testid="UserDescription"]')?.textContent ?? '';
           return {
             handle,
@@ -353,7 +353,17 @@ export class XDirectService {
             verified: Boolean(cell.querySelector('svg[data-testid="icon-verified"]')),
             profileUrl: `https://x.com/${handle}`,
           };
-        });
+        }).filter((user) => user.handle || user.displayName || user.bio);
+
+        function extractHandleFromCell(cell: Element): string | null {
+          const links = Array.from(cell.querySelectorAll('a[href^="/"], a[href^="https://x.com/"]')) as HTMLAnchorElement[];
+          for (const link of links) {
+            const parts = new URL(link.href, location.origin).pathname.split('/').filter(Boolean);
+            const candidate = parts.length === 1 ? parts[0] : '';
+            if (candidate && !['home', 'i', 'intent', 'search', 'settings'].includes(candidate)) return candidate;
+          }
+          return null;
+        }
       }, { limit });
     } catch (err) {
       this.log.error(`searchUsers error: ${err instanceof Error ? err.message : err}`);
@@ -382,12 +392,22 @@ export class XDirectService {
         const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
         return cells.map(cell => {
           const nameEl = cell.querySelector('[data-testid="UserName"]');
-          const spans = nameEl?.querySelectorAll('span') ?? [];
-          const displayName = spans[0]?.textContent ?? '';
-          const handle = (spans[1]?.textContent ?? '').replace('@', '');
+          const spans = Array.from(nameEl?.querySelectorAll('span') ?? []).map((span) => span.textContent?.trim() ?? '').filter(Boolean);
+          const handle = extractHandleFromCell(cell) ?? spans.find((text) => text.startsWith('@'))?.replace('@', '') ?? '';
+          const displayName = spans.find((text) => !text.startsWith('@') && text !== '·') ?? '';
           const bio = cell.querySelector('[data-testid="UserDescription"]')?.textContent ?? '';
           return { handle, displayName, bio };
-        });
+        }).filter((user) => user.handle || user.displayName || user.bio);
+
+        function extractHandleFromCell(cell: Element): string | null {
+          const links = Array.from(cell.querySelectorAll('a[href^="/"], a[href^="https://x.com/"]')) as HTMLAnchorElement[];
+          for (const link of links) {
+            const parts = new URL(link.href, location.origin).pathname.split('/').filter(Boolean);
+            const candidate = parts.length === 1 ? parts[0] : '';
+            if (candidate && !['home', 'i', 'intent', 'search', 'settings'].includes(candidate)) return candidate;
+          }
+          return null;
+        }
       }, { limit });
     } catch (err) {
       this.log.error(`getUserFollowers error: ${err instanceof Error ? err.message : err}`);
@@ -409,15 +429,25 @@ export class XDirectService {
       return await page.evaluate(() => {
         const trends = Array.from(document.querySelectorAll('[data-testid="trend"]'));
         return trends.map((el, i) => {
-          const spans = el.querySelectorAll('span');
-          const topic = spans[1]?.textContent ?? spans[0]?.textContent ?? '';
-          const countEl = el.querySelector('[dir="auto"] span:last-child');
+          const texts = Array.from(el.querySelectorAll('span'))
+            .map((span) => span.textContent?.trim() ?? '')
+            .filter(Boolean);
+          const topic = texts.find((text) => isTrendTopic(text)) ?? '';
+          const countEl = texts.find((text) => /\d/.test(text) && /(\d[\d.,\s]*(b|k|m)\b|posts?|tweets?|gönderi)/i.test(text));
           return {
             rank: i + 1,
             topic,
-            tweetCount: countEl?.textContent ?? '',
+            tweetCount: countEl ?? '',
           };
-        });
+        }).filter((trend) => trend.topic);
+
+        function isTrendTopic(text: string): boolean {
+          const normalized = text.toLowerCase();
+          if (text === '·') return false;
+          if (/^\d+$/.test(text)) return false;
+          if (/(gündem|trending|trend|sponsorlu|promoted|posts?|tweets?|gönderi)/i.test(normalized)) return false;
+          return true;
+        }
       });
     } catch (err) {
       this.log.error(`getXTrending error: ${err instanceof Error ? err.message : err}`);
