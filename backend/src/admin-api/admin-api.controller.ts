@@ -148,6 +148,7 @@ export class AdminApiController {
     @Query('account') accountId?: string,
     @Query('waitMs') waitMs?: string,
     @Query('selector') selector?: string,
+    @Query('extractTweets') extractTweets?: string,
   ) {
     const targetUrl = url?.trim() || 'https://x.com';
     if (!targetUrl.startsWith('https://x.com/')) {
@@ -157,6 +158,7 @@ export class AdminApiController {
     return this.browser.probeNavigate(targetUrl, accountId?.trim() || undefined, {
       waitMs: waitMs ? Number(waitMs) : undefined,
       selector,
+      extractTweets: extractTweets === 'true',
     });
   }
 

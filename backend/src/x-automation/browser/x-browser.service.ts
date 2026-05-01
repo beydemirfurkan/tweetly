@@ -69,6 +69,8 @@ export interface BrowserNavigateProbeResult extends BrowserProbeResult {
   waitMs: number | null;
   selector: string | null;
   selectorCount: number | null;
+  tweetCount: number | null;
+  firstTweetUrl: string | null;
   title: string | null;
 }
 
@@ -220,7 +222,7 @@ export class XBrowserService implements OnModuleDestroy {
   async probeNavigate(
     targetUrl: string,
     accountId?: string,
-    options: { waitMs?: number; selector?: string } = {},
+    options: { waitMs?: number; selector?: string; extractTweets?: boolean } = {},
   ): Promise<BrowserNavigateProbeResult> {
     const startedAt = Date.now();
     let context: BrowserContext | null = null;
@@ -241,6 +243,14 @@ export class XBrowserService implements OnModuleDestroy {
       const selectorCount = selector
         ? await launched.page.evaluate((value) => document.querySelectorAll(value).length, selector)
         : null;
+      const tweets = options.extractTweets
+        ? await launched.page.evaluate(() => {
+          return Array.from(document.querySelectorAll('article[data-testid="tweet"]')).map((article) => {
+            const link = Array.from(article.querySelectorAll('a[href*="/status/"]'))[0] as HTMLAnchorElement | undefined;
+            return { url: link?.href ?? '' };
+          });
+        }) as Array<{ url: string }>
+        : null;
       const title = await launched.page.title().catch(() => null);
       const url = launched.page.url();
 
@@ -260,6 +270,8 @@ export class XBrowserService implements OnModuleDestroy {
         url,
         selector,
         selectorCount,
+        tweetCount: tweets?.length ?? null,
+        firstTweetUrl: tweets?.[0]?.url ?? null,
         title,
         error: null,
       };
@@ -280,6 +292,8 @@ export class XBrowserService implements OnModuleDestroy {
         url: null,
         selector: options.selector ?? null,
         selectorCount: null,
+        tweetCount: null,
+        firstTweetUrl: null,
         title: null,
         error: err instanceof Error ? err.message : String(err),
       };
