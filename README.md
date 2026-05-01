@@ -283,9 +283,11 @@ ise build-arg zorunlu.
 ### Persistent volume
 
 Backend container'ı `/data`'ya kalıcı volume bekliyor:
-- `/data/browsers` — Patchright Chromium binary'si (ilk start'ta indiriliyor)
 - `/data/user-data` — X session profile'ları (cookie kalıcılığı)
 - `/data/app-data/{errors,logs}` — runtime artifact'lar
+
+Patchright Chromium binary'si image içinde `/app/browsers` altında tutulur;
+`/data` volume'una koyma, aksi halde Coolify volume mount image içindeki binary'yi gizler.
 
 Coolify "Persistent Storage" → mount: `/data`.
 

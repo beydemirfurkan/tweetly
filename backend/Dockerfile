@@ -18,7 +18,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HEADLESS=true \
     DATA_DIR=/data/app-data \
     USER_DATA_DIR=/data/user-data \
-    PLAYWRIGHT_BROWSERS_PATH=/data/browsers
+    PLAYWRIGHT_BROWSERS_PATH=/app/browsers
 
 # System libraries Patchright/Chromium needs at runtime. We don't install
 # google-chrome-stable: Patchright ships its own anti-detection Chromium
@@ -38,10 +38,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Pull Patchright's bundled Chromium into the persistent volume location.
-# Stored under /data/browsers so it survives between container rebuilds
-# when /data is mounted as a volume.
-RUN mkdir -p /data/browsers /data/user-data /data/app-data/errors /data/app-data/logs \
+# Pull Patchright's bundled Chromium into the image. Do not place browser
+# binaries under /data: Coolify mounts /data as a volume and would hide files
+# installed during image build.
+RUN mkdir -p /app/browsers /data/user-data /data/app-data/errors /data/app-data/logs \
     && npx patchright install chromium
 
 COPY --from=builder /app/dist ./dist
