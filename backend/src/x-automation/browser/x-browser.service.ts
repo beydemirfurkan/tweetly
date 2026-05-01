@@ -90,7 +90,11 @@ export class XBrowserService implements OnModuleDestroy {
       userAgent: USER_AGENT,
       locale: 'tr-TR',
       timezoneId: 'Europe/Istanbul',
-      args: ['--disable-blink-features=AutomationControlled'],
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+      ],
     });
 
     if (accountId) {
