@@ -82,33 +82,16 @@ export class XBrowserService implements OnModuleDestroy {
     const profileDir = this.resolveProfileDir(accountId);
     this.clearStaleLocks(profileDir);
 
-    let launchTimedOut = false;
-    const launchPromise = chromium.launchPersistentContext(profileDir, {
+    const context = await chromium.launchPersistentContext(profileDir, {
       headless: this.cfg.headless,
       ...optionalBrowserChannel(),
+      timeout: this.cfg.launchTimeoutMs,
       viewport: null,
       userAgent: USER_AGENT,
       locale: 'tr-TR',
       timezoneId: 'Europe/Istanbul',
       args: ['--disable-blink-features=AutomationControlled'],
     });
-    launchPromise.then((context) => {
-      if (launchTimedOut) {
-        context.close().catch(() => undefined);
-      }
-    }).catch(() => undefined);
-
-    let context: BrowserContext;
-    try {
-      context = await this.withTimeout(
-        launchPromise,
-        this.cfg.launchTimeoutMs,
-        `Browser launch timed out after ${this.cfg.launchTimeoutMs}ms`,
-      );
-    } catch (err) {
-      launchTimedOut = true;
-      throw err;
-    }
 
     if (accountId) {
       await this.injectCookies(context, accountId);
