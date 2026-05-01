@@ -66,6 +66,9 @@ export interface BrowserProbeResult {
 export interface BrowserNavigateProbeResult extends BrowserProbeResult {
   targetUrl: string;
   gotoMs: number | null;
+  waitMs: number | null;
+  selector: string | null;
+  selectorCount: number | null;
   title: string | null;
 }
 
@@ -214,7 +217,11 @@ export class XBrowserService implements OnModuleDestroy {
     }
   }
 
-  async probeNavigate(targetUrl: string, accountId?: string): Promise<BrowserNavigateProbeResult> {
+  async probeNavigate(
+    targetUrl: string,
+    accountId?: string,
+    options: { waitMs?: number; selector?: string } = {},
+  ): Promise<BrowserNavigateProbeResult> {
     const startedAt = Date.now();
     let context: BrowserContext | null = null;
     let launchMs: number | null = null;
@@ -226,6 +233,14 @@ export class XBrowserService implements OnModuleDestroy {
       const gotoStartedAt = Date.now();
       await launched.page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       const gotoMs = Date.now() - gotoStartedAt;
+      const waitMs = Math.max(0, Math.min(options.waitMs ?? 0, 15_000));
+      if (waitMs > 0) {
+        await launched.page.waitForTimeout(waitMs);
+      }
+      const selector = options.selector?.trim() || null;
+      const selectorCount = selector
+        ? await launched.page.evaluate((value) => document.querySelectorAll(value).length, selector)
+        : null;
       const title = await launched.page.title().catch(() => null);
       const url = launched.page.url();
 
@@ -239,9 +254,12 @@ export class XBrowserService implements OnModuleDestroy {
         targetUrl,
         launchMs,
         gotoMs,
+        waitMs,
         releaseMs: Date.now() - releaseStartedAt,
         pageCount: launched.context.pages().length,
         url,
+        selector,
+        selectorCount,
         title,
         error: null,
       };
@@ -256,9 +274,12 @@ export class XBrowserService implements OnModuleDestroy {
         targetUrl,
         launchMs,
         gotoMs: null,
+        waitMs: options.waitMs ?? null,
         releaseMs: null,
         pageCount: null,
         url: null,
+        selector: options.selector ?? null,
+        selectorCount: null,
         title: null,
         error: err instanceof Error ? err.message : String(err),
       };

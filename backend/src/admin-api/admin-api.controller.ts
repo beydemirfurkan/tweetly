@@ -144,13 +144,18 @@ export class AdminApiController {
   async probeBrowserNavigation(
     @Query('url') url?: string,
     @Query('account') accountId?: string,
+    @Query('waitMs') waitMs?: string,
+    @Query('selector') selector?: string,
   ) {
     const targetUrl = url?.trim() || 'https://x.com';
     if (!targetUrl.startsWith('https://x.com/')) {
       throw new BadRequestException('url must start with https://x.com/');
     }
 
-    return this.browser.probeNavigate(targetUrl, accountId?.trim() || undefined);
+    return this.browser.probeNavigate(targetUrl, accountId?.trim() || undefined, {
+      waitMs: waitMs ? Number(waitMs) : undefined,
+      selector,
+    });
   }
 
   @Put('secrets')
