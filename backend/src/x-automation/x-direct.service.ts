@@ -265,9 +265,8 @@ export class XDirectService {
     const { context, page } = await this.browser.launch(acctId);
     try {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.waitForTimeout(5_000);
       await this.browser.assertSessionHealthy(page, acctId);
-      await this.waitForDomSelector(page, this.sel.userName, 15_000);
-      await page.waitForTimeout(1_500);
 
       return page.evaluate((sel) => {
         const nameEl = document.querySelector(sel.userName);
@@ -328,9 +327,8 @@ export class XDirectService {
     const { context, page } = await this.browser.launch(acctId);
     try {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.waitForTimeout(5_000);
       await this.browser.assertSessionHealthy(page, acctId);
-      await this.waitForDomSelector(page, `${this.sel.tweetArticle}, ${this.sel.userName}`, 20_000);
-      await page.waitForTimeout(2_000);
 
       return this.extractTweets(page, limit);
     } catch (err) {
@@ -478,17 +476,6 @@ export class XDirectService {
         };
       });
     }, { limit });
-  }
-
-  private async waitForDomSelector(page: Page, selector: string, timeoutMs: number): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      const found = await page.evaluate((value) => Boolean(document.querySelector(value)), selector);
-      if (found) return;
-      await page.waitForTimeout(250);
-    }
-
-    throw new Error(`Timed out waiting for selector: ${selector}`);
   }
 
   private wrapError(err: unknown): Error {
