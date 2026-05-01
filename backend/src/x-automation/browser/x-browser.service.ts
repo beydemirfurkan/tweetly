@@ -53,6 +53,16 @@ export interface BrowserDiagnostics {
   };
 }
 
+export interface BrowserProbeResult {
+  ok: boolean;
+  accountId: string | null;
+  launchMs: number | null;
+  releaseMs: number | null;
+  pageCount: number | null;
+  url: string | null;
+  error: string | null;
+}
+
 @Injectable()
 export class XBrowserService implements OnModuleDestroy {
   private readonly log = new Logger(XBrowserService.name);
@@ -157,6 +167,45 @@ export class XBrowserService implements OnModuleDestroy {
         defaultUserDataDirExists: fs.existsSync(this.cfg.defaultUserDataDir),
       },
     };
+  }
+
+  async probeLaunch(accountId?: string): Promise<BrowserProbeResult> {
+    const startedAt = Date.now();
+    let context: BrowserContext | null = null;
+    let launchMs: number | null = null;
+    try {
+      const launched = await this.launch(accountId);
+      context = launched.context;
+      launchMs = Date.now() - startedAt;
+
+      const releaseStartedAt = Date.now();
+      await this.release(context);
+      context = null;
+
+      return {
+        ok: true,
+        accountId: accountId ?? null,
+        launchMs,
+        releaseMs: Date.now() - releaseStartedAt,
+        pageCount: launched.context.pages().length,
+        url: launched.page.url(),
+        error: null,
+      };
+    } catch (err) {
+      if (context) {
+        await this.release(context);
+      }
+
+      return {
+        ok: false,
+        accountId: accountId ?? null,
+        launchMs,
+        releaseMs: null,
+        pageCount: null,
+        url: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   private resolveExecutablePath(): string | null {

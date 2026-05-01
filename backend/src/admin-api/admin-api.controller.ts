@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
@@ -130,6 +131,12 @@ export class AdminApiController {
   @ApiOperation({ summary: 'Browser runtime diagnostics (no secrets, no browser launch)' })
   async getBrowserDiagnostics() {
     return this.browser.getDiagnostics();
+  }
+
+  @Get('browser/probe')
+  @ApiOperation({ summary: 'Probe Patchright launch/release without navigation' })
+  async probeBrowser(@Query('account') accountId?: string) {
+    return this.browser.probeLaunch(accountId?.trim() || undefined);
   }
 
   @Put('secrets')
