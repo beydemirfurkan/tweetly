@@ -445,18 +445,15 @@ export class XDirectService {
       const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]')).slice(0, params.limit);
       return articles.map(a => {
         const text = a.querySelector('[data-testid="tweetText"]')?.textContent ?? '';
-
-        const userLink = a.querySelector('a[role="link"][href^="/"]') as HTMLAnchorElement | null;
-        const handle = userLink?.href?.split('/').filter(Boolean).pop() ?? '';
         const nameEl = a.querySelector('[data-testid="User-Names"] span');
         const displayName = nameEl?.textContent ?? '';
 
         const timeEl = a.querySelector('time');
         const postedAt = timeEl?.getAttribute('datetime') ?? '';
 
-        const statusLinks = Array.from(a.querySelectorAll('a[href*="/status/"]')) as HTMLAnchorElement[];
-        const tweetLink = statusLinks.find(l => l.href.includes('/status/'));
+        const tweetLink = a.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null;
         const url = tweetLink?.href ?? '';
+        const handle = tweetLink?.pathname?.split('/').filter(Boolean)[0] ?? '';
 
         const likeEl = a.querySelector('[data-testid="like"] span[data-testid="app-text-transition-container"]');
         const rtEl = a.querySelector('[data-testid="retweet"] span[data-testid="app-text-transition-container"]');
