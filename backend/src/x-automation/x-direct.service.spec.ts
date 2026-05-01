@@ -136,5 +136,17 @@ describe('XDirectService', () => {
         expect.any(Object),
       );
     });
+
+    it('continues when the profile shell loads before tweet articles', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+
+      await service.getUserTweets('testuser', 5, 'acc-1');
+
+      expect(page.waitForSelector).toHaveBeenCalledWith(
+        '[data-testid="tweet"], [data-testid="UserName"]',
+        { timeout: 20_000 },
+      );
+    });
   });
 });

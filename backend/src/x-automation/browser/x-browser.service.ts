@@ -13,6 +13,8 @@ const USER_AGENT =
 const X_COOKIE_DOMAIN = '.x.com';
 const X_COOKIE_PATH = '/';
 const STRICT_SESSION_HEALTH_ENABLED = (process.env.STRICT_SESSION_HEALTH_ENABLED ?? 'true').toLowerCase() !== 'false';
+const DEFAULT_BROWSER_LAUNCH_TIMEOUT_MS = 45_000;
+const DEFAULT_BROWSER_RELEASE_TIMEOUT_MS = 10_000;
 
 export interface LaunchResult {
   context: BrowserContext;
@@ -23,6 +25,8 @@ export interface BrowserConfig {
   headless: boolean;
   rootDir: string;
   defaultUserDataDir: string;
+  launchTimeoutMs: number;
+  releaseTimeoutMs: number;
 }
 
 @Injectable()
@@ -36,7 +40,26 @@ export class XBrowserService implements OnModuleDestroy {
       headless: (process.env.HEADLESS ?? 'true').toLowerCase() !== 'false',
       rootDir: process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data'),
       defaultUserDataDir: process.env.USER_DATA_DIR ?? path.resolve(process.cwd(), 'user-data'),
+      launchTimeoutMs: this.numberFromEnv('PATCHRIGHT_LAUNCH_TIMEOUT_MS', DEFAULT_BROWSER_LAUNCH_TIMEOUT_MS),
+      releaseTimeoutMs: this.numberFromEnv('PATCHRIGHT_RELEASE_TIMEOUT_MS', DEFAULT_BROWSER_RELEASE_TIMEOUT_MS),
     };
+  }
+
+  private numberFromEnv(name: string, fallback: number): number {
+    const value = Number(process.env[name]);
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+  }
+
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      timer.unref?.();
+    });
+
+    return Promise.race([promise, timeout]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
   }
 
   private clearStaleLocks(profileDir: string): void {
@@ -59,7 +82,8 @@ export class XBrowserService implements OnModuleDestroy {
     const profileDir = this.resolveProfileDir(accountId);
     this.clearStaleLocks(profileDir);
 
-    const context = await chromium.launchPersistentContext(profileDir, {
+    let launchTimedOut = false;
+    const launchPromise = chromium.launchPersistentContext(profileDir, {
       headless: this.cfg.headless,
       ...optionalBrowserChannel(),
       viewport: null,
@@ -68,6 +92,23 @@ export class XBrowserService implements OnModuleDestroy {
       timezoneId: 'Europe/Istanbul',
       args: ['--disable-blink-features=AutomationControlled'],
     });
+    launchPromise.then((context) => {
+      if (launchTimedOut) {
+        context.close().catch(() => undefined);
+      }
+    }).catch(() => undefined);
+
+    let context: BrowserContext;
+    try {
+      context = await this.withTimeout(
+        launchPromise,
+        this.cfg.launchTimeoutMs,
+        `Browser launch timed out after ${this.cfg.launchTimeoutMs}ms`,
+      );
+    } catch (err) {
+      launchTimedOut = true;
+      throw err;
+    }
 
     if (accountId) {
       await this.injectCookies(context, accountId);
@@ -113,7 +154,13 @@ export class XBrowserService implements OnModuleDestroy {
   async release(context: BrowserContext): Promise<void> {
     this.active.delete(context);
     try {
-      await context.close();
+      const closePromise = context.close();
+      closePromise.catch(() => undefined);
+      await this.withTimeout(
+        closePromise,
+        this.cfg.releaseTimeoutMs,
+        `Browser context close timed out after ${this.cfg.releaseTimeoutMs}ms`,
+      );
     } catch (err) {
       this.log.warn(`Context close warning: ${err instanceof Error ? err.message : String(err)}`);
     }

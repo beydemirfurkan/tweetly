@@ -329,7 +329,7 @@ export class XDirectService {
     try {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
-      await page.waitForSelector(this.sel.tweetArticle, { timeout: 15_000 });
+      await page.waitForSelector(`${this.sel.tweetArticle}, ${this.sel.userName}`, { timeout: 20_000 });
       await page.waitForTimeout(2_000);
 
       return this.extractTweets(page, limit);
