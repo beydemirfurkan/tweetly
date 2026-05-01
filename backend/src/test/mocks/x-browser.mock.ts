@@ -33,6 +33,7 @@ export function mockXBrowserService() {
   const service = {
     launch: jest.fn().mockResolvedValue({ context, page }),
     assertSessionHealthy: jest.fn().mockResolvedValue(null),
+    readProfileTweets: jest.fn().mockResolvedValue([]),
     release: jest.fn().mockResolvedValue(null),
   };
   return { service, page, context };

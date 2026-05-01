@@ -74,6 +74,17 @@ export interface BrowserNavigateProbeResult extends BrowserProbeResult {
   title: string | null;
 }
 
+export interface BrowserTweetResult {
+  url: string;
+  text: string;
+  handle: string;
+  displayName: string;
+  likeCount: string;
+  retweetCount: string;
+  replyCount: string;
+  postedAt: string;
+}
+
 @Injectable()
 export class XBrowserService implements OnModuleDestroy {
   private readonly log = new Logger(XBrowserService.name);
@@ -298,6 +309,40 @@ export class XBrowserService implements OnModuleDestroy {
         error: err instanceof Error ? err.message : String(err),
       };
     }
+  }
+
+  async readProfileTweets(handle: string, limit: number, accountId: string): Promise<BrowserTweetResult[]> {
+    const { context, page } = await this.launch(accountId);
+    try {
+      await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.waitForTimeout(5_000);
+      return this.extractTweetCards(page, limit);
+    } finally {
+      await this.release(context);
+    }
+  }
+
+  private async extractTweetCards(page: Page, limit: number): Promise<BrowserTweetResult[]> {
+    return page.evaluate((params) => {
+      const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]')).slice(0, params.limit);
+      return articles.map((article) => {
+        const tweetLink = article.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null;
+        const likeEl = article.querySelector('[data-testid="like"] span[data-testid="app-text-transition-container"]');
+        const rtEl = article.querySelector('[data-testid="retweet"] span[data-testid="app-text-transition-container"]');
+        const replyEl = article.querySelector('[data-testid="reply"] span[data-testid="app-text-transition-container"]');
+
+        return {
+          url: tweetLink?.href ?? '',
+          text: article.querySelector('[data-testid="tweetText"]')?.textContent ?? '',
+          handle: tweetLink?.pathname?.split('/').filter(Boolean)[0] ?? '',
+          displayName: article.querySelector('[data-testid="User-Names"] span')?.textContent ?? '',
+          likeCount: likeEl?.textContent ?? '0',
+          retweetCount: rtEl?.textContent ?? '0',
+          replyCount: replyEl?.textContent ?? '0',
+          postedAt: article.querySelector('time')?.getAttribute('datetime') ?? '',
+        };
+      });
+    }, { limit });
   }
 
   private resolveExecutablePath(): string | null {

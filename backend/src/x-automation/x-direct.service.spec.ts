@@ -125,25 +125,22 @@ describe('XDirectService', () => {
   });
 
   describe('getUserTweets', () => {
-    it('navigates to user profile page', async () => {
-      const { service, browser, page } = createService();
-      browser.launch.mockResolvedValue({ context: {}, page });
+    it('delegates profile timeline reads to the browser service', async () => {
+      const { service, browser } = createService();
 
       await service.getUserTweets('testuser', 5, 'acc-1');
 
-      expect(page.goto).toHaveBeenCalledWith(
-        'https://x.com/testuser',
-        expect.any(Object),
-      );
+      expect(browser.readProfileTweets).toHaveBeenCalledWith('testuser', 5, 'acc-1');
     });
 
-    it('waits for the profile shell to render before extracting tweets', async () => {
-      const { service, browser, page } = createService();
-      browser.launch.mockResolvedValue({ context: {}, page });
+    it('returns browser service profile tweet results', async () => {
+      const { service, browser } = createService();
+      const tweets = [{ url: 'https://x.com/u/status/1', text: 'hello', handle: 'u', displayName: 'U', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' }];
+      browser.readProfileTweets.mockResolvedValue(tweets);
 
-      await service.getUserTweets('testuser', 5, 'acc-1');
+      const result = await service.getUserTweets('testuser', 5, 'acc-1');
 
-      expect(page.waitForTimeout).toHaveBeenCalledWith(5_000);
+      expect(result).toEqual(tweets);
     });
   });
 });

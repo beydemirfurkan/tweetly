@@ -323,18 +323,7 @@ export class XDirectService {
 
   async getUserTweets(handle: string, limit = 20, accountId?: string): Promise<TweetResult[]> {
     const acctId = await this.resolveAccountId(accountId);
-    const { context, page } = await this.browser.launch(acctId);
-    try {
-      await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-      await page.waitForTimeout(5_000);
-
-      return this.extractTweets(page, limit);
-    } catch (err) {
-      this.log.error(`getUserTweets error: ${err instanceof Error ? err.message : err}`);
-      throw this.wrapError(err);
-    } finally {
-      await this.browser.release(context);
-    }
+    return this.browser.readProfileTweets(handle, limit, acctId);
   }
 
   async searchUsers(query: string, limit = 20, accountId?: string): Promise<UserResult[]> {
