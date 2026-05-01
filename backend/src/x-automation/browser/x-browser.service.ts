@@ -29,6 +29,30 @@ export interface BrowserConfig {
   releaseTimeoutMs: number;
 }
 
+export interface BrowserDiagnostics {
+  node: {
+    version: string;
+    platform: NodeJS.Platform;
+    arch: string;
+    uid: number | null;
+  };
+  config: BrowserConfig;
+  env: {
+    playwrightBrowsersPath: string | null;
+    patchrightBrowserChannel: string | null;
+  };
+  paths: {
+    cwd: string;
+    browserRoot: string | null;
+    browserRootExists: boolean;
+    browserRootEntries: string[];
+    executablePath: string | null;
+    executableExists: boolean;
+    rootDirExists: boolean;
+    defaultUserDataDirExists: boolean;
+  };
+}
+
 @Injectable()
 export class XBrowserService implements OnModuleDestroy {
   private readonly log = new Logger(XBrowserService.name);
@@ -104,6 +128,54 @@ export class XBrowserService implements OnModuleDestroy {
     this.active.add(context);
     const page = context.pages()[0] ?? (await context.newPage());
     return { context, page };
+  }
+
+  getDiagnostics(): BrowserDiagnostics {
+    const executablePath = this.resolveExecutablePath();
+    const browserRoot = process.env.PLAYWRIGHT_BROWSERS_PATH ?? null;
+
+    return {
+      node: {
+        version: process.version,
+        platform: process.platform,
+        arch: process.arch,
+        uid: typeof process.getuid === 'function' ? process.getuid() : null,
+      },
+      config: this.cfg,
+      env: {
+        playwrightBrowsersPath: browserRoot,
+        patchrightBrowserChannel: process.env.PATCHRIGHT_BROWSER_CHANNEL ?? null,
+      },
+      paths: {
+        cwd: process.cwd(),
+        browserRoot,
+        browserRootExists: browserRoot ? fs.existsSync(browserRoot) : false,
+        browserRootEntries: browserRoot ? this.safeReadDir(browserRoot) : [],
+        executablePath,
+        executableExists: executablePath ? fs.existsSync(executablePath) : false,
+        rootDirExists: fs.existsSync(this.cfg.rootDir),
+        defaultUserDataDirExists: fs.existsSync(this.cfg.defaultUserDataDir),
+      },
+    };
+  }
+
+  private resolveExecutablePath(): string | null {
+    const maybeChromium = chromium as unknown as { executablePath?: () => string };
+    if (typeof maybeChromium.executablePath !== 'function') return null;
+
+    try {
+      return maybeChromium.executablePath();
+    } catch {
+      return null;
+    }
+  }
+
+  private safeReadDir(dir: string): string[] {
+    try {
+      return fs.readdirSync(dir).slice(0, 20);
+    } catch {
+      return [];
+    }
   }
 
   private async injectCookies(context: BrowserContext, accountId: string): Promise<void> {

@@ -60,6 +60,6 @@ import { LoginWorker } from './login/login-worker.service';
     LoginJobsRepository,
     LoginWorker,
   ],
-  exports: [XDirectService, XLoginService, LoginJobsRepository],
+  exports: [XDirectService, XBrowserService, XLoginService, LoginJobsRepository],
 })
 export class XAutomationModule {}

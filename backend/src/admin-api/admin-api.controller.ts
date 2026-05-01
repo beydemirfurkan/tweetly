@@ -17,6 +17,7 @@ import { SettingsService } from '../settings/settings.service';
 import { UsersService } from '../auth/users.service';
 import { MagicLinkService } from '../auth/magic-link.service';
 import { CircuitBreakerService } from '../action-engine/circuit-breaker.service';
+import { XBrowserService } from '../x-automation/browser/x-browser.service';
 
 class SecretUpdateBody {
   @ApiProperty({ required: false, description: 'New persistent admin token (replaces BOOTSTRAP_ADMIN_TOKEN)' })
@@ -59,6 +60,7 @@ export class AdminApiController {
     private readonly users: UsersService,
     private readonly magicLinks: MagicLinkService,
     private readonly circuitBreaker: CircuitBreakerService,
+    private readonly browser: XBrowserService,
   ) {}
 
   @Get('status')
@@ -122,6 +124,12 @@ export class AdminApiController {
         fromConfigured: Boolean(mailFrom),
       },
     };
+  }
+
+  @Get('browser/diagnostics')
+  @ApiOperation({ summary: 'Browser runtime diagnostics (no secrets, no browser launch)' })
+  async getBrowserDiagnostics() {
+    return this.browser.getDiagnostics();
   }
 
   @Put('secrets')
