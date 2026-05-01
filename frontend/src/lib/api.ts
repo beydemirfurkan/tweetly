@@ -139,6 +139,18 @@ export interface RedactedAccount {
   session: SessionHealth;
 }
 
+export interface XUserProfile {
+  handle: string;
+  displayName: string;
+  bio: string;
+  followersCount: string;
+  followingCount: string;
+  tweetsCount: string;
+  verified: boolean;
+  profileUrl: string;
+  profileImageUrl: string;
+}
+
 export interface AccountsResponse {
   count: number;
   accounts: RedactedAccount[];

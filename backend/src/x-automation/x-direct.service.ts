@@ -22,8 +22,10 @@ export interface UserResult {
   bio: string;
   followersCount: string;
   followingCount: string;
+  tweetsCount: string;
   verified: boolean;
   profileUrl: string;
+  profileImageUrl: string;
 }
 
 @Injectable()
@@ -273,10 +275,44 @@ export class XDirectService {
         const followersEl = document.querySelector(params.userFollowersCount);
         const followingEl = document.querySelector(params.userFollowingCount);
         const verifiedEl = document.querySelector('svg[data-testid="icon-verified"]');
+        const avatarEl = document.querySelector(params.userProfileImage) as HTMLImageElement | null;
 
         const fullName = nameEl?.querySelector('span')?.textContent ?? '';
         const handleEl = nameEl?.querySelectorAll('span')?.[1];
         const rawHandle = handleEl?.textContent?.replace('@', '') ?? params.handle;
+
+        let tweetsCount = '';
+        const statsLinks = document.querySelectorAll('a[href$="/verified_followers"], a[href$="/followers"], a[href$="/following"]');
+        for (const link of statsLinks) {
+          const spans = link.querySelectorAll('span');
+          for (const span of spans) {
+            const text = span.textContent ?? '';
+            if (text.toLowerCase().includes('gönderi') || text.toLowerCase().includes('posts')) {
+              const prev = span.previousElementSibling?.textContent ?? '';
+              if (prev) tweetsCount = prev;
+              break;
+            }
+          }
+        }
+
+        if (!tweetsCount) {
+          const allLinks = document.querySelectorAll('header a[href]');
+          for (const link of allLinks) {
+            const href = link.getAttribute('href') ?? '';
+            if (href.includes('/verified_followers') || href.includes('/followers') || href.includes('/following')) continue;
+            const spans = link.querySelectorAll('span');
+            if (spans.length >= 2) {
+              const val = spans[0].textContent ?? '';
+              const label = spans[1].textContent ?? '';
+              if (label.toLowerCase().includes('gönderi') || label.toLowerCase().includes('posts')) {
+                tweetsCount = val;
+                break;
+              }
+            }
+          }
+        }
+
+        const profileImageUrl = avatarEl?.src ?? '';
 
         return {
           handle: rawHandle,
@@ -284,14 +320,17 @@ export class XDirectService {
           bio: bioEl?.textContent ?? '',
           followersCount: followersEl?.textContent ?? '0',
           followingCount: followingEl?.textContent ?? '0',
+          tweetsCount: tweetsCount || '0',
           verified: Boolean(verifiedEl),
           profileUrl: `https://x.com/${rawHandle}`,
+          profileImageUrl,
         };
       }, {
         userName: this.sel.userName,
         userDescription: this.sel.userDescription,
         userFollowersCount: this.sel.userFollowersCount,
         userFollowingCount: this.sel.userFollowingCount,
+        userProfileImage: this.sel.userProfileImage,
         handle,
       });
     } catch (err) {
@@ -351,8 +390,10 @@ export class XDirectService {
             bio,
             followersCount: '',
             followingCount: '',
+            tweetsCount: '',
             verified: Boolean(cell.querySelector('svg[data-testid="icon-verified"]')),
             profileUrl: `https://x.com/${handle}`,
+            profileImageUrl: '',
           };
         }).filter((user) => user.handle || user.displayName || user.bio);
 

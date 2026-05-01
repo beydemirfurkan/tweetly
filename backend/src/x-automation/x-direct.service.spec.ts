@@ -238,6 +238,7 @@ function withFakeSelectors<T>(selectors: Record<string, unknown>, run: () => T):
   const originalDocument = (global as any).document;
   (global as any).document = {
     querySelector: jest.fn((selector: string) => selectors[selector] ?? null),
+    querySelectorAll: jest.fn(() => []),
   };
   try {
     return run();

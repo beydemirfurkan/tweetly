@@ -53,6 +53,7 @@ export class SelectorRegistry {
   // User profile selectors
   readonly userDescription = '[data-testid="UserDescription"]';
   readonly userName = '[data-testid="UserName"]';
-  readonly userFollowersCount = 'a[href$="/followers"] span span';
+  readonly userFollowersCount = 'a[href$="/verified_followers"] span span, a[href$="/followers"] span span';
   readonly userFollowingCount = 'a[href$="/following"] span span';
+  readonly userProfileImage = '[data-testid="TweetAvatar"] img, [data-testid="UserName"] img';
 }
