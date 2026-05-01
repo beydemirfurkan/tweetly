@@ -70,6 +70,15 @@ export class CircuitBreakerService implements ICircuitBreaker {
     return this.load(accountId);
   }
 
+  async clear(accountId: string): Promise<CircuitBreakerSnapshot> {
+    await this.upsert(accountId, [
+      ['paused', 'false'],
+      ['consecutiveFailures', '0'],
+    ]);
+    await this.delete(accountId, ['reason', 'pausedAt', 'pauseUntil']);
+    return this.load(accountId);
+  }
+
   private async upsert(accountId: string, entries: Array<[string, string]>): Promise<void> {
     for (const [field, value] of entries) {
       await this.dataSource.query(

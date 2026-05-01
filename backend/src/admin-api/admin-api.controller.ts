@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Put,
   UseGuards,
@@ -15,6 +16,7 @@ import { AdminApiService } from './admin-api.service';
 import { SettingsService } from '../settings/settings.service';
 import { UsersService } from '../auth/users.service';
 import { MagicLinkService } from '../auth/magic-link.service';
+import { CircuitBreakerService } from '../action-engine/circuit-breaker.service';
 
 class SecretUpdateBody {
   @ApiProperty({ required: false, description: 'New persistent admin token (replaces BOOTSTRAP_ADMIN_TOKEN)' })
@@ -56,6 +58,7 @@ export class AdminApiController {
     private readonly settings: SettingsService,
     private readonly users: UsersService,
     private readonly magicLinks: MagicLinkService,
+    private readonly circuitBreaker: CircuitBreakerService,
   ) {}
 
   @Get('status')
@@ -79,6 +82,18 @@ export class AdminApiController {
   @ApiOperation({ summary: 'System-wide queue depth (bootstrap-only)' })
   async getQueueDepth() {
     return this.service.getQueueDepth();
+  }
+
+  @Post('accounts/:accountId/circuit-breaker/clear')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Manually clear an account circuit-breaker pause' })
+  async clearCircuitBreaker(@Param('accountId') accountId: string) {
+    const id = accountId.trim();
+    if (!id) throw new BadRequestException('accountId is required');
+
+    const before = await this.circuitBreaker.load(id);
+    const after = await this.circuitBreaker.clear(id);
+    return { ok: true, accountId: id, before, after };
   }
 
   @Get('secrets')
