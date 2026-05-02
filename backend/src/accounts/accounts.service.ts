@@ -152,6 +152,25 @@ export class AccountsService {
     return true;
   }
 
+  async getSessionHealth(id: string): Promise<AccountSessionHealth> {
+    const rows = (await this.dataSource.query(
+      `SELECT key, value FROM control_state WHERE account_id = $1 AND key LIKE 'session.%'`,
+      [id],
+    )) as Array<{ key: string; value: string }>;
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    const failures = parseInt(map.get('session.auth_failure_count') ?? '0', 10);
+    const rawHealth = map.get('session.health');
+    const health: AccountSessionHealth['health'] =
+      rawHealth === 'healthy' || rawHealth === 'unhealthy' ? rawHealth : 'unknown';
+    return {
+      health,
+      lastCheckAt: map.get('session.last_check_at') ?? null,
+      lastFailureAt: map.get('session.last_failure_at') ?? null,
+      lastFailureReason: map.get('session.last_failure_reason') ?? null,
+      authFailureCount: Number.isFinite(failures) ? failures : 0,
+    };
+  }
+
   async recordSessionSuccess(id: string): Promise<void> {
     const now = new Date().toISOString();
     await this.touchLastUsed(id);

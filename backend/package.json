@@ -16,7 +16,8 @@
     "db:migrate:legacy": "npm run build --silent && node dist/scripts/migrate-sqlite-to-postgres.js",
     "smoke:engine": "npm run build --silent && node dist/scripts/smoke-engine.js",
     "smoke:mcp": "tsx src/scripts/smoke-mcp-tools.ts",
-    "smoke:rest": "tsx src/scripts/smoke-rest-tools.ts"
+    "smoke:rest": "tsx src/scripts/smoke-rest-tools.ts",
+    "smoke:selectors": "tsx src/scripts/smoke-selectors.ts"
   },
   "keywords": [],
   "author": "",

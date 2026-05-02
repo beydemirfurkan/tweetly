@@ -12,6 +12,8 @@ import { XPostFlowService, isAuthRequiredError } from '../browser/x-post-flow.se
 interface PostPayload {
   text: string;
   mediaPath?: string | null;
+  mediaPaths?: string[] | null;
+  altTexts?: string[] | null;
 }
 
 @Injectable()
@@ -39,6 +41,8 @@ export class PatchrightPostExecutor
         username: session.accountId,
         accountId: session.accountId,
         mediaPath: action.payload.mediaPath ?? null,
+        mediaPaths: action.payload.mediaPaths ?? null,
+        altTexts: action.payload.altTexts ?? null,
         navigate: async (page) => {
           await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded', timeout: 30000 });
         },

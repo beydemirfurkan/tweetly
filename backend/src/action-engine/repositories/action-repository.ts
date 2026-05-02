@@ -13,6 +13,8 @@ export interface ClaimedActionRow {
   parent_action_ref: string | null;
   text?: string;
   media_path?: string | null;
+  media_paths?: string[] | null;
+  alt_texts?: string[] | null;
   parent_tweet_url?: string;
   target_tweet_url?: string;
   target_handle?: string;

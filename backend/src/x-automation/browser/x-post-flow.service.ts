@@ -17,7 +17,12 @@ export interface PostFlowOptions {
   text: string;
   username: string;
   accountId?: string;
+  /** Single-file convenience. Prefer mediaPaths for multi-media. */
   mediaPath?: string | null;
+  /** Up to 4 images / 1 video / 1 GIF; X enforces this. */
+  mediaPaths?: string[] | null;
+  /** Per-media accessibility text. Index-aligned with mediaPaths. */
+  altTexts?: string[] | null;
   navigate: (page: Page) => Promise<void>;
   composerLabel: string;
   errorPrefix: 'post' | 'reply' | 'quote';
@@ -71,15 +76,20 @@ export class XPostFlowService {
     }
   }
 
-  private async attachMedia(page: Page, mediaPath: string): Promise<void> {
-    if (!fs.existsSync(mediaPath)) {
-      this.log.warn(`Media bulunamadı, atlanıyor: ${mediaPath}`);
-      return;
-    }
+  private async attachMedia(page: Page, paths: string[], altTexts?: string[] | null): Promise<void> {
+    const existing = paths.filter((p) => {
+      if (fs.existsSync(p)) return true;
+      this.log.warn(`Media bulunamadı, atlanıyor: ${p}`);
+      return false;
+    });
+    if (existing.length === 0) return;
+
     const fileInput = page.locator(this.selectors.mediaInput).first();
     try {
       await fileInput.waitFor({ state: 'attached', timeout: 5000 });
-      await fileInput.setInputFiles(mediaPath);
+      // Patchright's setInputFiles accepts string or string[] — uploading all
+      // at once is faster and matches X's "select multiple" UX.
+      await fileInput.setInputFiles(existing);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.log.warn(`Media file input bulunamadı (${msg}), text-only gönderilecek.`);
@@ -87,11 +97,42 @@ export class XPostFlowService {
     }
     try {
       await page.waitForSelector(this.selectors.mediaAttached, { timeout: 20000 });
-      this.log.log(`Media yüklendi: ${path.basename(mediaPath)}`);
+      this.log.log(`Media yüklendi (${existing.length} dosya): ${existing.map((p) => path.basename(p)).join(', ')}`);
     } catch {
       this.log.warn('Media upload preview görünmedi (timeout). Yine de devam ediliyor.');
     }
     await page.waitForTimeout(800 + Math.random() * 600);
+
+    if (altTexts && altTexts.some((t) => t && t.trim().length > 0)) {
+      await this.applyAltTexts(page, existing.length, altTexts);
+    }
+  }
+
+  private async applyAltTexts(page: Page, mediaCount: number, altTexts: string[]): Promise<void> {
+    const altButtons = page.locator(this.selectors.mediaAltButton);
+    let count = 0;
+    try {
+      count = await altButtons.count();
+    } catch {
+      this.log.warn('Alt text butonları bulunamadı; alt text atlanıyor.');
+      return;
+    }
+    const toApply = Math.min(count, mediaCount, altTexts.length);
+    for (let i = 0; i < toApply; i++) {
+      const text = (altTexts[i] ?? '').trim();
+      if (!text) continue;
+      try {
+        await altButtons.nth(i).click({ timeout: 5000 });
+        const textarea = page.locator(this.selectors.mediaAltTextarea).first();
+        await textarea.waitFor({ state: 'visible', timeout: 5000 });
+        await textarea.fill(text);
+        const save = page.locator(this.selectors.mediaAltSave).first();
+        await save.click({ timeout: 5000 });
+        await page.waitForTimeout(400 + Math.random() * 300);
+      } catch (err) {
+        this.log.warn(`Alt text uygulanamadı (index=${i}): ${err instanceof Error ? err.message : err}`);
+      }
+    }
   }
 
   private async pressPostButton(page: Page): Promise<void> {
@@ -171,8 +212,13 @@ export class XPostFlowService {
       await this.typeHuman(composer, opts.text);
       await page.waitForTimeout(700 + Math.random() * 800);
 
-      if (opts.mediaPath) {
-        await this.attachMedia(page, opts.mediaPath);
+      const paths = opts.mediaPaths && opts.mediaPaths.length > 0
+        ? opts.mediaPaths
+        : opts.mediaPath
+          ? [opts.mediaPath]
+          : [];
+      if (paths.length > 0) {
+        await this.attachMedia(page, paths, opts.altTexts ?? null);
       }
 
       await this.pressPostButton(page);

@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Page } from 'patchright';
 import { XBrowserService } from './browser/x-browser.service';
@@ -45,9 +46,17 @@ export class XDirectService {
     return all[0].id;
   }
 
+  private isNoopMode(): boolean {
+    return (process.env.X_EXECUTOR_MODE ?? 'noop') !== 'patchright';
+  }
+
   // ── Write Operations ──────────────────────────────────────────────────────
 
-  async unlikeTweet(tweetUrl: string, accountId?: string): Promise<{ ok: boolean }> {
+  async unlikeTweet(tweetUrl: string, accountId?: string): Promise<{ ok: boolean; dryRun?: boolean }> {
+    if (this.isNoopMode()) {
+      this.log.log(`[NoOp] unlikeTweet dry-run: ${tweetUrl}`);
+      return { ok: true, dryRun: true };
+    }
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     try {
@@ -71,7 +80,11 @@ export class XDirectService {
     }
   }
 
-  async unretweetTweet(tweetUrl: string, accountId?: string): Promise<{ ok: boolean }> {
+  async unretweetTweet(tweetUrl: string, accountId?: string): Promise<{ ok: boolean; dryRun?: boolean }> {
+    if (this.isNoopMode()) {
+      this.log.log(`[NoOp] unretweetTweet dry-run: ${tweetUrl}`);
+      return { ok: true, dryRun: true };
+    }
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     try {
@@ -97,7 +110,11 @@ export class XDirectService {
     }
   }
 
-  async unfollowAccount(targetHandle: string, accountId?: string): Promise<{ ok: boolean }> {
+  async unfollowAccount(targetHandle: string, accountId?: string): Promise<{ ok: boolean; dryRun?: boolean }> {
+    if (this.isNoopMode()) {
+      this.log.log(`[NoOp] unfollowAccount dry-run: @${targetHandle}`);
+      return { ok: true, dryRun: true };
+    }
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     try {
@@ -123,7 +140,11 @@ export class XDirectService {
     }
   }
 
-  async deleteTweet(tweetUrl: string, accountId?: string): Promise<{ ok: boolean }> {
+  async deleteTweet(tweetUrl: string, accountId?: string): Promise<{ ok: boolean; dryRun?: boolean }> {
+    if (this.isNoopMode()) {
+      this.log.log(`[NoOp] deleteTweet dry-run: ${tweetUrl}`);
+      return { ok: true, dryRun: true };
+    }
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     try {
@@ -154,7 +175,11 @@ export class XDirectService {
     }
   }
 
-  async sendDm(targetHandle: string, message: string, accountId?: string): Promise<{ ok: boolean }> {
+  async sendDm(targetHandle: string, message: string, accountId?: string): Promise<{ ok: boolean; dryRun?: boolean }> {
+    if (this.isNoopMode()) {
+      this.log.log(`[NoOp] sendDm dry-run: @${targetHandle} (${message.length} chars)`);
+      return { ok: true, dryRun: true };
+    }
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     try {
@@ -188,7 +213,12 @@ export class XDirectService {
     bio?: string;
     location?: string;
     website?: string;
-  }, accountId?: string): Promise<{ ok: boolean; updated: string[] }> {
+  }, accountId?: string): Promise<{ ok: boolean; updated: string[]; dryRun?: boolean }> {
+    if (this.isNoopMode()) {
+      const updated = Object.keys(fields).filter((k) => fields[k as keyof typeof fields] !== undefined);
+      this.log.log(`[NoOp] updateProfile dry-run: ${JSON.stringify(updated)}`);
+      return { ok: true, updated, dryRun: true };
+    }
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     const updated: string[] = [];
@@ -235,6 +265,73 @@ export class XDirectService {
       return { ok: true, updated };
     } catch (err) {
       this.log.error(`updateProfile error: ${err instanceof Error ? err.message : err}`);
+      throw this.wrapError(err);
+    } finally {
+      await this.browser.release(context);
+    }
+  }
+
+  async updateAvatar(filePath: string, accountId?: string): Promise<{ ok: boolean; dryRun?: boolean }> {
+    return this.uploadProfileImage('avatar', filePath, accountId);
+  }
+
+  async updateBanner(filePath: string, accountId?: string): Promise<{ ok: boolean; dryRun?: boolean }> {
+    return this.uploadProfileImage('banner', filePath, accountId);
+  }
+
+  private async uploadProfileImage(
+    kind: 'avatar' | 'banner',
+    filePath: string,
+    accountId?: string,
+  ): Promise<{ ok: boolean; dryRun?: boolean }> {
+    if (this.isNoopMode()) {
+      this.log.log(`[NoOp] update${kind === 'avatar' ? 'Avatar' : 'Banner'} dry-run: ${filePath}`);
+      return { ok: true, dryRun: true };
+    }
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`${kind} file not found: ${filePath}`);
+    }
+    const acctId = await this.resolveAccountId(accountId);
+    const { context, page } = await this.browser.launch(acctId);
+    try {
+      await page.goto('https://x.com/settings/profile', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+      await this.browser.assertSessionHealthy(page, acctId);
+      await page.waitForTimeout(2_000);
+
+      // X exposes both file inputs side-by-side on the profile editor. We pick
+      // by index (avatar = 0, banner = 1) and fall back to the first available
+      // input if only one is present in the DOM.
+      const fileInputs = page.locator(this.sel.profileFileInputs);
+      const count = await fileInputs.count().catch(() => 0);
+      if (count === 0) {
+        throw new Error('No profile-image file inputs found on /settings/profile (UI may have changed)');
+      }
+      const target = kind === 'avatar' ? fileInputs.first() : (count > 1 ? fileInputs.nth(1) : fileInputs.first());
+      await target.setInputFiles(filePath);
+
+      // Crop modal Apply (X often shows a crop UI for both avatar and banner).
+      const apply = page.locator(this.sel.profileApplyButton).first();
+      try {
+        await apply.waitFor({ timeout: 8_000 });
+        await apply.click();
+      } catch {
+        // No crop modal — some uploads commit immediately. Continue to Save.
+      }
+
+      const saveBtn = page.locator(this.sel.profileSaveButton).first();
+      try {
+        await saveBtn.waitFor({ timeout: 5_000 });
+        await saveBtn.click();
+      } catch {
+        // Some flows persist immediately without a Save button.
+      }
+      await page.waitForTimeout(2_000);
+      return { ok: true };
+    } catch (err) {
+      this.log.error(`update${kind === 'avatar' ? 'Avatar' : 'Banner'} error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
     } finally {
       await this.browser.release(context);
@@ -379,7 +476,12 @@ export class XDirectService {
     return this.browser.readProfileTweets(handle, limit, acctId);
   }
 
-  async searchUsers(query: string, limit = 20, accountId?: string): Promise<UserResult[]> {
+  async searchUsers(
+    query: string,
+    limit = 20,
+    accountId?: string,
+    options: { verifiedOnly?: boolean } = {},
+  ): Promise<UserResult[]> {
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     try {
@@ -389,7 +491,7 @@ export class XDirectService {
       await page.waitForSelector('[data-testid="UserCell"]', { timeout: 15_000 });
       await page.waitForTimeout(1_500);
 
-      return await page.evaluate((params) => {
+      const all = await page.evaluate((params) => {
         const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
         return cells.map(cell => {
           const nameEl = cell.querySelector('[data-testid="UserName"]');
@@ -420,6 +522,8 @@ export class XDirectService {
           return null;
         }
       }, { limit });
+
+      return options.verifiedOnly ? all.filter((u) => u.verified) : all;
     } catch (err) {
       this.log.error(`searchUsers error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -428,22 +532,54 @@ export class XDirectService {
     }
   }
 
-  async getUserFollowers(handle: string, limit = 50, accountId?: string): Promise<Array<{ handle: string; displayName: string; bio: string }>> {
+  async getUserFollowers(
+    handle: string,
+    limit = 50,
+    accountId?: string,
+    options: { verifiedOnly?: boolean } = {},
+  ): Promise<Array<{ handle: string; displayName: string; bio: string; verified: boolean }>> {
+    return this.scrapeUserList(`https://x.com/${handle}/followers`, limit, accountId, options);
+  }
+
+  async getUserFollowing(
+    handle: string,
+    limit = 50,
+    accountId?: string,
+    options: { verifiedOnly?: boolean } = {},
+  ): Promise<Array<{ handle: string; displayName: string; bio: string; verified: boolean }>> {
+    return this.scrapeUserList(`https://x.com/${handle}/following`, limit, accountId, options);
+  }
+
+  async getTweetRetweeters(
+    tweetUrl: string,
+    limit = 50,
+    accountId?: string,
+    options: { verifiedOnly?: boolean } = {},
+  ): Promise<Array<{ handle: string; displayName: string; bio: string; verified: boolean }>> {
+    const url = tweetUrl.replace(/\/$/, '') + '/retweets';
+    return this.scrapeUserList(url, limit, accountId, options);
+  }
+
+  private async scrapeUserList(
+    url: string,
+    limit: number,
+    accountId: string | undefined,
+    options: { verifiedOnly?: boolean },
+  ): Promise<Array<{ handle: string; displayName: string; bio: string; verified: boolean }>> {
     const acctId = await this.resolveAccountId(accountId);
     const { context, page } = await this.browser.launch(acctId);
     try {
-      await page.goto(`https://x.com/${handle}/followers`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
       await page.waitForSelector('[data-testid="UserCell"]', { timeout: 15_000 });
       await page.waitForTimeout(2_000);
 
-      // Scroll to load more if needed
       if (limit > 20) {
         await page.evaluate(() => window.scrollBy(0, 3000));
         await page.waitForTimeout(1_500);
       }
 
-      return await page.evaluate((params) => {
+      const all = await page.evaluate((params) => {
         const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
         return cells.map(cell => {
           const nameEl = cell.querySelector('[data-testid="UserName"]');
@@ -451,7 +587,8 @@ export class XDirectService {
           const handle = extractHandleFromCell(cell) ?? spans.find((text) => text.startsWith('@'))?.replace('@', '') ?? '';
           const displayName = spans.find((text) => !text.startsWith('@') && text !== '·') ?? '';
           const bio = cell.querySelector('[data-testid="UserDescription"]')?.textContent ?? '';
-          return { handle, displayName, bio };
+          const verified = Boolean(cell.querySelector('svg[data-testid="icon-verified"]'));
+          return { handle, displayName, bio, verified };
         }).filter((user) => user.handle || user.displayName || user.bio);
 
         function extractHandleFromCell(cell: Element): string | null {
@@ -464,12 +601,60 @@ export class XDirectService {
           return null;
         }
       }, { limit });
+
+      return options.verifiedOnly ? all.filter((u) => u.verified) : all;
     } catch (err) {
-      this.log.error(`getUserFollowers error: ${err instanceof Error ? err.message : err}`);
+      this.log.error(`scrapeUserList(${url}) error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
     } finally {
       await this.browser.release(context);
     }
+  }
+
+  async getTweetQuotes(tweetUrl: string, limit = 20, accountId?: string): Promise<TweetResult[]> {
+    const acctId = await this.resolveAccountId(accountId);
+    const { context, page } = await this.browser.launch(acctId);
+    try {
+      const url = tweetUrl.replace(/\/$/, '') + '/quotes';
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, acctId);
+      await page.waitForSelector(this.sel.tweetArticle, { timeout: 20_000 });
+      await page.waitForTimeout(1_500);
+
+      return await this.extractTweets(page, limit);
+    } catch (err) {
+      this.log.error(`getTweetQuotes error: ${err instanceof Error ? err.message : err}`);
+      throw this.wrapError(err);
+    } finally {
+      await this.browser.release(context);
+    }
+  }
+
+  async getTweetReplies(tweetUrl: string, limit = 20, accountId?: string): Promise<TweetResult[]> {
+    const acctId = await this.resolveAccountId(accountId);
+    const { context, page } = await this.browser.launch(acctId);
+    try {
+      await page.goto(tweetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, acctId);
+      await page.waitForSelector(this.sel.tweetArticle, { timeout: 20_000 });
+      await page.waitForTimeout(2_000);
+
+      // extractTweets returns all article elements; the first is the parent tweet.
+      // Drop entries whose URL matches the requested tweetUrl to keep just replies.
+      const all = await this.extractTweets(page, limit + 1);
+      const normalized = tweetUrl.replace(/\/$/, '');
+      return all.filter((t) => t.url.replace(/\/$/, '') !== normalized).slice(0, limit);
+    } catch (err) {
+      this.log.error(`getTweetReplies error: ${err instanceof Error ? err.message : err}`);
+      throw this.wrapError(err);
+    } finally {
+      await this.browser.release(context);
+    }
+  }
+
+  async getUserMentions(handle: string, limit = 20, accountId?: string): Promise<TweetResult[]> {
+    const cleanHandle = handle.replace(/^@/, '');
+    return this.searchTweets(`@${cleanHandle}`, limit, accountId);
   }
 
   async getXTrending(accountId?: string): Promise<Array<{ rank: number; topic: string; tweetCount: string }>> {

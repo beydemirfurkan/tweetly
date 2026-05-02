@@ -31,6 +31,17 @@ const TOOL_DEFINITIONS = [
       properties: {
         text: { type: 'string', description: 'Tweet text (max 280 chars)' },
         account_id: { type: 'string', description: 'Account ID to post from (uses first active account if omitted)' },
+        media_path: { type: 'string', description: 'Single-file convenience; prefer media_paths' },
+        media_paths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Local file paths. Up to 4 images, or 1 video, or 1 GIF.',
+        },
+        alt_texts: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Per-media accessibility text (best-effort, index-aligned with media_paths).',
+        },
       },
       required: ['text'],
     },
@@ -197,6 +208,42 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'get_account_health',
+    description:
+      "Inspect a connected account's session health: auth-failure streak, last error, " +
+      'pause state. Use to detect expired cookies before queueing more writes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Account ID (defaults to first active account)' },
+      },
+    },
+  },
+  {
+    name: 'update_avatar',
+    description: 'Replace the connected account profile photo from a local image file',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file_path: { type: 'string', description: 'Absolute path to a local image file (jpg/png)' },
+        account_id: { type: 'string' },
+      },
+      required: ['file_path'],
+    },
+  },
+  {
+    name: 'update_banner',
+    description: 'Replace the connected account profile banner/header image from a local file',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file_path: { type: 'string', description: 'Absolute path to a local image file' },
+        account_id: { type: 'string' },
+      },
+      required: ['file_path'],
+    },
+  },
+  {
     name: 'search_tweets',
     description: 'Search Twitter/X for tweets matching a query',
     inputSchema: {
@@ -255,6 +302,7 @@ const TOOL_DEFINITIONS = [
         query: { type: 'string' },
         limit: { type: 'number' },
         account_id: { type: 'string' },
+        verified_only: { type: 'boolean', description: 'Return only verified users' },
       },
       required: ['query'],
     },
@@ -266,6 +314,74 @@ const TOOL_DEFINITIONS = [
       type: 'object',
       properties: {
         handle: { type: 'string' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
+        verified_only: { type: 'boolean', description: 'Return only verified followers' },
+      },
+      required: ['handle'],
+    },
+  },
+  {
+    name: 'get_user_following',
+    description: 'Get the list of accounts a user is following',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        handle: { type: 'string' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
+        verified_only: { type: 'boolean' },
+      },
+      required: ['handle'],
+    },
+  },
+  {
+    name: 'get_tweet_retweeters',
+    description: 'List the accounts that retweeted a given tweet',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tweet_url: { type: 'string', description: 'URL of the tweet (must contain /status/)' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
+        verified_only: { type: 'boolean' },
+      },
+      required: ['tweet_url'],
+    },
+  },
+  {
+    name: 'get_tweet_quotes',
+    description: 'List quote tweets of a given tweet',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tweet_url: { type: 'string' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
+      },
+      required: ['tweet_url'],
+    },
+  },
+  {
+    name: 'get_tweet_replies',
+    description: 'List replies under a given tweet',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tweet_url: { type: 'string' },
+        limit: { type: 'number' },
+        account_id: { type: 'string' },
+      },
+      required: ['tweet_url'],
+    },
+  },
+  {
+    name: 'get_user_mentions',
+    description: 'Search for tweets that mention a specific user (@handle)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        handle: { type: 'string', description: 'User handle (with or without @)' },
         limit: { type: 'number' },
         account_id: { type: 'string' },
       },
@@ -530,8 +646,26 @@ export class McpService {
         const text = args.text as string;
         if (!text) throw new Error('text is required');
         const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        const mediaPath = (args.media_path as string | undefined) ?? null;
+        const rawPaths = args.media_paths;
+        const mediaPaths = Array.isArray(rawPaths)
+          ? (rawPaths.filter((p): p is string => typeof p === 'string' && p.trim().length > 0))
+          : null;
+        if (mediaPaths && mediaPaths.length > 4) {
+          throw new Error('media_paths limit: at most 4 entries (X composer constraint)');
+        }
+        const rawAlts = args.alt_texts;
+        const altTexts = Array.isArray(rawAlts)
+          ? rawAlts.map((t) => (typeof t === 'string' ? t : ''))
+          : null;
         return this.enqueue.enqueuePost({
-          accountId, text, scheduledAt: new Date(), metadata: { source: 'mcp' },
+          accountId,
+          text,
+          mediaPath,
+          mediaPaths,
+          altTexts,
+          scheduledAt: new Date(),
+          metadata: { source: 'mcp' },
         });
       }
 
@@ -659,6 +793,20 @@ export class McpService {
         return this.xDirect.updateProfile(fields, accountId);
       }
 
+      case 'update_avatar': {
+        const filePath = args.file_path as string;
+        if (!filePath) throw new Error('file_path is required');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.updateAvatar(filePath, accountId);
+      }
+
+      case 'update_banner': {
+        const filePath = args.file_path as string;
+        if (!filePath) throw new Error('file_path is required');
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        return this.xDirect.updateBanner(filePath, accountId);
+      }
+
       case 'search_tweets': {
         const query = args.query as string;
         if (!query) throw new Error('query is required');
@@ -695,7 +843,8 @@ export class McpService {
         if (!query) throw new Error('query is required');
         const limit = Math.min(Number(args.limit ?? 20), 50);
         const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
-        return this.xDirect.searchUsers(query, limit, accountId);
+        const verifiedOnly = Boolean(args.verified_only);
+        return this.xDirect.searchUsers(query, limit, accountId, { verifiedOnly });
       }
 
       case 'get_user_followers': {
@@ -703,7 +852,50 @@ export class McpService {
         if (!handle) throw new Error('handle is required');
         const limit = Math.min(Number(args.limit ?? 50), 200);
         const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
-        return this.xDirect.getUserFollowers(handle, limit, accountId);
+        const verifiedOnly = Boolean(args.verified_only);
+        return this.xDirect.getUserFollowers(handle, limit, accountId, { verifiedOnly });
+      }
+
+      case 'get_user_following': {
+        const handle = args.handle as string;
+        if (!handle) throw new Error('handle is required');
+        const limit = Math.min(Number(args.limit ?? 50), 200);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        const verifiedOnly = Boolean(args.verified_only);
+        return this.xDirect.getUserFollowing(handle, limit, accountId, { verifiedOnly });
+      }
+
+      case 'get_tweet_retweeters': {
+        const tweetUrl = args.tweet_url as string;
+        if (!tweetUrl) throw new Error('tweet_url is required');
+        const limit = Math.min(Number(args.limit ?? 50), 200);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        const verifiedOnly = Boolean(args.verified_only);
+        return this.xDirect.getTweetRetweeters(tweetUrl, limit, accountId, { verifiedOnly });
+      }
+
+      case 'get_tweet_quotes': {
+        const tweetUrl = args.tweet_url as string;
+        if (!tweetUrl) throw new Error('tweet_url is required');
+        const limit = Math.min(Number(args.limit ?? 20), 50);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getTweetQuotes(tweetUrl, limit, accountId);
+      }
+
+      case 'get_tweet_replies': {
+        const tweetUrl = args.tweet_url as string;
+        if (!tweetUrl) throw new Error('tweet_url is required');
+        const limit = Math.min(Number(args.limit ?? 20), 50);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getTweetReplies(tweetUrl, limit, accountId);
+      }
+
+      case 'get_user_mentions': {
+        const handle = args.handle as string;
+        if (!handle) throw new Error('handle is required');
+        const limit = Math.min(Number(args.limit ?? 20), 50);
+        const accountId = await this.resolveAccountIdOptional(userId, args.account_id as string | undefined);
+        return this.xDirect.getUserMentions(handle, limit, accountId);
       }
 
       case 'get_x_trending': {
@@ -775,6 +967,19 @@ export class McpService {
             createdAt: a.createdAt,
             lastUsedAt: a.lastUsedAt,
           })),
+        };
+      }
+
+      case 'get_account_health': {
+        const accountId = await this.resolveAccountId(userId, args.account_id as string | undefined);
+        const account = await this.accounts.findByIdForUser(accountId, userId);
+        if (!account) throw new Error(`Account not found: ${accountId}`);
+        const health = await this.accounts.getSessionHealth(accountId);
+        return {
+          accountId: account.id,
+          status: account.status,
+          displayName: account.displayName,
+          ...health,
         };
       }
 

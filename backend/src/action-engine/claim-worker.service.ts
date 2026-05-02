@@ -183,7 +183,12 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
   private extractPayload(type: ActionType, row: ClaimedActionRow): Record<string, unknown> {
     switch (type) {
       case 'post':
-        return { text: row.text, mediaPath: row.media_path };
+        return {
+          text: row.text,
+          mediaPath: row.media_path,
+          mediaPaths: row.media_paths ?? null,
+          altTexts: row.alt_texts ?? null,
+        };
       case 'reply':
         return { text: row.text, parentTweetUrl: row.parent_tweet_url };
       case 'quote':

@@ -27,6 +27,18 @@ function createService() {
 }
 
 describe('XDirectService', () => {
+  // These specs assert the real Patchright flow (browser.launch, navigation,
+  // selectors). The global test setup forces X_EXECUTOR_MODE='noop' which would
+  // dry-run write paths and skip browser.launch, so we override per-suite.
+  const previousMode = process.env.X_EXECUTOR_MODE;
+  beforeAll(() => {
+    process.env.X_EXECUTOR_MODE = 'patchright';
+  });
+  afterAll(() => {
+    if (previousMode === undefined) delete process.env.X_EXECUTOR_MODE;
+    else process.env.X_EXECUTOR_MODE = previousMode;
+  });
+
   afterEach(() => jest.clearAllMocks());
 
   describe('resolveAccountId (via public methods)', () => {
@@ -196,7 +208,7 @@ describe('XDirectService', () => {
 
       const result = await service.getUserFollowers('test-account', 5, 'acc-1');
 
-      expect(result).toEqual([{ handle: 'follower', displayName: 'Follower', bio: 'bio' }]);
+      expect(result).toEqual([{ handle: 'follower', displayName: 'Follower', bio: 'bio', verified: false }]);
     });
   });
 
@@ -217,6 +229,60 @@ describe('XDirectService', () => {
       const result = await service.getUserTweets('testuser', 5, 'acc-1');
 
       expect(result).toEqual(tweets);
+    });
+  });
+
+  describe('NoOp dry-run mode (X_EXECUTOR_MODE != patchright)', () => {
+    let savedMode: string | undefined;
+    beforeAll(() => {
+      savedMode = process.env.X_EXECUTOR_MODE;
+      process.env.X_EXECUTOR_MODE = 'noop';
+    });
+    afterAll(() => {
+      if (savedMode === undefined) delete process.env.X_EXECUTOR_MODE;
+      else process.env.X_EXECUTOR_MODE = savedMode;
+    });
+
+    it('unlikeTweet returns dryRun without launching browser', async () => {
+      const { service, browser } = createService();
+      const result = await service.unlikeTweet('https://x.com/u/status/1', 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('unretweetTweet returns dryRun without launching browser', async () => {
+      const { service, browser } = createService();
+      const result = await service.unretweetTweet('https://x.com/u/status/1', 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('unfollowAccount returns dryRun without launching browser', async () => {
+      const { service, browser } = createService();
+      const result = await service.unfollowAccount('elonmusk', 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('deleteTweet returns dryRun without launching browser', async () => {
+      const { service, browser } = createService();
+      const result = await service.deleteTweet('https://x.com/u/status/1', 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('sendDm returns dryRun without launching browser', async () => {
+      const { service, browser } = createService();
+      const result = await service.sendDm('elonmusk', 'hi', 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('updateProfile returns dryRun with the requested fields without launching browser', async () => {
+      const { service, browser } = createService();
+      const result = await service.updateProfile({ name: 'New', bio: 'Hi' }, 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true, updated: ['name', 'bio'] });
+      expect(browser.launch).not.toHaveBeenCalled();
     });
   });
 });

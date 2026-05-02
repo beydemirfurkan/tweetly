@@ -9,6 +9,12 @@ export class PostActionEntity extends BaseActionEntity {
   @Column({ name: 'media_path', type: 'text', nullable: true })
   mediaPath!: string | null;
 
+  @Column({ name: 'media_paths', type: 'jsonb', nullable: true })
+  mediaPaths!: string[] | null;
+
+  @Column({ name: 'alt_texts', type: 'jsonb', nullable: true })
+  altTexts!: string[] | null;
+
   @Column({ name: 'result_tweet_id', type: 'text', nullable: true })
   resultTweetId!: string | null;
 

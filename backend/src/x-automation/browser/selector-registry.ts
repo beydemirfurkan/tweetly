@@ -13,6 +13,24 @@ export class SelectorRegistry {
   readonly mediaInput = 'input[data-testid="fileInput"]';
   readonly mediaAttached =
     '[data-testid="attachments"], div[aria-label="Image"], div[data-testid="tweetPhoto"]';
+  // Per-attached-media UI: each thumbnail has an "ALT" button which opens a
+  // modal with a textarea + Save. These are best-effort; alt text upload
+  // failures should not block the post itself.
+  readonly mediaAltButton = '[data-testid="attachments"] [aria-label*="Add description" i], [data-testid="altTextButton"]';
+  readonly mediaAltTextarea = 'textarea[aria-label*="Image description" i], textarea[name="altText"]';
+  readonly mediaAltSave = '[data-testid="applyButton"]';
+
+  // Profile photo / banner editing on /settings/profile (best-effort selectors;
+  // X reshuffles these periodically — patch here when avatar/banner uploads
+  // start failing).
+  readonly profilePhotoButton =
+    '[data-testid="ProfileAvatarFileInput-FileInput"], button[aria-label*="profile photo" i], button[aria-label*="Add avatar" i]';
+  readonly profileBannerButton =
+    '[data-testid="HeaderPhotoFileInput-FileInput"], button[aria-label*="banner" i], button[aria-label*="header photo" i]';
+  readonly profileFileInputs = 'input[type="file"][accept*="image"]';
+  readonly profileApplyButton = '[data-testid="applyButton"]';
+  readonly profileSaveButton =
+    '[data-testid="Profile_Save_Button"], [data-testid="settingsDetailSave"]';
   readonly toast = '[data-testid="toast"]';
   readonly tweetArticle = 'article[data-testid="tweet"]';
 

@@ -7,6 +7,8 @@ export interface EnqueuePostInput {
   accountId: string;
   text: string;
   mediaPath?: string | null;
+  mediaPaths?: string[] | null;
+  altTexts?: string[] | null;
   scheduledAt: Date;
   metadata?: Record<string, unknown>;
   maxAttempts?: number;
@@ -65,7 +67,9 @@ export class ActionEnqueueService {
       metadata: input.metadata,
       typeSpecific: {
         text: input.text,
-        media_path: input.mediaPath ?? null,
+        media_path: input.mediaPath ?? (input.mediaPaths?.[0] ?? null),
+        media_paths: input.mediaPaths && input.mediaPaths.length > 0 ? input.mediaPaths : null,
+        alt_texts: input.altTexts && input.altTexts.length > 0 ? input.altTexts : null,
       },
     });
     return { id, idempotencyKey };
