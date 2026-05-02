@@ -188,12 +188,24 @@ Bu noktada tarayıcıdan yeni cookie'leri alıp hesabı güncellemek yeterli.
 
 ## MCP Bağlantısı (Claude Code örneği)
 
+MCP `/mcp/sse` endpoint'i **kullanıcı `tk_*` API key'i** ile çalışır
+(admin token değil). Her user kendi key'iyle bağlanır ve sadece kendi
+hesaplarına erişir.
+
 ```bash
+# tk_ key'i frontend → /login → magic-link → API Keys ekranından üret
 claude mcp add tweetly --url http://localhost:3001/mcp/sse \
-  --header "Authorization: Bearer $ADMIN_API_TOKEN"
+  --header "Authorization: Bearer $TWEETLY_API_KEY"   # tk_xxx...
 ```
 
 Sonra Claude Code içinde: "Tweetly üzerinden 'merhaba' diye bir tweet at" denildiğinde `post_tweet` tool'u tetiklenir, action engine'e enqueue edilir, Patchright X üzerinde gönderir.
+
+> **Auth modeli özet**:
+> - `tk_*` user key → `/mcp/*`, `/api/v1/*` (kullanıcının kendi
+>   hesapları, çok kullanıcılı)
+> - `secrets.admin_token` → `/admin/*` (operatör/sysadmin uçları,
+>   tüm kullanıcılar)
+> İkisini karıştırma — MCP istemcisine asla admin token verme.
 
 ---
 
