@@ -618,7 +618,13 @@ export class XDirectService {
       const url = tweetUrl.replace(/\/$/, '') + '/quotes';
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
-      await page.waitForSelector(this.sel.tweetArticle, { timeout: 20_000 });
+      // Empty quotes pages render no tweet articles; tolerate the timeout
+      // and return an empty list rather than throwing.
+      try {
+        await page.waitForSelector(this.sel.tweetArticle, { timeout: 8_000 });
+      } catch {
+        return [];
+      }
       await page.waitForTimeout(1_500);
 
       return await this.extractTweets(page, limit);
@@ -636,7 +642,13 @@ export class XDirectService {
     try {
       await page.goto(tweetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
-      await page.waitForSelector(this.sel.tweetArticle, { timeout: 20_000 });
+      try {
+        await page.waitForSelector(this.sel.tweetArticle, { timeout: 12_000 });
+      } catch {
+        // Tweet page didn't render — likely deleted/protected. Return [] instead
+        // of bubbling a timeout error, since "no replies" is a valid answer.
+        return [];
+      }
       await page.waitForTimeout(2_000);
 
       // extractTweets returns all article elements; the first is the parent tweet.

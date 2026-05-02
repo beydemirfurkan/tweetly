@@ -210,6 +210,7 @@ function safeTests(client: McpClient): Array<{ name: string; run: () => Promise<
   return [
     { name: 'tools/list', run: () => client.listTools() },
     { name: 'get_accounts', run: () => client.callTool('get_accounts', {}) },
+    { name: 'get_account_health', run: () => client.callTool('get_account_health', { account_id: accountId }) },
     { name: 'get_settings', run: () => client.callTool('get_settings', { account_id: accountId }) },
     { name: 'list_actions:post', run: () => client.callTool('list_actions', { type: 'post', account_id: accountId, limit: 5 }) },
     { name: 'list_monitors', run: () => client.callTool('list_monitors', {}) },
@@ -224,7 +225,12 @@ function readTests(client: McpClient): Array<{ name: string; run: () => Promise<
     { name: 'search_tweets', run: () => client.callTool('search_tweets', { query: `from:${targetHandle}`, limit: 3, account_id: accountId }, 90_000) },
     { name: 'get_x_trending', run: () => client.callTool('get_x_trending', { account_id: accountId }, 90_000) },
     { name: 'get_user_followers', run: () => client.callTool('get_user_followers', { handle: targetHandle, limit: 5, account_id: accountId }, 90_000) },
+    { name: 'get_user_following', run: () => client.callTool('get_user_following', { handle: targetHandle, limit: 5, account_id: accountId }, 90_000) },
+    { name: 'get_user_mentions', run: () => client.callTool('get_user_mentions', { handle: targetHandle, limit: 3, account_id: accountId }, 90_000) },
     { name: 'get_tweet', run: () => requireTargetTweet(() => client.callTool('get_tweet', { tweet_url: targetTweetUrl, account_id: accountId }, 90_000)) },
+    { name: 'get_tweet_replies', run: () => requireTargetTweet(() => client.callTool('get_tweet_replies', { tweet_url: targetTweetUrl, limit: 3, account_id: accountId }, 90_000)) },
+    { name: 'get_tweet_quotes', run: () => requireTargetTweet(() => client.callTool('get_tweet_quotes', { tweet_url: targetTweetUrl, limit: 3, account_id: accountId }, 90_000)) },
+    { name: 'get_tweet_retweeters', run: () => requireTargetTweet(() => client.callTool('get_tweet_retweeters', { tweet_url: targetTweetUrl, limit: 5, account_id: accountId }, 90_000)) },
   ];
 }
 

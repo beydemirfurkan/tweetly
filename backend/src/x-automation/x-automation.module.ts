@@ -32,7 +32,10 @@ import { LoginWorker } from './login/login-worker.service';
  *   - `patchright`: Gerçek Patchright tabanlı executor'lar (prod)
  */
 @Module({
-  imports: [ActionEngineModule, forwardRef(() => AccountsModule)],
+  // ActionEngineModule -> AccountsModule -> XAutomationModule cycle (introduced
+  // when ProfileCacheService started depending on XDirectService). forwardRef
+  // both ends so Nest can resolve providers across the cycle.
+  imports: [forwardRef(() => ActionEngineModule), forwardRef(() => AccountsModule)],
   providers: [
     SelectorRegistry,
     XBrowserService,
