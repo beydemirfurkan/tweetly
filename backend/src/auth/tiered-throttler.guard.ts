@@ -6,8 +6,6 @@ import type { AuthedRequest } from './api-key.guard';
 /**
  * Tiered rate limiter.
  * Per-user (req.tweetlyAuth.userId) tracker; IP fallback for unauthenticated requests.
- * Tier limits are applied via @RateLimitRead / @RateLimitWrite / @RateLimitDelete /
- * @RateLimitConnect / @RateLimitFollow factories below.
  *
  * 429 body: { error: "rate_limit_exceeded", retryAfter, statusCode }
  * Retry-After response header is set automatically by ThrottlerGuard.
@@ -26,7 +24,6 @@ export class TieredThrottlerGuard extends ThrottlerGuard {
     _context: ExecutionContext,
     detail: ThrottlerLimitDetail,
   ): Promise<void> {
-    // ThrottlerLimitDetail.timeToExpire / timeToBlockExpire are in seconds.
     const retryAfter = Math.max(
       1,
       detail.timeToBlockExpire || detail.timeToExpire,
@@ -69,3 +66,6 @@ export const RateLimitFollow = () =>
     }),
   );
 
+/** Magic-link request override: 5 / 60s per IP (anti-mail-bombing) */
+export const RateLimitMagicLink = () =>
+  applyDecorators(Throttle({ default: { ttl: 60_000, limit: 5 } }));

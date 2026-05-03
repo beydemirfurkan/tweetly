@@ -29,10 +29,28 @@
     "monitors": "Monitörler",
     "apiKeys": "API Anahtarları",
     "guide": "Kılavuz",
-    "account": "Hesap"
+    "logout": "Çıkış"
   },
   "login": {
-    "subtitle": "MCP Platform"
+    "subtitle": "MCP Platform",
+    "email": "E-posta",
+    "emailPlaceholder": "you@example.com",
+    "submit": "Giriş bağlantısı gönder",
+    "sending": "Gönderiliyor...",
+    "sentTitle": "Bağlantı gönderildi",
+    "sentDesc": "{email} adresine giriş bağlantısı gönderildi. 15 dakika içinde geçerli.",
+    "tryDifferent": "Farklı bir e-posta dene",
+    "genericError": "Bir hata oluştu"
+  },
+  "verify": {
+    "verifying": "Bağlantı doğrulanıyor...",
+    "tokenMissing": "Token eksik.",
+    "invalid": "Bağlantı doğrulanamadı.",
+    "retry": "Tekrar dene"
+  },
+  "panel": {
+    "loading": "Yükleniyor",
+    "redirecting": "Yönlendiriliyor"
   },
   "common": {
     "refresh": "Yenile",

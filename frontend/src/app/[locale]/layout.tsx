@@ -3,8 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
-import { ClerkProvider } from '@clerk/nextjs';
-import { enUS, trTR } from '@clerk/localizations';
+import { AuthProvider } from '@/lib/auth-context';
 import { routing } from '@/i18n/routing';
 import '../globals.css';
 
@@ -44,7 +43,6 @@ export default async function LocaleLayout({
 
   setRequestLocale(locale);
   const messages = await getMessages();
-  const clerkLocalization = locale === 'tr' ? trTR : enUS;
 
   return (
     <html
@@ -53,7 +51,7 @@ export default async function LocaleLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ClerkProvider localization={clerkLocalization}>{children}</ClerkProvider>
+          <AuthProvider>{children}</AuthProvider>
         </NextIntlClientProvider>
       </body>
     </html>

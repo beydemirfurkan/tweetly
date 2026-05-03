@@ -1,6 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { auth } from '@clerk/nextjs/server';
-import { Link, redirect } from '@/i18n/navigation';
+import { Link } from '@/i18n/navigation';
 import {
   ArrowUpRight,
   Bird,
@@ -21,11 +20,6 @@ export default async function LandingPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-
-  const { userId } = await auth();
-  if (userId) {
-    redirect({ href: '/dashboard', locale });
-  }
 
   const t = await getTranslations('landing');
 

@@ -3,25 +3,9 @@ import { Reflector } from '@nestjs/core';
 import { ApiKeyGuard, getAuthContext } from './api-key.guard';
 import { RequestContext } from '@common/context';
 import type { ApiKeyEntity } from '@persistence/entities/api-key.entity';
-import type { ClerkTokenService } from './clerk-token.service';
-import type { UsersService } from './users.service';
 
 function makeRequestContext(): RequestContext {
   return new RequestContext();
-}
-
-function makeClerkTokens(): ClerkTokenService {
-  return {
-    isConfigured: () => false,
-    verifySessionToken: jest.fn().mockResolvedValue(null),
-    fetchPrimaryEmail: jest.fn().mockResolvedValue(null),
-  } as unknown as ClerkTokenService;
-}
-
-function makeUsers(): UsersService {
-  return {
-    resolveClerkIdentity: jest.fn(),
-  } as unknown as UsersService;
 }
 
 function makeContext(headers: Record<string, string | undefined>) {
@@ -45,21 +29,21 @@ function makeReflector(requiredScope?: string): Reflector {
 describe('ApiKeyGuard', () => {
   it('throws when authorization header missing', async () => {
     const apiKeys = { verify: jest.fn(), touchLastUsed: jest.fn() } as any;
-    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext(), makeClerkTokens(), makeUsers());
+    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext());
     const { ctx } = makeContext({});
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 
   it('throws when bearer token absent', async () => {
     const apiKeys = { verify: jest.fn(), touchLastUsed: jest.fn() } as any;
-    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext(), makeClerkTokens(), makeUsers());
+    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext());
     const { ctx } = makeContext({ authorization: 'Basic something' });
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 
   it('throws when key not verified', async () => {
     const apiKeys = { verify: jest.fn().mockResolvedValue(null), touchLastUsed: jest.fn() } as any;
-    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext(), makeClerkTokens(), makeUsers());
+    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext());
     const { ctx } = makeContext({ authorization: 'Bearer tk_xyz' });
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
@@ -70,7 +54,7 @@ describe('ApiKeyGuard', () => {
       verify: jest.fn().mockResolvedValue(row),
       touchLastUsed: jest.fn().mockResolvedValue(undefined),
     } as any;
-    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext(), makeClerkTokens(), makeUsers());
+    const guard = new ApiKeyGuard(apiKeys, makeReflector(), makeRequestContext());
     const { ctx, req } = makeContext({ authorization: 'Bearer tk_xyz' });
     const ok = await guard.canActivate(ctx);
     expect(ok).toBe(true);
@@ -88,7 +72,7 @@ describe('ApiKeyGuard', () => {
         verify: jest.fn().mockResolvedValue(row),
         touchLastUsed: jest.fn().mockResolvedValue(undefined),
       } as any;
-      const guard = new ApiKeyGuard(apiKeys, makeReflector(requiredScope), makeRequestContext(), makeClerkTokens(), makeUsers());
+      const guard = new ApiKeyGuard(apiKeys, makeReflector(requiredScope), makeRequestContext());
       const { ctx } = makeContext({ authorization: 'Bearer tk_x' });
       return { guard, ctx };
     }

@@ -2,13 +2,14 @@
 
 import { useTranslations } from 'next-intl';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
-import { useUser, UserButton } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-context';
 import {
   ArrowUpRight,
   Bird,
   BookOpen,
   KeyRound,
   LayoutDashboard,
+  LogOut,
   Radio,
   ScrollText,
   Users,
@@ -20,7 +21,7 @@ export function Sidebar() {
   const t = useTranslations('nav');
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, logout } = useAuth();
 
   const NAV_ITEMS: Array<{
     href: '/dashboard' | '/accounts' | '/actions' | '/monitoring' | '/api-keys' | '/guide';
@@ -39,7 +40,12 @@ export function Sidebar() {
     router.replace(pathname as '/dashboard', { locale });
   };
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? null;
+  const handleLogout = () => {
+    logout();
+    router.replace('/login' as '/login');
+  };
+
+  const email = user?.email ?? null;
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -104,8 +110,8 @@ export function Sidebar() {
         </a>
       </nav>
 
-      <div className="border-t border-sidebar-border px-3 py-3">
-        <div className="mb-2 flex items-center gap-1 px-2">
+      <div className="border-t border-sidebar-border px-3 py-3 space-y-2">
+        <div className="flex items-center gap-1 px-2">
           <button
             onClick={() => switchLocale('tr')}
             className="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
@@ -120,10 +126,13 @@ export function Sidebar() {
             EN
           </button>
         </div>
-        <div className="flex items-center justify-between rounded-full bg-accent/50 px-3 py-2">
-          <span className="truncate text-[12px] text-muted-foreground">{t('account')}</span>
-          <UserButton />
-        </div>
+        <button
+          onClick={handleLogout}
+          className="group flex w-full items-center gap-3 rounded-full px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <LogOut className="h-[16px] w-[16px] shrink-0" strokeWidth={2} />
+          <span className="truncate">{t('logout')}</span>
+        </button>
       </div>
     </aside>
   );

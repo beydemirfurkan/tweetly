@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useApiFetch, apiUrl, type ApiKey, type UserSummary } from '@/lib/api';
-import { useUser } from '@clerk/nextjs';
+import { useAuth } from '@/lib/auth-context';
 import {
   Activity,
   AlertTriangle,
@@ -24,7 +24,7 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const t = useTranslations('dashboard');
-  const { user } = useUser();
+  const { user } = useAuth();
   const apiFetch = useApiFetch();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState('');
@@ -82,7 +82,7 @@ export default function DashboardPage() {
             {user ? (
               <>
                 {' '}
-                <span className="font-medium text-foreground">{user.primaryEmailAddress?.emailAddress}</span>
+                <span className="font-medium text-foreground">{user.email}</span>
               </>
             ) : null}
           </p>

@@ -29,10 +29,28 @@
     "monitors": "Monitors",
     "apiKeys": "API Keys",
     "guide": "Guide",
-    "account": "Account"
+    "logout": "Sign out"
   },
   "login": {
-    "subtitle": "MCP Platform"
+    "subtitle": "MCP Platform",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "submit": "Send login link",
+    "sending": "Sending...",
+    "sentTitle": "Link sent",
+    "sentDesc": "Login link sent to {email}. Valid for 15 minutes.",
+    "tryDifferent": "Try a different email",
+    "genericError": "Something went wrong"
+  },
+  "verify": {
+    "verifying": "Verifying link...",
+    "tokenMissing": "Token missing.",
+    "invalid": "Could not verify the link.",
+    "retry": "Try again"
+  },
+  "panel": {
+    "loading": "Loading",
+    "redirecting": "Redirecting"
   },
   "common": {
     "refresh": "Refresh",

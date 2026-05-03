@@ -1,18 +1,49 @@
-import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
-import { Sidebar } from '@/components/sidebar';
+'use client';
 
-export default async function PanelLayout({
+import { useEffect } from 'react';
+import { useTranslations } from 'next-intl';
+import { usePathname, useRouter } from '@/i18n/navigation';
+import { useAuth } from '@/lib/auth-context';
+import { Sidebar } from '@/components/sidebar';
+import { Bird } from 'lucide-react';
+
+function LoadingScreen({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background">
+          <Bird className="h-5 w-5" strokeWidth={2.5} />
+        </div>
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="text-primary">●</span> {message}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function PanelLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
-  const { userId } = await auth();
-  if (!userId) {
-    redirect(`/${locale}/login`);
+  const t = useTranslations('panel');
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace(`/login?next=${encodeURIComponent(pathname)}` as '/login');
+    }
+  }, [isAuthenticated, isLoading, pathname, router]);
+
+  if (isLoading) {
+    return <LoadingScreen message={t('loading')} />;
+  }
+
+  if (!isAuthenticated) {
+    return <LoadingScreen message={t('redirecting')} />;
   }
 
   return (

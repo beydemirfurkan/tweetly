@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useAuth, useClerk } from '@clerk/nextjs';
+import { useAuth } from './auth-context';
 
 function resolveApiOrigin(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
@@ -23,6 +23,29 @@ export function apiUrl(path: string): string {
   return `${origin}${normalized}`;
 }
 
+function loginUrl(): string {
+  if (typeof window === 'undefined') return '/login';
+  // Strip locale prefix so next-intl router doesn't double-add it after login
+  const pathname = window.location.pathname.replace(/^\/(tr|en)/, '') || '/';
+  const next = `${pathname}${window.location.search}`;
+  return `/login?next=${encodeURIComponent(next)}`;
+}
+
+const TOKEN_KEY = 'tweetly_session_key';
+
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -39,17 +62,53 @@ export type ApiFetch = <T>(
 ) => Promise<T>;
 
 /**
- * Returns a stable apiFetch function that attaches the current Clerk session JWT
- * as a Bearer token. On 401, signs the user out and redirects to /login unless
+ * Bare fetch helper used outside React (e.g. in auth-context). Reads the token
+ * from localStorage; on 401, clears the token and bounces to /login unless
  * skipAuthRedirect is set.
  */
+export async function apiFetch<T>(
+  path: string,
+  options?: RequestInit & { skipAuthRedirect?: boolean },
+): Promise<T> {
+  const token = getToken();
+  const { skipAuthRedirect, headers: extraHeaders, ...rest } = options ?? {};
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(extraHeaders as Record<string, string> | undefined),
+  };
+
+  const res = await fetch(apiUrl(path), { ...rest, headers });
+
+  if (res.status === 401 && !skipAuthRedirect) {
+    clearToken();
+    if (typeof window !== 'undefined') {
+      window.location.href = loginUrl();
+    }
+    throw new ApiError(401, 'Unauthorized');
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new ApiError(res.status, body || `API error: ${res.status}`);
+  }
+
+  const text = await res.text();
+  if (!text) return {} as T;
+  return JSON.parse(text) as T;
+}
+
+/**
+ * Hook variant that integrates with AuthContext: on 401, clears the in-memory
+ * user (logout) so the panel guard re-renders and redirects.
+ */
 export function useApiFetch(): ApiFetch {
-  const { getToken } = useAuth();
-  const { signOut } = useClerk();
+  const { logout } = useAuth();
 
   return useCallback<ApiFetch>(
     async <T>(path: string, options?: RequestInit & { skipAuthRedirect?: boolean }): Promise<T> => {
-      const token = await getToken();
+      const token = getToken();
       const { skipAuthRedirect, headers: extraHeaders, ...rest } = options ?? {};
 
       const headers: Record<string, string> = {
@@ -61,7 +120,10 @@ export function useApiFetch(): ApiFetch {
       const res = await fetch(apiUrl(path), { ...rest, headers });
 
       if (res.status === 401 && !skipAuthRedirect) {
-        await signOut({ redirectUrl: '/login' });
+        logout();
+        if (typeof window !== 'undefined') {
+          window.location.href = loginUrl();
+        }
         throw new ApiError(401, 'Unauthorized');
       }
 
@@ -74,7 +136,7 @@ export function useApiFetch(): ApiFetch {
       if (!text) return {} as T;
       return JSON.parse(text) as T;
     },
-    [getToken, signOut],
+    [logout],
   );
 }
 
@@ -84,6 +146,12 @@ export interface CurrentUser {
   id: string;
   email: string;
   status: 'active' | 'suspended';
+}
+
+export interface ConsumeResponse {
+  ok: boolean;
+  sessionKey: string;
+  user: { id: string; email: string };
 }
 
 export interface ApiKey {
