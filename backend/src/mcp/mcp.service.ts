@@ -9,6 +9,7 @@ import { McpSessionRouter } from './mcp-session-router.service';
 import { LoginJobsRepository } from '../x-automation/login/login-jobs.repository';
 import { TOOL_DEFINITIONS } from './handlers/tool-definitions';
 import type { McpToolArgs, McpToolContext } from './handlers/mcp-tool.context';
+import { TOOL_SCHEMAS, type ToolName, formatZodError } from './handlers/tool-schemas';
 import { WriteHandler } from './handlers/write.handler';
 import { ProfileHandler } from './handlers/profile.handler';
 import { ReadHandler } from './handlers/read.handler';
@@ -92,7 +93,18 @@ export class McpService {
     }
   }
 
-  private async dispatch(userId: string, name: string, args: McpToolArgs): Promise<unknown> {
+  private async dispatch(userId: string, name: string, raw: McpToolArgs): Promise<unknown> {
+    const schema = TOOL_SCHEMAS[name as ToolName];
+    if (!schema) throw new Error(`Unknown tool: ${name}`);
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      throw new Error(`Invalid arguments for ${name}: ${formatZodError(parsed.error)}`);
+    }
+    // From here every handler receives a typed, validated args object —
+    // the `as never` widens the union back into the per-case type that
+    // each handler method declares. The drift spec keeps the two lists
+    // in sync at test time.
+    const args = parsed.data as never;
     const ctx = this.buildContext(userId);
     const w = this.writeHandler;
     const p = this.profileHandler;
