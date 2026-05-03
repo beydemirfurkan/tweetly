@@ -533,11 +533,39 @@ export class XDirectReadService extends XDirectBaseService {
       }
       await page.waitForTimeout(2_000);
 
-      // Pull a generous buffer; we filter to same-author chain below.
       const cap = Math.min(Math.max(limit, 1), 50);
-      const all = await extractTweetsFromPage(page, this.tweetSel(), cap * 2, (s) =>
-        this.sanitizeText(s),
+
+      // First-pass extract before any scrolling — captures the root tweet
+      // even if the conversation page later behaves oddly under scroll.
+      const collected: TweetResult[] = [];
+      const seen = new Set<string>();
+      const ingest = (rows: TweetResult[]) => {
+        for (const tweet of rows) {
+          const key = tweet.url || `${tweet.handle}:${tweet.postedAt}`;
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          collected.push(tweet);
+        }
+      };
+      ingest(
+        await extractTweetsFromPage(page, this.tweetSel(), 200, (s) => this.sanitizeText(s)),
       );
+
+      // Now scroll incrementally to load same-author follow-ups in the
+      // conversation tree. Re-extract after each scroll into the same
+      // dedup set so we accumulate without losing what we already saw.
+      const scrolls = Math.min(Math.ceil(cap / 5), 5);
+      for (let i = 0; i < scrolls; i++) {
+        await page.evaluate(() => window.scrollBy(0, 2500));
+        await page.waitForTimeout(1_500);
+        ingest(
+          await extractTweetsFromPage(page, this.tweetSel(), 200, (s) =>
+            this.sanitizeText(s),
+          ),
+        );
+      }
+
+      const all = collected;
       if (all.length === 0) return [];
 
       // Root handle = path segment of the root URL (avoids relying on which
@@ -547,7 +575,8 @@ export class XDirectReadService extends XDirectBaseService {
 
       const chain: TweetResult[] = [];
       for (const tweet of all) {
-        if (tweet.handle.toLowerCase() === rootHandle) chain.push(tweet);
+        if (tweet.handle.toLowerCase() !== rootHandle) continue;
+        chain.push(tweet);
         if (chain.length >= cap) break;
       }
       return chain;
