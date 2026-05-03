@@ -463,8 +463,8 @@ export default function MonitoringPage() {
                 code: (chunks) => <code className="rounded bg-muted px-1">{chunks}</code>,
               })}
             </p>
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs">
-              <span className="flex-1 truncate">{createdSecret.secret}</span>
+            <div className="flex items-start gap-2 rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs">
+              <span className="flex-1 break-all leading-relaxed">{createdSecret.secret}</span>
               <Button variant="ghost" size="sm" onClick={copySecret} className="h-7 w-7 shrink-0 p-0">
                 {secretCopied ? (
                   <Check className="h-3.5 w-3.5 text-emerald-400" />

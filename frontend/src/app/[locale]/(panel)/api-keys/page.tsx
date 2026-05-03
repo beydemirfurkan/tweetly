@@ -241,8 +241,8 @@ export default function ApiKeysPage() {
           {createdKey ? (
             <div className="space-y-4 pt-1">
               <p className="text-xs text-muted-foreground">{t('keyCreatedWarning')}</p>
-              <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs">
-                <span className="flex-1 truncate">{createdKey.key}</span>
+              <div className="flex items-start gap-2 rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs">
+                <span className="flex-1 break-all leading-relaxed">{createdKey.key}</span>
                 <Button
                   variant="ghost"
                   size="sm"
