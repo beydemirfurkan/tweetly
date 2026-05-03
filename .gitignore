@@ -26,3 +26,6 @@ data/
 # logs
 *.log
 *.tar.gz
+
+# DB schema/data dumps (migration runbook output) — may contain row data
+backups/

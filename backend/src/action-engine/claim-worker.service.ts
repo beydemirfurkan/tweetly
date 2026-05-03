@@ -73,7 +73,13 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
     }, this.options.pollIntervalMs);
   }
 
-  private async tick(): Promise<void> {
+  /**
+   * Run one polling cycle against every registered action type. Public so
+   * integration tests can deterministically advance the queue without
+   * relying on the timer; production code never calls this directly — the
+   * scheduleNext() loop owns invocation.
+   */
+  async tick(): Promise<void> {
     for (const type of this.registry.registered()) {
       if (this.stopped) return;
       const cfg = ACTION_TABLE_CONFIG[type];

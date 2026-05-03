@@ -22,5 +22,18 @@ module.exports = {
         global: { statements: 70, branches: 55, functions: 70, lines: 70 },
       },
     },
+    {
+      displayName: 'integration',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      testRegex: '.*\\.spec\\.ts$',
+      rootDir: '.',
+      roots: ['<rootDir>/test/integration'],
+      moduleFileExtensions: ['js', 'json', 'ts'],
+      transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
+      setupFiles: ['<rootDir>/test/integration/setup.ts'],
+      maxWorkers: 1,
+    },
   ],
+  testTimeout: 60000,
 };

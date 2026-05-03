@@ -9,7 +9,8 @@
     "dev": "tsx src/main.ts",
     "test": "jest",
     "test:unit": "jest --selectProjects unit",
-    "test:cov": "jest --coverage",
+    "test:integration": "jest --selectProjects integration",
+    "test:cov": "jest --coverage --selectProjects unit",
     "test:watch": "jest --watch",
     "db:migrate": "npm run build --silent && node dist/scripts/run-migrations.js",
     "db:migrate:revert": "npm run build --silent && node dist/scripts/revert-migration.js",
@@ -54,6 +55,7 @@
   },
   "devDependencies": {
     "@nestjs/testing": "^11.0.0",
+    "@testcontainers/postgresql": "^11.14.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.14",
