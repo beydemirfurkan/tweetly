@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 const apiBase = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? '');
-const swaggerUrl = apiBase ? `${apiBase}/docs` : '';
+const apiReferenceUrl = apiBase ? `${apiBase}/docs` : '';
 const openapiUrl = apiBase ? `${apiBase}/api/openapi.json` : '';
 
 export default async function DocsPage({
@@ -60,21 +60,21 @@ export default async function DocsPage({
             xtweetly <span className="text-primary">API</span>
           </h1>
           <p className="mt-5 max-w-[52ch] text-[17px] leading-[1.55] text-muted-foreground">
-            Production-grade Swagger UI, served live from the backend. Every route
-            documented, every error envelope spelled out — the same OpenAPI 3.1
-            spec our MCP tools are generated from.
+            Interactive API reference powered by Scalar, served live from the
+            backend. Every route documented, every error envelope spelled out —
+            the same OpenAPI 3.1 spec our MCP tools are generated from.
           </p>
 
           {apiBase ? (
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
-                href={swaggerUrl}
+                href={apiReferenceUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="pill group inline-flex items-center gap-2 bg-foreground px-7 py-3.5 text-[15px] font-bold text-background transition-transform hover:scale-[1.02]"
               >
                 <BookOpen className="h-4 w-4" strokeWidth={2.75} />
-                Open Swagger UI
+                Open API Reference
                 <ArrowUpRight
                   className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                   strokeWidth={2.75}
@@ -171,7 +171,7 @@ export default async function DocsPage({
               <Endpoint method="POST" path="/api/v1/monitors" desc="create monitor + webhook" />
             </ul>
             <div className="border-t border-border px-4 py-2.5 text-right font-mono text-[11px] text-muted-foreground">
-              + 23 more · open Swagger UI for the full list
+              + 23 more · open API Reference for the full list
             </div>
           </div>
         </div>

@@ -215,7 +215,7 @@ export default async function LandingPage({
         </div>
       </section>
 
-      {/* API REFERENCE — surfaces the actual Swagger UI behind the panel */}
+      {/* API REFERENCE — surfaces the Scalar API reference behind the panel */}
       <section id="docs" className="border-b border-border">
         <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-10 px-5 py-20 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
           <div>
@@ -224,9 +224,9 @@ export default async function LandingPage({
               Live OpenAPI spec, served straight from production.
             </h2>
             <p className="mt-5 max-w-[44ch] text-[14px] leading-[1.65] text-muted-foreground">
-              Every route in <span className="font-mono text-foreground">/api/v1</span> is documented in Swagger
-              UI with request/response shapes, error envelopes and Bearer auth — the same spec MCP tools are
-              generated from.
+              Every route in <span className="font-mono text-foreground">/api/v1</span> is documented in an
+              interactive Scalar reference with request/response shapes, error envelopes and Bearer auth — the
+              same spec MCP tools are generated from.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
@@ -236,7 +236,7 @@ export default async function LandingPage({
                 className="pill group inline-flex items-center gap-2 bg-foreground px-6 py-3 text-[14px] font-bold text-background transition-transform hover:scale-[1.02]"
               >
                 <BookOpen className="h-4 w-4" strokeWidth={2.75} />
-                Open Swagger UI
+                Open API Reference
                 <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={2.75} />
               </a>
               <a

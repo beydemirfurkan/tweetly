@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { apiReference } from '@scalar/nestjs-api-reference';
 import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { loadMasterKeyFromEnv } from './common/crypto/credential-cipher.service';
@@ -102,9 +103,15 @@ async function bootstrap(): Promise<void> {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('/docs', app, document, {
-    swaggerOptions: { persistAuthorization: true },
-  });
+
+  app.use(
+    '/docs',
+    apiReference({
+      content: document,
+      metaData: { title: 'Tweetly API Reference' },
+      authentication: { preferredSecurityScheme: 'apiKey' },
+    }),
+  );
 
   const httpAdapter = app.getHttpAdapter();
   httpAdapter.get('/api/openapi.json', (_req: Request, res: Response) => {
@@ -116,7 +123,7 @@ async function bootstrap(): Promise<void> {
 
   Logger.log(`NestJS app listening on http://localhost:${port}`, 'Bootstrap');
   Logger.log(`OpenAPI:    http://localhost:${port}/api/openapi.json`, 'Bootstrap');
-  Logger.log(`Swagger UI: http://localhost:${port}/docs`, 'Bootstrap');
+  Logger.log(`API Reference: http://localhost:${port}/docs`, 'Bootstrap');
   Logger.log(`Admin API:  http://localhost:${port}/admin/status`, 'Bootstrap');
   Logger.log(`Metrics:    http://localhost:${port}/metrics`, 'Bootstrap');
   Logger.log(`Health:     http://localhost:${port}/health`, 'Bootstrap');
