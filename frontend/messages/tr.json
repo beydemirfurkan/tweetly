@@ -205,6 +205,13 @@
     "ct0": "CT0 (CSRF)",
     "twid": "TWID",
     "advancedPlaceholder": "Boş bırakırsanız değişmez",
+    "cookieValidate": "Cookie'leri doğrula",
+    "cookieValidating": "Doğrulanıyor...",
+    "cookieValidOk": "Geçerli — @{screenName}",
+    "cookieValidMissing": "auth_token ve ct0 zorunlu.",
+    "cookieValidRejected": "X bu cookie'leri reddetti (oturum geçersiz olabilir).",
+    "cookieValidNetwork": "X'e şu an ulaşılamıyor; biraz sonra tekrar deneyin.",
+    "cookieValidUnknown": "Cookie doğrulanamadı.",
     "deleteConfirm": "\"{id}\" hesabını silmek istediğinizden emin misiniz?\nBağlı monitörler ve bekleyen aksiyonlar da iptal edilir.",
     "deleteTitle": "Hesabı sil?",
     "deleteAction": "Sil"

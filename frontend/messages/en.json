@@ -205,6 +205,13 @@
     "ct0": "CT0 (CSRF)",
     "twid": "TWID",
     "advancedPlaceholder": "Leave blank to keep current",
+    "cookieValidate": "Validate cookies",
+    "cookieValidating": "Validating...",
+    "cookieValidOk": "Valid — @{screenName}",
+    "cookieValidMissing": "auth_token and ct0 are required.",
+    "cookieValidRejected": "X rejected these cookies (session may be expired).",
+    "cookieValidNetwork": "Can't reach X right now; try again in a moment.",
+    "cookieValidUnknown": "Cookie validation failed.",
     "deleteConfirm": "Are you sure you want to delete \"{id}\"?\nLinked monitors and pending actions will be cancelled too.",
     "deleteTitle": "Delete account?",
     "deleteAction": "Delete"

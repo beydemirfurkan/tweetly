@@ -50,10 +50,55 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /**
+     * Parsed JSON body when the response was JSON; the raw text fallback is
+     * still kept in `message`. Lets callers pull structured fields out of
+     * 4xx responses (e.g. cooldown retryAfterSec, validation hints) without
+     * re-parsing the message string.
+     */
+    public body?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function parseErrorBody(text: string): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+export interface CookieHealthResponse {
+  ok: boolean;
+  screenName?: string;
+  reason?: 'missing_fields' | 'rejected_by_x' | 'invalid_response' | 'network_error';
+  detail?: string;
+  status?: number;
+}
+
+export interface LoginCooldownPayload {
+  message: string;
+  retryAfterSec: number;
+  retryAt: string;
+  failureCount: number;
+  manualReviewRequired: boolean;
+}
+
+/** Type guard for the 429 body the backend serializes from
+ *  AccountFacade.assertLoginCooldownIsClear. */
+export function isLoginCooldownPayload(value: unknown): value is LoginCooldownPayload {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.retryAfterSec === 'number' &&
+    typeof v.retryAt === 'string' &&
+    typeof v.failureCount === 'number' &&
+    typeof v.manualReviewRequired === 'boolean'
+  );
 }
 
 export type ApiFetch = <T>(
@@ -91,7 +136,7 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new ApiError(res.status, body || `API error: ${res.status}`);
+    throw new ApiError(res.status, body || `API error: ${res.status}`, parseErrorBody(body));
   }
 
   const text = await res.text();
@@ -129,7 +174,7 @@ export function useApiFetch(): ApiFetch {
 
       if (!res.ok) {
         const body = await res.text().catch(() => '');
-        throw new ApiError(res.status, body || `API error: ${res.status}`);
+        throw new ApiError(res.status, body || `API error: ${res.status}`, parseErrorBody(body));
       }
 
       const text = await res.text();
@@ -262,6 +307,8 @@ export type LoginJobFailureReason =
   | 'login_cooldown'
   | 'cookies_missing'
   | 'home_not_reached'
+  | 'account_locked'
+  | 'phone_verification_required'
   | 'unknown';
 
 export interface LoginJobAccepted {
@@ -299,9 +346,52 @@ export const FAILURE_REASON_TR: Record<LoginJobFailureReason, string> = {
     'Login tamamlanmış göründü ama gerekli X session cookie’leri alınamadı. Manuel cookie yapıştırma yöntemini deneyin.',
   home_not_reached:
     'Şifre gönderildi ama X ana sayfasına geçilemedi. X ek doğrulama veya geçici blok istemiş olabilir.',
+  account_locked:
+    'X bu hesabı kilitledi. Doğrudan x.com\'da giriş yapıp ekrandaki adımları (telefon doğrulama, e-posta onayı vb.) tamamlayın, sonra tekrar deneyin.',
+  phone_verification_required:
+    'X telefon numarasıyla doğrulama istiyor. Otomatik geçemiyoruz — x.com\'a girip telefon doğrulamasını tamamlayın, sonra manuel cookie yapıştırarak bu hesabı bağlayın.',
   unknown:
     'Beklenmeyen bir hata oluştu. Sorun devam ederse manuel cookie yapıştırma yöntemine geçebilirsiniz.',
 };
+
+export const FAILURE_REASON_EN: Record<LoginJobFailureReason, string> = {
+  invalid_credentials:
+    'Wrong username or password. Confirm you can sign in to x.com manually, then try again.',
+  captcha_required:
+    "X showed a captcha challenge. We can't solve those automatically — fall back to pasting cookies manually.",
+  email_challenge:
+    'X asked for an "unusual login" verification code. If your 2FA secret is missing, add it now; otherwise paste cookies manually.',
+  email_verification_required:
+    "X asked for an email or verification code. We can't bypass that step — verify manually or paste cookies.",
+  suspicious_login_blocked:
+    'X flagged this login as suspicious. Sign in manually from the same IP/region, confirm the account, then try again.',
+  login_cooldown:
+    'X detected too many login attempts. Wait 30–60 minutes and try again.',
+  cookies_missing:
+    "Login completed but the X session cookies couldn't be captured. Try the manual cookie-paste path.",
+  home_not_reached:
+    "We submitted the password but X didn't take us to the home page. It likely asked for extra verification or applied a soft block.",
+  account_locked:
+    "X has locked this account. Sign in to x.com directly, complete the on-screen steps (phone verify, email confirm, etc.), then try again.",
+  phone_verification_required:
+    "X requires phone verification. We can't pass that automatically — verify on x.com, then paste the resulting cookies manually here.",
+  unknown:
+    'Unexpected error. If the problem persists, try the manual cookie-paste path.',
+};
+
+/**
+ * Locale-aware lookup. Pass the next-intl locale string ('tr' / 'en'); falls
+ * back to the Turkish copy for any unknown locale since the dashboard
+ * defaults to Turkish.
+ */
+export function failureReasonMessage(
+  reason: LoginJobFailureReason,
+  locale?: string,
+): string {
+  const lower = (locale ?? '').toLowerCase();
+  if (lower.startsWith('en')) return FAILURE_REASON_EN[reason];
+  return FAILURE_REASON_TR[reason];
+}
 
 // ── Actions / system ──────────────────────────────────────────────────────
 

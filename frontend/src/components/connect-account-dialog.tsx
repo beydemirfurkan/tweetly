@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocale } from 'next-intl';
 import {
   useApiFetch,
   ApiError,
-  FAILURE_REASON_TR,
+  failureReasonMessage,
+  isLoginCooldownPayload,
   type ApiFetch,
   type AccountConnectBody,
   type AccountReauthBody,
+  type LoginCooldownPayload,
   type LoginJobAccepted,
   type LoginJobResponse,
 } from '@/lib/api';
@@ -21,7 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, KeyRound, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Loader2, KeyRound, ShieldAlert, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -58,10 +61,12 @@ type Phase =
   | { kind: 'submitting' }
   | { kind: 'polling'; jobId: string; status: LoginJobResponse['status'] }
   | { kind: 'success'; targetAccountId: string }
-  | { kind: 'failed'; reason: NonNullable<LoginJobResponse['failureReason']>; detail: string | null };
+  | { kind: 'failed'; reason: NonNullable<LoginJobResponse['failureReason']>; detail: string | null }
+  | { kind: 'cooldown'; payload: LoginCooldownPayload };
 
 export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId, onSuccess }: Props) {
   const apiFetch = useApiFetch();
+  const locale = useLocale();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [submitError, setSubmitError] = useState('');
@@ -98,6 +103,13 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
       setPhase({ kind: 'polling', jobId: accepted.jobId, status: 'queued' });
       pollLoop(accepted.jobId);
     } catch (err) {
+      // Cooldown 429 carries a structured payload (retryAt + manualReviewRequired).
+      // Surface it as its own phase so the user sees a live countdown instead
+      // of a generic "too many attempts" toast.
+      if (err instanceof ApiError && err.status === 429 && isLoginCooldownPayload(err.body)) {
+        setPhase({ kind: 'cooldown', payload: err.body });
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'Bilinmeyen hata';
       setPhase({ kind: 'idle' });
       setSubmitError(msg);
@@ -141,6 +153,8 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
     setTimeout(tick, POLL_INTERVAL_MS);
   };
 
+  // Cooldown is informational, not in-flight; the existing isBusy gate
+  // already lets the user dismiss in that phase.
   const isBusy = phase.kind === 'submitting' || phase.kind === 'polling';
 
   return (
@@ -155,10 +169,17 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
 
         {phase.kind === 'success' ? (
           <SuccessPanel accountId={phase.targetAccountId} />
+        ) : phase.kind === 'cooldown' ? (
+          <CooldownPanel
+            payload={phase.payload}
+            locale={locale}
+            onDone={() => setPhase({ kind: 'idle' })}
+          />
         ) : phase.kind === 'failed' ? (
           <FailurePanel
             reason={phase.reason}
             detail={phase.detail}
+            locale={locale}
             onRetry={() => setPhase({ kind: 'idle' })}
           />
         ) : phase.kind === 'polling' || phase.kind === 'submitting' ? (
@@ -207,17 +228,12 @@ async function sendRequest(args: {
       ? '/api/v1/accounts/connect'
       : `/api/v1/accounts/${encodeURIComponent(args.targetAccountId ?? '')}/reauth`;
 
-  try {
-    return await args.apiFetch<LoginJobAccepted>(path, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 429) {
-      throw new Error('Çok fazla deneme yapıldı. 15 dakika sonra tekrar deneyin.');
-    }
-    throw err;
-  }
+  // Don't translate ApiErrors here — the caller handles 429 cooldown-with-
+  // payload as its own phase, and other statuses surface their server message.
+  return args.apiFetch<LoginJobAccepted>(path, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 function FormPanel(props: {
@@ -363,27 +379,104 @@ function SuccessPanel({ accountId }: { accountId: string }) {
   );
 }
 
+function CooldownPanel({
+  payload,
+  locale,
+  onDone,
+}: {
+  payload: LoginCooldownPayload;
+  locale: string;
+  onDone: () => void;
+}) {
+  const isEn = locale.toLowerCase().startsWith('en');
+  const retryAtMs = useMemo(() => new Date(payload.retryAt).getTime(), [payload.retryAt]);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const remainingSec = Math.max(0, Math.ceil((retryAtMs - now) / 1000));
+  const mm = Math.floor(remainingSec / 60).toString().padStart(2, '0');
+  const ss = (remainingSec % 60).toString().padStart(2, '0');
+  const expired = remainingSec === 0;
+  const requiresManual = payload.manualReviewRequired;
+
+  return (
+    <div className="space-y-3 pt-2">
+      <div
+        className={`flex items-start gap-2 rounded-md border px-3 py-2.5 text-sm ${
+          requiresManual
+            ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+            : 'border-primary/40 bg-primary/10 text-primary'
+        }`}
+      >
+        {requiresManual ? (
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+        ) : (
+          <Clock className="mt-0.5 h-4 w-4 flex-shrink-0" />
+        )}
+        <div className="space-y-1.5 flex-1">
+          <p className="font-medium">
+            {requiresManual
+              ? isEn
+                ? 'Too many recent failures — manual review needed'
+                : 'Çok fazla başarısız deneme — manuel inceleme gerekiyor'
+              : isEn
+                ? 'Login temporarily blocked'
+                : 'Giriş geçici olarak engellendi'}
+          </p>
+          <p className="text-xs opacity-90">
+            {requiresManual
+              ? isEn
+                ? `${payload.failureCount} failed attempts in a row. Try the manual cookie-paste path or wait at least ${mm}:${ss}.`
+                : `Üst üste ${payload.failureCount} başarısız deneme. Manuel cookie yapıştırma yolunu deneyin veya en az ${mm}:${ss} bekleyin.`
+              : isEn
+                ? `Wait ${mm}:${ss} before trying again.`
+                : `Tekrar denemek için ${mm}:${ss} kadar bekleyin.`}
+          </p>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onDone} disabled={!expired}>
+          {expired
+            ? isEn ? 'Try again' : 'Tekrar dene'
+            : `${mm}:${ss}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function FailurePanel({
   reason,
   detail,
+  locale,
   onRetry,
 }: {
   reason: NonNullable<LoginJobResponse['failureReason']>;
   detail: string | null;
+  locale: string;
   onRetry: () => void;
 }) {
+  const isEn = locale.toLowerCase().startsWith('en');
   return (
     <div className="space-y-3 pt-2">
       <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
         <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <div className="space-y-1">
-          <p className="font-medium">{FAILURE_REASON_TR[reason]}</p>
-          {detail && <p className="text-[11px] opacity-70">Teknik detay: {detail}</p>}
+          <p className="font-medium">{failureReasonMessage(reason, locale)}</p>
+          {detail && (
+            <p className="text-[11px] opacity-70">
+              {isEn ? 'Technical detail' : 'Teknik detay'}: {detail}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={onRetry}>
-          Tekrar dene
+          {isEn ? 'Try again' : 'Tekrar dene'}
         </Button>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import {
   useApiFetch,
   type AccountsResponse,
+  type CookieHealthResponse,
   type RedactedAccount,
   type AccountUpdateBody,
 } from '@/lib/api';
@@ -284,6 +285,14 @@ export default function AccountsPage() {
   const [editAccount, setEditAccount] = useState<RedactedAccount | null>(null);
   const [editForm, setEditForm] = useState<AccountUpdateBody>({});
   const [editAdvancedOpen, setEditAdvancedOpen] = useState(false);
+  // Cookie health-check state for the manual-paste edit. Reset to idle every
+  // time the user changes either token so we never show a stale "Valid" badge.
+  type CookieValidationState =
+    | { kind: 'idle' }
+    | { kind: 'checking' }
+    | { kind: 'ok'; screenName: string }
+    | { kind: 'fail'; reason: NonNullable<CookieHealthResponse['reason']>; detail: string };
+  const [cookieValidation, setCookieValidation] = useState<CookieValidationState>({ kind: 'idle' });
   const [connectOpen, setConnectOpen] = useState(false);
   const [reauthAccount, setReauthAccount] = useState<RedactedAccount | null>(null);
   const [refreshingProfile, setRefreshingProfile] = useState<string | null>(null);
@@ -328,6 +337,35 @@ export default function AccountsPage() {
     setEditAccount(account);
     setEditForm({});
     setEditAdvancedOpen(false);
+    setCookieValidation({ kind: 'idle' });
+  };
+
+  const validateCookies = async () => {
+    const authToken = (editForm.authToken ?? '').trim();
+    const ct0 = (editForm.ct0 ?? '').trim();
+    const twid = (editForm.twid ?? '').trim();
+    setCookieValidation({ kind: 'checking' });
+    try {
+      const res = await apiFetch<CookieHealthResponse>('/api/v1/accounts/cookie-validate', {
+        method: 'POST',
+        body: JSON.stringify({ authToken, ct0, twid: twid || undefined }),
+      });
+      if (res.ok && res.screenName) {
+        setCookieValidation({ kind: 'ok', screenName: res.screenName });
+      } else {
+        setCookieValidation({
+          kind: 'fail',
+          reason: res.reason ?? 'rejected_by_x',
+          detail: res.detail ?? '',
+        });
+      }
+    } catch (err) {
+      setCookieValidation({
+        kind: 'fail',
+        reason: 'network_error',
+        detail: err instanceof Error ? err.message : '',
+      });
+    }
   };
 
   const saveEdit = async () => {
@@ -529,9 +567,10 @@ export default function AccountsPage() {
                       type="password"
                       placeholder={t('advancedPlaceholder')}
                       value={editForm.authToken ?? ''}
-                      onChange={(e) =>
-                        setEditForm((f) => ({ ...f, authToken: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setEditForm((f) => ({ ...f, authToken: e.target.value }));
+                        setCookieValidation({ kind: 'idle' });
+                      }}
                       className="font-mono"
                     />
                   </div>
@@ -544,9 +583,10 @@ export default function AccountsPage() {
                       type="password"
                       placeholder={t('advancedPlaceholder')}
                       value={editForm.ct0 ?? ''}
-                      onChange={(e) =>
-                        setEditForm((f) => ({ ...f, ct0: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setEditForm((f) => ({ ...f, ct0: e.target.value }));
+                        setCookieValidation({ kind: 'idle' });
+                      }}
                       className="font-mono"
                     />
                   </div>
@@ -558,12 +598,51 @@ export default function AccountsPage() {
                     <Input
                       placeholder={t('advancedPlaceholder')}
                       value={editForm.twid ?? ''}
-                      onChange={(e) =>
-                        setEditForm((f) => ({ ...f, twid: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setEditForm((f) => ({ ...f, twid: e.target.value }));
+                        setCookieValidation({ kind: 'idle' });
+                      }}
                       className="font-mono"
                     />
                   </div>
+
+                  {(editForm.authToken || editForm.ct0) && (
+                    <div className="flex items-start gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={validateCookies}
+                        disabled={cookieValidation.kind === 'checking'}
+                      >
+                        {cookieValidation.kind === 'checking'
+                          ? t('cookieValidating')
+                          : t('cookieValidate')}
+                      </Button>
+                      {cookieValidation.kind === 'ok' && (
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-400">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {t('cookieValidOk', { screenName: cookieValidation.screenName })}
+                        </span>
+                      )}
+                      {cookieValidation.kind === 'fail' && (
+                        <div className="flex-1 rounded-md border border-destructive/25 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+                          <div className="flex items-start gap-1.5">
+                            <XCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                            <span>
+                              {cookieValidation.reason === 'missing_fields'
+                                ? t('cookieValidMissing')
+                                : cookieValidation.reason === 'rejected_by_x'
+                                  ? t('cookieValidRejected')
+                                  : cookieValidation.reason === 'network_error'
+                                    ? t('cookieValidNetwork')
+                                    : t('cookieValidUnknown')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
