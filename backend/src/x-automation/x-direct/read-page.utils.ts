@@ -196,7 +196,11 @@ async function paginate<T>(
   let depth = initialDepth;
   let needSkipPast: string | null = cursor?.key ?? null;
   const collected: T[] = [];
-  const seen = new Set<string>();
+  // `seen` starts seeded with the previous call's recently-returned keys so
+  // a tweet/user that resurfaces on this render gets dropped instead of
+  // double-served. X profile timelines reorder content between page loads,
+  // so without this, ~1/3 of items repeat across cursor pages.
+  const seen = new Set<string>(cursor?.seen ?? []);
   let stall = 0;
   let lastSize = -1;
 
@@ -242,7 +246,13 @@ async function paginate<T>(
   const items = collected.slice(0, limit);
   const nextCursor =
     items.length === limit && items.length > 0
-      ? encodeCursor({ k: kind, key: keyFn(items[items.length - 1]), depth })
+      ? encodeCursor({
+          k: kind,
+          key: keyFn(items[items.length - 1]),
+          depth,
+          // Carry forward the last-N keys so the next page can dedupe.
+          seen: [...(cursor?.seen ?? []), ...items.map(keyFn)],
+        })
       : null;
   return { items, nextCursor };
 }
