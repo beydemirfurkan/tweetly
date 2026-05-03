@@ -29,7 +29,7 @@ src/
 
 ### Action Engine
 
-Her action tipi (`post`, `reply`, `like`, `bookmark`, `retweet`, `quote`, `follow`) ayrı bir Postgres tablosunda tutulur. `ClaimWorker` polling loop'u `FOR UPDATE SKIP LOCKED` ile claim alır; `ExecutorRegistry` doğru executor'a yönlendirir.
+Her action tipi (`post`, `reply`, `like`, `bookmark`, `retweet`, `quote`, `follow`, `unlike`, `unretweet`, `unfollow`, `delete_tweet`, `dm`, `profile_update`, `avatar_update`, `banner_update`) ayrı bir Postgres tablosunda tutulur. `ClaimWorker` polling loop'u `FOR UPDATE SKIP LOCKED` ile claim alır; `ExecutorRegistry` doğru executor'a yönlendirir.
 
 ```
 pending → claimed → running → succeeded
@@ -40,11 +40,13 @@ pending → claimed → running → succeeded
 
 ### MCP Tool Seti (özet)
 
-- **Yazma:** `post_tweet`, `reply_to_tweet`, `like_tweet`, `retweet`, `quote_tweet`, `bookmark_tweet`, `follow_account`, `post_thread`
-- **Geri alma / silme:** `unlike_tweet`, `unretweet`, `unfollow_account`, `delete_tweet`, `send_dm`, `update_profile`
-- **Okuma:** `search_tweets`, `get_user`, `get_tweet`, `get_user_tweets`, `search_users`, `get_user_followers`, `get_x_trending`
-- **Yönetim:** `get_accounts`, `get_status`, `get_queue_depth`, `list_actions`, `cancel_action`, `replay_action`
+- **Yazma:** `post_tweet`, `reply_to_tweet`, `like_tweet`, `retweet_tweet`, `quote_tweet`, `bookmark_tweet`, `follow_account`, `post_thread`
+- **Geri alma / silme:** `unlike_tweet`, `unretweet_tweet`, `unfollow_account`, `delete_tweet`, `send_dm`, `update_profile`, `update_avatar`, `update_banner`
+- **Okuma:** `search_tweets`, `get_user`, `get_tweet`, `get_user_tweets`, `search_users`, `get_user_followers`, `get_user_following`, `get_tweet_retweeters`, `get_tweet_quotes`, `get_tweet_replies`, `get_user_mentions`, `get_x_trending`
+- **Yönetim:** `get_accounts`, `get_account_health`, `connect_x_account`, `reauth_x_account`, `get_x_login_job`, `list_actions`, `cancel_action`, `replay_action`, `get_settings`, `update_settings`
 - **Monitor:** `create_monitor`, `list_monitors`, `get_monitor`, `delete_monitor`, `pause_monitor`
+
+> **Breaking (2026-05-03):** `retweet` → `retweet_tweet`, `unretweet` → `unretweet_tweet`. Eski isimler `Unknown tool` döndürür.
 
 ---
 
