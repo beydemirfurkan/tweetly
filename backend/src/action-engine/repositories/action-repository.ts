@@ -58,6 +58,13 @@ export class GenericActionRepository {
    * Postgres `FOR UPDATE SKIP LOCKED` ile concurrent worker'lar güvenli.
    */
   async claimBatch(workerId: string, batchSize: number, lockTtlSec = 300): Promise<ClaimedActionRow[]> {
+    // Faz 5b: priority ordering is feature-flagged. Off by default — keeps
+    // the FIFO contract until we explicitly enable it on a per-env basis.
+    // The supporting partial index was added in migration 1762600000000,
+    // so flipping the flag is purely a query-plan change.
+    const orderBy = process.env.ACTION_PRIORITY_ENABLED === 'true'
+      ? 'priority DESC, scheduled_at'
+      : 'scheduled_at';
     const sql = `
       WITH c AS (
         SELECT id FROM ${this.cfg.table}
@@ -65,7 +72,7 @@ export class GenericActionRepository {
             AND scheduled_at <= now()
             AND (locked_until IS NULL OR locked_until < now())
             AND attempts < max_attempts
-         ORDER BY scheduled_at
+         ORDER BY ${orderBy}
          FOR UPDATE SKIP LOCKED
          LIMIT $2
       )

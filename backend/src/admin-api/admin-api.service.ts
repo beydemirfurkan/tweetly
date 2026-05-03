@@ -196,4 +196,25 @@ export class AdminApiService {
     );
     return rows[0]?.account_id ?? null;
   }
+
+  /**
+   * Aggregates dead actions across all action tables for the admin DLQ view.
+   * If `type` is provided, only that table is queried (faster). Returns rows
+   * tagged with their action type so the admin can pick the right
+   * /admin/dead-letter/:type/:id/replay target.
+   */
+  async listDeadActions(
+    type: ActionType | undefined,
+    limit: number,
+  ): Promise<Array<ActionRow & { type: ActionType }>> {
+    const types: ActionType[] = type ? [type] : (Object.keys(ACTION_TABLE_CONFIG) as ActionType[]);
+    const out: Array<ActionRow & { type: ActionType }> = [];
+    for (const t of types) {
+      const rows = await this.listActions(t, 'dead', undefined, limit);
+      for (const r of rows) out.push({ ...r, type: t });
+    }
+    return out
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit);
+  }
 }

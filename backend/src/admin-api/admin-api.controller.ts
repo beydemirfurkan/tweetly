@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -12,6 +13,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ACTION_TYPES, type ActionType } from '@domain/types/action.types';
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
@@ -57,6 +59,8 @@ class CreateUserBody {
 @Controller('admin')
 @UseGuards(AdminTokenGuard)
 export class AdminApiController {
+  private readonly log = new Logger(AdminApiController.name);
+
   constructor(
     private readonly service: AdminApiService,
     private readonly settings: SettingsService,
@@ -66,6 +70,58 @@ export class AdminApiController {
     private readonly browser: XBrowserService,
     private readonly xDirect: XDirectReadService,
   ) {}
+
+  // ── Dead-letter (DLQ) ─────────────────────────────────────────────────
+
+  @Get('dead-letter')
+  @ApiOperation({
+    summary: 'List dead actions across all action types (admin DLQ view)',
+    description:
+      'Optional `?type=post` to filter to one table. Capped at 200 rows. ' +
+      'Use POST /admin/dead-letter/:type/:id/replay to requeue a row.',
+  })
+  async listDeadLetter(
+    @Query('type') type?: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    const limit = Math.min(Math.max(1, parseInt(limitStr ?? '50', 10)), 200);
+    const t = this.parseTypeOptional(type);
+    const rows = await this.service.listDeadActions(t, limit);
+    return { count: rows.length, rows };
+  }
+
+  @Post('dead-letter/:type/:id/replay')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Requeue a dead action (admin override, no per-user ownership check)',
+  })
+  async replayDeadLetter(
+    @Param('type') typeParam: string,
+    @Param('id') id: string,
+  ) {
+    const type = this.parseType(typeParam);
+    const ok = await this.service.replayAction(type, id);
+    if (!ok) throw new NotFoundException(`Dead action ${id} not found or not replayable`);
+    // Audit: structured log so the SIEM/log pipeline picks it up. We don't
+    // have a dedicated audit table yet — when one lands, route this through
+    // it (the message format here is the contract).
+    this.log.warn(
+      `audit: admin replayed dead action — type=${type} id=${id} at=${new Date().toISOString()}`,
+    );
+    return { ok: true, type, id, status: 'pending' };
+  }
+
+  private parseTypeOptional(raw?: string): ActionType | undefined {
+    if (!raw) return undefined;
+    return this.parseType(raw);
+  }
+
+  private parseType(raw: string): ActionType {
+    if (!ACTION_TYPES.includes(raw as ActionType)) {
+      throw new BadRequestException(`Unknown action type: ${raw}`);
+    }
+    return raw as ActionType;
+  }
 
   @Get('status')
   @ApiOperation({ summary: 'System-wide queue health (bootstrap-only)' })
