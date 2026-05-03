@@ -116,6 +116,8 @@
     "keyCreatedWarning": "Bu anahtar sadece bir kez gösterilir. Şimdi kopyalayın.",
     "close": "Kapat",
     "revokeConfirm": "Bu API anahtarını iptal etmek istediğinizden emin misiniz?",
+    "revokeTitle": "API anahtarını iptal et?",
+    "revokeAction": "İptal et",
     "noKeys": "Henüz API anahtarı yok.",
     "serverError": "Sunucuya bağlanılamadı"
   },
@@ -153,7 +155,9 @@
     "ct0": "CT0 (CSRF)",
     "twid": "TWID",
     "advancedPlaceholder": "Boş bırakırsanız değişmez",
-    "deleteConfirm": "\"{id}\" hesabını silmek istediğinizden emin misiniz?\nBağlı monitörler ve bekleyen aksiyonlar da iptal edilir."
+    "deleteConfirm": "\"{id}\" hesabını silmek istediğinizden emin misiniz?\nBağlı monitörler ve bekleyen aksiyonlar da iptal edilir.",
+    "deleteTitle": "Hesabı sil?",
+    "deleteAction": "Sil"
   },
   "actions": {
     "kicker": "Queue",
@@ -210,7 +214,11 @@
     "recentDeliveries": "Son Webhook İletimleri",
     "noDeliveries": "Henüz webhook iletimi yok.",
     "deleteConfirm": "Bu monitörü silmek istediğinizden emin misiniz?",
+    "deleteTitle": "Monitörü sil?",
+    "deleteAction": "Sil",
     "rotateConfirm": "\"@{handle}\" için yeni webhook secret üretilecek; eskisi geçersiz olacak. Devam edilsin mi?",
+    "rotateTitle": "Webhook secret'i yenile?",
+    "rotateAction": "Yenile",
     "secretTitle": "Webhook secret — sadece bir kez gösterilir",
     "secretDesc": "<handle>@{handleName}</handle> için secret. Webhook alıcınızda <code>X-Tweetly-Signature</code> imzasını doğrulamak için bu değeri saklayın.",
     "secretAck": "Anladım"

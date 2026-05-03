@@ -10,9 +10,12 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
+  DialogKicker,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { KeyRound, Plus, RefreshCw, Trash2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +31,7 @@ export default function ApiKeysPage() {
   const [newKeyScope, setNewKeyScope] = useState<'full' | 'read' | 'write'>('full');
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revokeId, setRevokeId] = useState<string | null>(null);
 
   const loadKeys = useCallback(async () => {
     setLoading(true);
@@ -68,7 +72,6 @@ export default function ApiKeysPage() {
   };
 
   const revokeKey = async (id: string) => {
-    if (!confirm(t('revokeConfirm'))) return;
     try {
       await apiFetch(`/auth/api-keys/${id}`, { method: 'DELETE' });
       loadKeys();
@@ -91,7 +94,7 @@ export default function ApiKeysPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
+      <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
             <span className="text-primary">●</span> Auth
@@ -210,7 +213,7 @@ export default function ApiKeysPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => revokeKey(k.id)}
+                              onClick={() => setRevokeId(k.id)}
                               className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -230,6 +233,7 @@ export default function ApiKeysPage() {
       <Dialog open={createOpen} onOpenChange={(open) => !open && closeCreated()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
+            <DialogKicker>API Key</DialogKicker>
             <DialogTitle>
               {createdKey ? t('keyCreatedTitle') : t('createTitle')}
             </DialogTitle>
@@ -252,9 +256,9 @@ export default function ApiKeysPage() {
                   )}
                 </Button>
               </div>
-              <div className="flex justify-end pt-2">
+              <DialogFooter>
                 <Button onClick={closeCreated}>{t('close')}</Button>
-              </div>
+              </DialogFooter>
             </div>
           ) : (
             <div className="space-y-4 pt-1">
@@ -305,18 +309,31 @@ export default function ApiKeysPage() {
                   ))}
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>
                   {t('cancel')}
                 </Button>
                 <Button onClick={submitCreate} disabled={creating || !newKeyName.trim()}>
                   {creating ? t('creating') : t('create')}
                 </Button>
-              </div>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!revokeId}
+        onOpenChange={(o) => !o && setRevokeId(null)}
+        kicker="API Key"
+        title={t('revokeTitle')}
+        description={t('revokeConfirm')}
+        confirmLabel={t('revokeAction')}
+        cancelLabel={t('cancel')}
+        onConfirm={async () => {
+          if (revokeId) await revokeKey(revokeId);
+        }}
+      />
     </div>
   );
 }

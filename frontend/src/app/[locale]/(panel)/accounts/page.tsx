@@ -15,9 +15,12 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
+  DialogKicker,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Select,
   SelectContent,
@@ -284,6 +287,7 @@ export default function AccountsPage() {
   const [connectOpen, setConnectOpen] = useState(false);
   const [reauthAccount, setReauthAccount] = useState<RedactedAccount | null>(null);
   const [refreshingProfile, setRefreshingProfile] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
@@ -344,12 +348,11 @@ export default function AccountsPage() {
   };
 
   const deleteAccount = async (id: string) => {
-    if (!confirm(t('deleteConfirm', { id }))) return;
     try {
       await apiFetch(`/api/v1/accounts/${id}`, { method: 'DELETE' });
       loadAccounts();
     } catch (err) {
-      alert((err as Error).message);
+      setLoadError((err as Error).message);
     }
   };
 
@@ -364,7 +367,7 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
+      <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
             <span className="text-primary">●</span> {t('kicker')}
@@ -420,7 +423,7 @@ export default function AccountsPage() {
                 <ProfileCard
                   account={acc}
                   onEdit={() => openEdit(acc)}
-                  onDelete={() => deleteAccount(accId)}
+                  onDelete={() => setDeleteId(accId)}
                   onReauth={() => setReauthAccount(acc)}
                   onRefreshProfile={() => refreshProfile(accId)}
                   refreshing={refreshingProfile === accId}
@@ -437,6 +440,7 @@ export default function AccountsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
+            <DialogKicker>{t('kicker')}</DialogKicker>
             <DialogTitle className="font-mono text-base">
               {editAccount ? String(editAccount.id ?? '') : ''}
             </DialogTitle>
@@ -563,16 +567,29 @@ export default function AccountsPage() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2">
+              <DialogFooter>
                 <Button variant="outline" onClick={() => setEditAccount(null)}>
                   {tCommon('cancel')}
                 </Button>
                 <Button onClick={saveEdit}>{tCommon('save')}</Button>
-              </div>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        kicker={t('kicker')}
+        title={t('deleteTitle')}
+        description={deleteId ? t('deleteConfirm', { id: deleteId }) : ''}
+        confirmLabel={t('deleteAction')}
+        cancelLabel={tCommon('cancel')}
+        onConfirm={async () => {
+          if (deleteId) await deleteAccount(deleteId);
+        }}
+      />
 
       <ConnectAccountDialog
         open={connectOpen}

@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Sidebar } from '@/components/sidebar';
-import { Bird } from 'lucide-react';
+import { Bird, Menu } from 'lucide-react';
 
 function LoadingScreen({ message }: { message: string }) {
   return (
@@ -31,6 +31,11 @@ export default function PanelLayout({
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -48,9 +53,28 @@ export default function PanelLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
       <main className="flex-1 overflow-y-auto">
-        <div className="p-6">{children}</div>
+        {/* Mobile top bar */}
+        <div className="flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" strokeWidth={2} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background">
+              <Bird className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </div>
+            <span className="text-[14px] font-extrabold tracking-tight">xtweetly</span>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-6">{children}</div>
       </main>
     </div>
   );

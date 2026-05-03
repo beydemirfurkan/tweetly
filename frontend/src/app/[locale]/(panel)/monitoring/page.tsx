@@ -6,6 +6,7 @@ import { useApiFetch, type Monitor, type MonitorsResponse, type MonitorDetailRes
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshCw, Plus, Trash2, Pause, Radio, ChevronDown, ChevronUp, ExternalLink, Copy, Check, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -190,6 +191,8 @@ export default function MonitoringPage() {
   const [formError, setFormError] = useState('');
   const [createdSecret, setCreatedSecret] = useState<{ targetHandle: string; secret: string } | null>(null);
   const [secretCopied, setSecretCopied] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [rotateTarget, setRotateTarget] = useState<{ id: string; handle: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -237,7 +240,6 @@ export default function MonitoringPage() {
   };
 
   const handleRotate = async (id: string, handle: string) => {
-    if (!confirm(t('rotateConfirm', { handle }))) return;
     try {
       const result = await apiFetch<{ webhookSecret: string }>(`/api/v1/monitors/${id}/rotate-secret`, {
         method: 'POST',
@@ -245,7 +247,7 @@ export default function MonitoringPage() {
       setCreatedSecret({ targetHandle: handle, secret: result.webhookSecret });
       load();
     } catch (err) {
-      alert((err as Error).message);
+      setError((err as Error).message);
     }
   };
 
@@ -257,12 +259,11 @@ export default function MonitoringPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('deleteConfirm'))) return;
     try {
       await apiFetch(`/api/v1/monitors/${id}`, { method: 'DELETE' });
       setMonitors((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
-      alert((err as Error).message);
+      setError((err as Error).message);
     }
   };
 
@@ -279,7 +280,7 @@ export default function MonitoringPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
+      <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
             <span className="text-primary">●</span> {t('kicker')}
@@ -434,9 +435,9 @@ export default function MonitoringPage() {
                     <MonitorRow
                       key={m.id}
                       monitor={m}
-                      onDelete={handleDelete}
+                      onDelete={(id) => setDeleteId(id)}
                       onPause={handlePause}
-                      onRotate={handleRotate}
+                      onRotate={(id, handle) => setRotateTarget({ id, handle })}
                       onExpand={(id) => setExpandedId((prev) => (prev === id ? null : id))}
                       expanded={expandedId === m.id}
                     />
@@ -483,6 +484,33 @@ const expected = crypto.createHmac('sha256', SECRET)
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        kicker={t('kicker')}
+        title={t('deleteTitle')}
+        description={t('deleteConfirm')}
+        confirmLabel={t('deleteAction')}
+        cancelLabel={tCommon('cancel')}
+        onConfirm={async () => {
+          if (deleteId) await handleDelete(deleteId);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!rotateTarget}
+        onOpenChange={(o) => !o && setRotateTarget(null)}
+        kicker={t('kicker')}
+        tone="default"
+        title={t('rotateTitle')}
+        description={rotateTarget ? t('rotateConfirm', { handle: rotateTarget.handle }) : ''}
+        confirmLabel={t('rotateAction')}
+        cancelLabel={tCommon('cancel')}
+        onConfirm={async () => {
+          if (rotateTarget) await handleRotate(rotateTarget.id, rotateTarget.handle);
+        }}
+      />
     </div>
   );
 }
