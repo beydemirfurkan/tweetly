@@ -199,6 +199,22 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
         return { targetTweetUrl: row.target_tweet_url };
       case 'follow':
         return { targetHandle: row.target_handle };
+      // Queue-backed direct writes use snake_case payload keys to match how
+      // their executors read action.payload.X (executors were written against
+      // the DB column names rather than the camelCase used by older types).
+      case 'unlike':
+      case 'unretweet':
+      case 'delete_tweet':
+        return { target_tweet_url: row.target_tweet_url };
+      case 'unfollow':
+        return { target_handle: row.target_handle };
+      case 'dm':
+        return { target_handle: row.target_handle, message: row.message };
+      case 'profile_update':
+        return { fields: row.fields };
+      case 'avatar_update':
+      case 'banner_update':
+        return { file_path: row.file_path };
       default:
         return {};
     }

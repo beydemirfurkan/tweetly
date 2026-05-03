@@ -25,7 +25,6 @@ export interface PostFlowOptions {
   altTexts?: string[] | null;
   navigate: (page: Page) => Promise<void>;
   composerLabel: string;
-  errorPrefix: 'post' | 'reply' | 'quote';
 }
 
 @Injectable()
@@ -39,10 +38,10 @@ export class XPostFlowService {
 
   private validateText(text: string): void {
     if (!text || typeof text !== 'string' || !text.trim()) {
-      throw new Error('postTweet: boş metin');
+      throw new Error('postTweet: empty text');
     }
     if (text.length > MAX_PRACTICAL_TWEET_LEN) {
-      throw new Error(`postTweet: metin pratik uzunluk limitini aşıyor (${text.length}/${MAX_PRACTICAL_TWEET_LEN})`);
+      throw new Error(`postTweet: text exceeds practical length limit (${text.length}/${MAX_PRACTICAL_TWEET_LEN})`);
     }
   }
 
@@ -71,7 +70,7 @@ export class XPostFlowService {
         const title = await page.title().catch(() => 'unknown');
         const detail = err instanceof Error ? err.message : String(err);
         await this.browser.assertSessionHealthy(page, accountId);
-        throw new Error(`${label} bulunamadı. URL=${page.url()} title=${title}. ${detail}`);
+        throw new Error(`${label} not found. url=${page.url()} title=${title}. ${detail}`);
       }
     }
   }
@@ -79,7 +78,7 @@ export class XPostFlowService {
   private async attachMedia(page: Page, paths: string[], altTexts?: string[] | null): Promise<void> {
     const existing = paths.filter((p) => {
       if (fs.existsSync(p)) return true;
-      this.log.warn(`Media bulunamadı, atlanıyor: ${p}`);
+      this.log.warn(`media not found, skipping: ${p}`);
       return false;
     });
     if (existing.length === 0) return;
@@ -92,7 +91,7 @@ export class XPostFlowService {
       await fileInput.setInputFiles(existing);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.log.warn(`Media file input bulunamadı (${msg}), text-only gönderilecek.`);
+      this.log.warn(`media file input not found (${msg}), falling back to text-only.`);
       return;
     }
     try {
@@ -114,7 +113,7 @@ export class XPostFlowService {
     try {
       count = await altButtons.count();
     } catch {
-      this.log.warn('Alt text butonları bulunamadı; alt text atlanıyor.');
+      this.log.warn('alt-text buttons not found; skipping alt text.');
       return;
     }
     const toApply = Math.min(count, mediaCount, altTexts.length);
@@ -145,13 +144,13 @@ export class XPostFlowService {
     );
     const disabled = await postBtn.getAttribute('aria-disabled');
     if (disabled === 'true') {
-      throw new Error('Post butonu disabled — metinde sorun olabilir.');
+      throw new Error('post button is disabled — text may be invalid.');
     }
     try {
       await postBtn.click({ timeout: 5000 });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.log.warn(`Post butonu normal click başarısız, DOM click deneniyor: ${msg}`);
+      this.log.warn(`post button click failed, falling back to DOM click: ${msg}`);
       await page.keyboard.press('Escape').catch(() => undefined);
       await postBtn.evaluate((button) => (button as HTMLElement).click());
     }
@@ -171,7 +170,7 @@ export class XPostFlowService {
         ),
       ]);
     } catch {
-      throw new Error('Post sonrası onay alınamadı (toast/textarea boşalmadı).');
+      throw new Error('post confirmation not received (toast/textarea did not clear).');
     }
   }
 

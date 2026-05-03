@@ -188,8 +188,8 @@ describe('XDirectService', () => {
     it('filters trend metadata and separators from topics', async () => {
       const { service, browser, page } = createService();
       browser.launch.mockResolvedValue({ context: {}, page });
-      page.evaluate.mockImplementation(async (fn: () => unknown) => {
-        return withFakeDocument([fakeTrend(['Türkiye tarihinde gündemde', '·', 'Ayın 1 indirimi', '12 B gönderi'])], fn);
+      page.evaluate.mockImplementation(async (fn: (params: { trend: string }) => unknown, params: { trend: string }) => {
+        return withFakeDocument([fakeTrend(['Türkiye tarihinde gündemde', '·', 'Ayın 1 indirimi', '12 B gönderi'])], () => fn(params));
       });
 
       const result = await service.getXTrending('acc-1');
@@ -209,6 +209,167 @@ describe('XDirectService', () => {
       const result = await service.getUserFollowers('test-account', 5, 'acc-1');
 
       expect(result).toEqual([{ handle: 'follower', displayName: 'Follower', bio: 'bio', verified: false }]);
+    });
+  });
+
+  describe('getUserFollowing', () => {
+    it('navigates to /following URL and extracts user cells', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockImplementation(async (fn: (params: { limit: number }) => unknown, params: { limit: number }) => {
+        return withFakeDocument([fakeUserCell({ handle: 'followee', displayName: 'Followee', bio: 'bio' })], () => fn(params));
+      });
+
+      const result = await service.getUserFollowing('test-account', 5, 'acc-1');
+
+      expect(page.goto).toHaveBeenCalledWith(
+        'https://x.com/test-account/following',
+        expect.any(Object),
+      );
+      expect(result).toEqual([{ handle: 'followee', displayName: 'Followee', bio: 'bio', verified: false }]);
+    });
+
+    it('honors verifiedOnly filter', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockResolvedValue([
+        { handle: 'a', displayName: 'A', bio: '', verified: true },
+        { handle: 'b', displayName: 'B', bio: '', verified: false },
+      ]);
+
+      const result = await service.getUserFollowing('test-account', 5, 'acc-1', { verifiedOnly: true });
+
+      expect(result).toEqual([{ handle: 'a', displayName: 'A', bio: '', verified: true }]);
+    });
+  });
+
+  describe('getTweetRetweeters', () => {
+    it('navigates to /retweets URL and extracts user cells', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockImplementation(async (fn: (params: { limit: number }) => unknown, params: { limit: number }) => {
+        return withFakeDocument([fakeUserCell({ handle: 'rter', displayName: 'RTer', bio: '' })], () => fn(params));
+      });
+
+      const result = await service.getTweetRetweeters('https://x.com/u/status/1', 5, 'acc-1');
+
+      expect(page.goto).toHaveBeenCalledWith(
+        'https://x.com/u/status/1/retweets',
+        expect.any(Object),
+      );
+      expect(result).toEqual([{ handle: 'rter', displayName: 'RTer', bio: '', verified: false }]);
+    });
+
+    it('strips trailing slash before appending /retweets', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockResolvedValue([]);
+
+      await service.getTweetRetweeters('https://x.com/u/status/1/', 5, 'acc-1');
+
+      expect(page.goto).toHaveBeenCalledWith(
+        'https://x.com/u/status/1/retweets',
+        expect.any(Object),
+      );
+    });
+  });
+
+  describe('getTweetQuotes', () => {
+    it('navigates to /quotes URL and returns extracted tweets', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      const fakeTweet = { url: 'https://x.com/q/status/2', text: 'quoting', handle: 'q', displayName: 'Q', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' };
+      page.evaluate.mockResolvedValue([fakeTweet]);
+
+      const result = await service.getTweetQuotes('https://x.com/u/status/1', 10, 'acc-1');
+
+      expect(page.goto).toHaveBeenCalledWith(
+        'https://x.com/u/status/1/quotes',
+        expect.any(Object),
+      );
+      expect(result).toEqual([fakeTweet]);
+    });
+
+    it('returns [] when no tweet articles render (empty quotes page)', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.waitForSelector.mockRejectedValue(new Error('timeout'));
+
+      const result = await service.getTweetQuotes('https://x.com/u/status/1', 10, 'acc-1');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getTweetReplies', () => {
+    it('filters out the parent tweet from the extracted list', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      const parent = { url: 'https://x.com/u/status/1', text: 'parent', handle: 'u', displayName: 'U', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' };
+      const reply = { url: 'https://x.com/r/status/2', text: 'reply', handle: 'r', displayName: 'R', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' };
+      page.evaluate.mockResolvedValue([parent, reply]);
+
+      const result = await service.getTweetReplies('https://x.com/u/status/1', 10, 'acc-1');
+
+      expect(result).toEqual([reply]);
+    });
+
+    it('returns [] when the tweet page does not render (deleted/protected)', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.waitForSelector.mockRejectedValue(new Error('timeout'));
+
+      const result = await service.getTweetReplies('https://x.com/u/status/1', 10, 'acc-1');
+
+      expect(result).toEqual([]);
+    });
+
+    it('honors limit by clipping after parent removal', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      const parent = { url: 'https://x.com/u/status/1', text: 'p', handle: 'u', displayName: 'U', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' };
+      const r1 = { url: 'https://x.com/a/status/2', text: '1', handle: 'a', displayName: 'A', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' };
+      const r2 = { url: 'https://x.com/b/status/3', text: '2', handle: 'b', displayName: 'B', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' };
+      page.evaluate.mockResolvedValue([parent, r1, r2]);
+
+      const result = await service.getTweetReplies('https://x.com/u/status/1', 1, 'acc-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual(r1);
+    });
+  });
+
+  describe('getUserMentions', () => {
+    it('delegates to searchTweets with @handle query', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockResolvedValue([]);
+
+      await service.getUserMentions('test-account', 5, 'acc-1');
+
+      expect(page.goto).toHaveBeenCalledWith(
+        expect.stringContaining('q=%40test-account'),
+        expect.any(Object),
+      );
+    });
+
+    it('strips a leading @ from the handle before querying', async () => {
+      const { service, browser, page } = createService();
+      browser.launch.mockResolvedValue({ context: {}, page });
+      page.evaluate.mockResolvedValue([]);
+
+      await service.getUserMentions('@test-account', 5, 'acc-1');
+
+      // After stripping leading @ the query becomes "@test-account" again,
+      // which encodes to %40test-account — never %40%40.
+      expect(page.goto).toHaveBeenCalledWith(
+        expect.stringContaining('q=%40test-account'),
+        expect.any(Object),
+      );
+      expect(page.goto).not.toHaveBeenCalledWith(
+        expect.stringContaining('%40%40'),
+        expect.any(Object),
+      );
     });
   });
 
@@ -282,6 +443,36 @@ describe('XDirectService', () => {
       const { service, browser } = createService();
       const result = await service.updateProfile({ name: 'New', bio: 'Hi' }, 'acc-1');
       expect(result).toEqual({ ok: true, dryRun: true, updated: ['name', 'bio'] });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('updateAvatar returns dryRun without launching browser or touching the filesystem', async () => {
+      const { service, browser } = createService();
+      // Path is intentionally bogus — noop mode must short-circuit before any
+      // fs.existsSync check.
+      const result = await service.updateAvatar('/tmp/does-not-exist.jpg', 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('updateBanner returns dryRun without launching browser or touching the filesystem', async () => {
+      const { service, browser } = createService();
+      const result = await service.updateBanner('/tmp/does-not-exist.jpg', 'acc-1');
+      expect(result).toEqual({ ok: true, dryRun: true });
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateAvatar / updateBanner file validation (patchright mode)', () => {
+    it('updateAvatar throws when file does not exist', async () => {
+      const { service, browser } = createService();
+      await expect(service.updateAvatar('/tmp/definitely-missing.jpg', 'acc-1')).rejects.toThrow(/avatar file not found/);
+      expect(browser.launch).not.toHaveBeenCalled();
+    });
+
+    it('updateBanner throws when file does not exist', async () => {
+      const { service, browser } = createService();
+      await expect(service.updateBanner('/tmp/definitely-missing.jpg', 'acc-1')).rejects.toThrow(/banner file not found/);
       expect(browser.launch).not.toHaveBeenCalled();
     });
   });

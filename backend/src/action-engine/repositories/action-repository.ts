@@ -18,6 +18,9 @@ export interface ClaimedActionRow {
   parent_tweet_url?: string;
   target_tweet_url?: string;
   target_handle?: string;
+  message?: string;
+  fields?: Record<string, unknown>;
+  file_path?: string;
 }
 
 export interface ActionTableConfig {
@@ -34,6 +37,14 @@ export const ACTION_TABLE_CONFIG: Record<ActionType, ActionTableConfig> = {
   follow: { type: 'follow', table: 'follow_actions', hasResultSentAt: false },
   quote: { type: 'quote', table: 'quote_actions', hasResultSentAt: true },
   bookmark: { type: 'bookmark', table: 'bookmark_actions', hasResultSentAt: false },
+  unlike: { type: 'unlike', table: 'unlike_actions', hasResultSentAt: false },
+  unretweet: { type: 'unretweet', table: 'unretweet_actions', hasResultSentAt: false },
+  unfollow: { type: 'unfollow', table: 'unfollow_actions', hasResultSentAt: false },
+  delete_tweet: { type: 'delete_tweet', table: 'delete_tweet_actions', hasResultSentAt: false },
+  dm: { type: 'dm', table: 'dm_actions', hasResultSentAt: false },
+  profile_update: { type: 'profile_update', table: 'profile_update_actions', hasResultSentAt: false },
+  avatar_update: { type: 'avatar_update', table: 'avatar_update_actions', hasResultSentAt: false },
+  banner_update: { type: 'banner_update', table: 'banner_update_actions', hasResultSentAt: false },
 };
 
 export class GenericActionRepository {

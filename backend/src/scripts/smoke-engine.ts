@@ -1,10 +1,10 @@
 /**
- * Faz 2 smoke test:
- *  1) accounts'a test hesabı ekle
- *  2) bir post action enqueue et
- *  3) NestJS uygulamasını noop executor ile boot et
- *  4) claim worker'ın aksiyonu succeeded'e çekmesini bekle
- *  5) idempotency ve duplicate-insert davranışını doğrula
+ * Action engine smoke test:
+ *  1) seed a test account
+ *  2) enqueue a post action
+ *  3) boot the NestJS app with the noop executor
+ *  4) wait for the claim worker to drive the action to succeeded
+ *  5) verify idempotency and duplicate-insert behavior
  */
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';

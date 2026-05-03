@@ -1,0 +1,40 @@
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import type { ActionType } from '../../domain/types/action.types';
+import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '../../domain/ports/x-action-executor.port';
+import { ExecutorRegistry } from '../../action-engine/executor-registry.service';
+import { XDirectService } from '../x-direct.service';
+import { isAuthRequiredError } from '../browser/x-post-flow.service';
+
+interface UnlikePayload { target_tweet_url: string }
+
+/**
+ * Executor delegating to XDirectService.unlikeTweet — covers both noop dry-run
+ * and patchright execution by reusing the service's mode logic. Registered in
+ * both modes so the action engine can drain queues regardless of runtime mode.
+ */
+@Injectable()
+export class UnlikeExecutor implements IXActionExecutor<UnlikePayload>, OnApplicationBootstrap {
+  readonly type: ActionType = 'unlike';
+  private readonly log = new Logger(UnlikeExecutor.name);
+
+  constructor(
+    private readonly registry: ExecutorRegistry,
+    private readonly xDirect: XDirectService,
+  ) {}
+
+  onApplicationBootstrap(): void {
+    this.registry.register(this);
+  }
+
+  async execute(action: ActionContext<UnlikePayload>, session: XSession): Promise<ExecutionResult> {
+    try {
+      await this.xDirect.unlikeTweet(action.payload.target_tweet_url, session.accountId);
+      return { ok: true, result: { kind: 'engagement', at: new Date().toISOString() } };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
+      this.log.error(`unlike error: ${msg}`);
+      return { ok: false, errorClass, message: msg };
+    }
+  }
+}

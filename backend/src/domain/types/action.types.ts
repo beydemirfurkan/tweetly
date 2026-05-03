@@ -5,7 +5,15 @@ export type ActionType =
   | 'like'
   | 'follow'
   | 'quote'
-  | 'bookmark';
+  | 'bookmark'
+  | 'unlike'
+  | 'unretweet'
+  | 'unfollow'
+  | 'delete_tweet'
+  | 'dm'
+  | 'profile_update'
+  | 'avatar_update'
+  | 'banner_update';
 
 export type ActionStatus =
   | 'pending'
@@ -26,6 +34,14 @@ export const ACTION_TYPES: readonly ActionType[] = [
   'follow',
   'quote',
   'bookmark',
+  'unlike',
+  'unretweet',
+  'unfollow',
+  'delete_tweet',
+  'dm',
+  'profile_update',
+  'avatar_update',
+  'banner_update',
 ] as const;
 
 export const ACTION_STATUSES: readonly ActionStatus[] = [

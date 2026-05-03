@@ -240,7 +240,7 @@ function queueTests(client: McpClient): Array<{ name: string; run: () => Promise
     { name: 'post_thread', run: () => requireWrite(() => client.callTool('post_thread', { tweets: [smokeText('thread 1'), smokeText('thread 2')], account_id: accountId })) },
     { name: 'like_tweet', run: () => requireWriteTarget(() => client.callTool('like_tweet', { tweet_url: targetTweetUrl, account_id: accountId })) },
     { name: 'bookmark_tweet', run: () => requireWriteTarget(() => client.callTool('bookmark_tweet', { tweet_url: targetTweetUrl, account_id: accountId })) },
-    { name: 'retweet', run: () => requireWriteTarget(() => client.callTool('retweet', { tweet_url: targetTweetUrl, account_id: accountId })) },
+    { name: 'retweet_tweet', run: () => requireWriteTarget(() => client.callTool('retweet_tweet', { tweet_url: targetTweetUrl, account_id: accountId })) },
     { name: 'reply_to_tweet', run: () => requireWriteTarget(() => client.callTool('reply_to_tweet', { parent_tweet_url: targetTweetUrl, text: smokeText('reply'), account_id: accountId })) },
     { name: 'quote_tweet', run: () => requireWriteTarget(() => client.callTool('quote_tweet', { tweet_url: targetTweetUrl, text: smokeText('quote'), account_id: accountId })) },
     { name: 'follow_account', run: () => requireWrite(() => client.callTool('follow_account', { target_handle: requiredSmokeEnv('TWEETLY_FOLLOW_TARGET_HANDLE'), account_id: accountId })) },
@@ -250,7 +250,7 @@ function queueTests(client: McpClient): Array<{ name: string; run: () => Promise
 function destructiveTests(client: McpClient): Array<{ name: string; run: () => Promise<unknown> }> {
   return [
     { name: 'unlike_tweet', run: () => requireDestructiveTarget(() => client.callTool('unlike_tweet', { tweet_url: targetTweetUrl, account_id: accountId }, 90_000)) },
-    { name: 'unretweet', run: () => requireDestructiveTarget(() => client.callTool('unretweet', { tweet_url: targetTweetUrl, account_id: accountId }, 90_000)) },
+    { name: 'unretweet_tweet', run: () => requireDestructiveTarget(() => client.callTool('unretweet_tweet', { tweet_url: targetTweetUrl, account_id: accountId }, 90_000)) },
     { name: 'unfollow_account', run: () => requireDestructive(() => client.callTool('unfollow_account', { target_handle: requiredSmokeEnv('TWEETLY_FOLLOW_TARGET_HANDLE'), account_id: accountId }, 90_000)) },
     { name: 'send_dm', run: () => requireDestructive(() => client.callTool('send_dm', { target_handle: requiredSmokeEnv('TWEETLY_DM_TARGET_HANDLE'), message: smokeText('dm'), account_id: accountId }, 90_000)) },
     { name: 'update_profile', run: () => requireDestructive(() => client.callTool('update_profile', { bio: requiredSmokeEnv('TWEETLY_PROFILE_TEST_BIO'), account_id: accountId }, 90_000)) },

@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 /**
- * X UI selector'ları tek noktada — UI değişikliklerinde tek dosya patch'i yeterli.
- * Faz 3 minimum: post + reply için olanlar; Faz 5'te like/retweet/follow/quote/bookmark için
- * yeni alanlar eklenecek.
+ * X UI selectors — single source of truth. Patch here when X DOM changes.
  */
 @Injectable()
 export class SelectorRegistry {
@@ -57,10 +55,23 @@ export class SelectorRegistry {
   // Delete tweet
   readonly moreActionsButton = '[data-testid="caret"]';
 
+  // Generic confirmation sheet (used by unfollow, delete tweet, …)
+  readonly confirmationSheetConfirm = '[data-testid="confirmationSheetConfirm"]';
+
   // DM composer
   readonly dmTextarea = '[data-testid="dmComposerTextInput"]';
   readonly dmSendButton = '[data-testid="dmComposerSendButton"]';
   readonly newDmButton = '[data-testid="NewDM_Button"]';
+  readonly dmFromProfileButton = '[data-testid="sendDMFromProfile"]';
+
+  // Profile edit form fields
+  readonly profileNameInput = 'input[name="displayName"]';
+  readonly profileBioTextarea = 'textarea[name="description"]';
+  readonly profileLocationInput = 'input[name="location"]';
+  readonly profileWebsiteInput = 'input[name="url"]';
+
+  // User cell (search/list rows)
+  readonly userCell = '[data-testid="UserCell"]';
 
   // Tweet data selectors (for scraping)
   readonly tweetText = '[data-testid="tweetText"]';
@@ -71,6 +82,9 @@ export class SelectorRegistry {
   // User profile selectors
   readonly userDescription = '[data-testid="UserDescription"]';
   readonly userName = '[data-testid="UserName"]';
+  readonly userNames = '[data-testid="User-Names"] span';
+  readonly verifiedIcon = 'svg[data-testid="icon-verified"]';
+  readonly trend = '[data-testid="trend"]';
   readonly userFollowersCount = 'a[href$="/verified_followers"] span span, a[href$="/followers"] span span';
   readonly userFollowingCount = 'a[href$="/following"] span span';
   readonly userProfileImage = 'a[href$="/photo"] img, img[src*="profile_images"], [data-testid="TweetAvatar"] img';

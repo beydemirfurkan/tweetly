@@ -16,9 +16,9 @@ interface PostPayload {
 }
 
 /**
- * Faz 2 placeholder. Faz 3'te PatchrightPostExecutor ile değiştirilecek.
- * Gerçek post yapmaz; sentetik tweet id üretir, sadece engine'in end-to-end
- * akışını ve idempotency davranışını doğrulamak için.
+ * Dev/noop fallback executor. Active when X_EXECUTOR_MODE !== 'patchright'.
+ * Does not post; returns a synthetic tweet id so the action engine end-to-end
+ * flow and idempotency behavior can be exercised without a browser.
  */
 @Injectable()
 export class NoOpPostExecutor implements IXActionExecutor<PostPayload>, OnApplicationBootstrap {

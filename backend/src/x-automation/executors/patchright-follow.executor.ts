@@ -26,7 +26,7 @@ export class PatchrightFollowExecutor implements IXActionExecutor<FollowPayload>
   async execute(action: ActionContext<FollowPayload>, session: XSession): Promise<ExecutionResult> {
     const { targetHandle } = action.payload;
     if (!targetHandle?.trim()) {
-      return { ok: false, errorClass: 'permanent', message: 'targetHandle boş' };
+      return { ok: false, errorClass: 'permanent', message: 'targetHandle is empty' };
     }
 
     const { context, page } = await this.browser.launch(session.accountId);
@@ -43,7 +43,7 @@ export class PatchrightFollowExecutor implements IXActionExecutor<FollowPayload>
       await this.browser.release(context);
       const msg = err instanceof Error ? err.message : String(err);
       const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`Patchright follow hata (${targetHandle}): ${msg}`);
+      this.log.error(`patchright follow error (${targetHandle}): ${msg}`);
       return { ok: false, errorClass, message: msg };
     }
 

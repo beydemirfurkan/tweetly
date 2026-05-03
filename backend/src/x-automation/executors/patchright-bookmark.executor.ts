@@ -43,7 +43,7 @@ export class PatchrightBookmarkExecutor implements IXActionExecutor<BookmarkPayl
       await this.browser.release(context);
       const msg = err instanceof Error ? err.message : String(err);
       const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`Patchright bookmark hata: ${msg}`);
+      this.log.error(`patchright bookmark error: ${msg}`);
       return { ok: false, errorClass, message: msg };
     }
 

@@ -85,13 +85,13 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv);
 
   if (!fs.existsSync(args.sqlitePath)) {
-    console.error(`SQLite dosyası bulunamadı: ${args.sqlitePath}`);
+    console.error(`SQLite file not found: ${args.sqlitePath}`);
     process.exit(1);
   }
 
-  console.log(`SQLite kaynak : ${args.sqlitePath}`);
-  console.log(`Mod           : ${args.dryRun ? 'dry-run' : 'gerçek'}`);
-  console.log(`Truncate      : ${args.truncate ? 'evet' : 'hayır'}`);
+  console.log(`SQLite source : ${args.sqlitePath}`);
+  console.log(`Mode          : ${args.dryRun ? 'dry-run' : 'live'}`);
+  console.log(`Truncate      : ${args.truncate ? 'yes' : 'no'}`);
   console.log('');
 
   const sqlite = new Database(args.sqlitePath, { readonly: true });
@@ -434,7 +434,7 @@ async function migrateTweets(
     const parentTweetId = extractTweetIdFromUrl(parentTweetUrl) ?? t.parent_id ?? 'unknown';
 
     if (!parentTweetUrl) {
-      console.warn(`reply ${t.id} parent URL bulunamadı, atlanıyor.`);
+      console.warn(`reply ${t.id} parent URL missing, skipping.`);
       continue;
     }
 

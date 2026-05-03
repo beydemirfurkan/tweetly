@@ -49,6 +49,31 @@ export interface EnqueueQuoteInput {
   maxAttempts?: number;
 }
 
+export interface EnqueueDmInput {
+  accountId: string;
+  targetHandle: string;
+  message: string;
+  scheduledAt: Date;
+  metadata?: Record<string, unknown>;
+  maxAttempts?: number;
+}
+
+export interface EnqueueProfileUpdateInput {
+  accountId: string;
+  fields: Record<string, unknown>;
+  scheduledAt: Date;
+  metadata?: Record<string, unknown>;
+  maxAttempts?: number;
+}
+
+export interface EnqueueProfileImageInput {
+  accountId: string;
+  filePath: string;
+  scheduledAt: Date;
+  metadata?: Record<string, unknown>;
+  maxAttempts?: number;
+}
+
 @Injectable()
 export class ActionEnqueueService {
   constructor(
@@ -164,6 +189,121 @@ export class ActionEnqueueService {
       maxAttempts: input.maxAttempts,
       metadata: input.metadata,
       typeSpecific: { text: input.text, target_tweet_url: input.targetTweetUrl },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueUnlike(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.unlike);
+    const tweetId = this.parseTweetId(input.targetTweetUrl);
+    const idempotencyKey = this.keys.forUnlike(input.accountId, tweetId);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueUnretweet(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.unretweet);
+    const tweetId = this.parseTweetId(input.targetTweetUrl);
+    const idempotencyKey = this.keys.forUnretweet(input.accountId, tweetId);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueUnfollow(input: EnqueueFollowInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.unfollow);
+    const idempotencyKey = this.keys.forUnfollow(input.accountId, input.targetHandle);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { target_handle: input.targetHandle },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueDeleteTweet(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.delete_tweet);
+    const tweetId = this.parseTweetId(input.targetTweetUrl);
+    const idempotencyKey = this.keys.forDeleteTweet(input.accountId, tweetId);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueDm(input: EnqueueDmInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.dm);
+    const idempotencyKey = this.keys.forDm(input.accountId, input.targetHandle, input.message, input.scheduledAt);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { target_handle: input.targetHandle, message: input.message },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueProfileUpdate(input: EnqueueProfileUpdateInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.profile_update);
+    const idempotencyKey = this.keys.forProfileUpdate(input.accountId, input.fields);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { fields: JSON.stringify(input.fields) },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueAvatarUpdate(input: EnqueueProfileImageInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.avatar_update);
+    const idempotencyKey = this.keys.forAvatarUpdate(input.accountId, input.filePath);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { file_path: input.filePath },
+    });
+    return { id, idempotencyKey };
+  }
+
+  async enqueueBannerUpdate(input: EnqueueProfileImageInput): Promise<{ id: string | null; idempotencyKey: string }> {
+    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.banner_update);
+    const idempotencyKey = this.keys.forBannerUpdate(input.accountId, input.filePath);
+    const id = await repo.insertIfAbsent({
+      idempotencyKey,
+      accountId: input.accountId,
+      scheduledAt: input.scheduledAt,
+      maxAttempts: input.maxAttempts,
+      metadata: input.metadata,
+      typeSpecific: { file_path: input.filePath },
     });
     return { id, idempotencyKey };
   }

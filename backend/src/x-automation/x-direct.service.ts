@@ -127,7 +127,7 @@ export class XDirectService {
       await btn.click();
 
       // Confirm unfollow in the dialog
-      const confirmBtn = page.locator('[data-testid="confirmationSheetConfirm"]').first();
+      const confirmBtn = page.locator(this.sel.confirmationSheetConfirm).first();
       await confirmBtn.waitFor({ timeout: 5_000 });
       await confirmBtn.click();
       await page.waitForTimeout(1_500);
@@ -162,7 +162,7 @@ export class XDirectService {
       await deleteBtn.click();
 
       // Confirm delete
-      const confirmBtn = page.locator('[data-testid="confirmationSheetConfirm"]').first();
+      const confirmBtn = page.locator(this.sel.confirmationSheetConfirm).first();
       await confirmBtn.waitFor({ timeout: 5_000 });
       await confirmBtn.click();
       await page.waitForTimeout(1_500);
@@ -187,7 +187,7 @@ export class XDirectService {
       await page.goto(`https://x.com/${targetHandle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
 
-      const dmBtn = page.locator('[data-testid="sendDMFromProfile"]').first();
+      const dmBtn = page.locator(this.sel.dmFromProfileButton).first();
       await dmBtn.waitFor({ timeout: 15_000 });
       await dmBtn.click();
 
@@ -228,28 +228,28 @@ export class XDirectService {
       await page.waitForTimeout(2_000);
 
       if (fields.name !== undefined) {
-        const nameInput = page.locator('input[name="displayName"]').first();
+        const nameInput = page.locator(this.sel.profileNameInput).first();
         await nameInput.waitFor({ timeout: 10_000 });
         await nameInput.fill(fields.name);
         updated.push('name');
       }
 
       if (fields.bio !== undefined) {
-        const bioInput = page.locator('textarea[name="description"]').first();
+        const bioInput = page.locator(this.sel.profileBioTextarea).first();
         await bioInput.waitFor({ timeout: 5_000 });
         await bioInput.fill(fields.bio);
         updated.push('bio');
       }
 
       if (fields.location !== undefined) {
-        const locInput = page.locator('input[name="location"]').first();
+        const locInput = page.locator(this.sel.profileLocationInput).first();
         await locInput.waitFor({ timeout: 5_000 });
         await locInput.fill(fields.location);
         updated.push('location');
       }
 
       if (fields.website !== undefined) {
-        const webInput = page.locator('input[name="url"]').first();
+        const webInput = page.locator(this.sel.profileWebsiteInput).first();
         await webInput.waitFor({ timeout: 5_000 });
         await webInput.fill(fields.website);
         updated.push('website');
@@ -366,12 +366,12 @@ export class XDirectService {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.waitForTimeout(5_000);
 
-      return await page.evaluate((params) => {
+      const raw = await page.evaluate((params) => {
         const nameEl = document.querySelector(params.userName);
         const bioEl = document.querySelector(params.userDescription);
         const followersEl = document.querySelector(params.userFollowersCount);
         const followingEl = document.querySelector(params.userFollowingCount);
-        const verifiedEl = document.querySelector('svg[data-testid="icon-verified"]');
+        const verifiedEl = document.querySelector(params.verifiedIcon);
         const avatarEl = document.querySelector(params.userProfileImage) as HTMLImageElement | null;
 
         const fullName = nameEl?.querySelector('span')?.textContent ?? '';
@@ -441,8 +441,14 @@ export class XDirectService {
         userFollowersCount: this.sel.userFollowersCount,
         userFollowingCount: this.sel.userFollowingCount,
         userProfileImage: this.sel.userProfileImage,
+        verifiedIcon: this.sel.verifiedIcon,
         handle,
       });
+      return {
+        ...raw,
+        displayName: this.sanitizeText(raw.displayName),
+        bio: this.sanitizeText(raw.bio),
+      };
     } catch (err) {
       this.log.error(`getUser error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -488,17 +494,17 @@ export class XDirectService {
       const encoded = encodeURIComponent(query);
       await page.goto(`https://x.com/search?q=${encoded}&f=user`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
-      await page.waitForSelector('[data-testid="UserCell"]', { timeout: 15_000 });
+      await page.waitForSelector(this.sel.userCell, { timeout: 15_000 });
       await page.waitForTimeout(1_500);
 
       const all = await page.evaluate((params) => {
-        const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
+        const cells = Array.from(document.querySelectorAll(params.userCell)).slice(0, params.limit);
         return cells.map(cell => {
-          const nameEl = cell.querySelector('[data-testid="UserName"]');
+          const nameEl = cell.querySelector(params.userName);
           const spans = Array.from(nameEl?.querySelectorAll('span') ?? []).map((span) => span.textContent?.trim() ?? '').filter(Boolean);
           const handle = extractHandleFromCell(cell) ?? spans.find((text) => text.startsWith('@'))?.replace('@', '') ?? '';
           const displayName = spans.find((text) => !text.startsWith('@') && text !== '·') ?? '';
-          const bio = cell.querySelector('[data-testid="UserDescription"]')?.textContent ?? '';
+          const bio = cell.querySelector(params.userDescription)?.textContent ?? '';
           return {
             handle,
             displayName,
@@ -506,7 +512,7 @@ export class XDirectService {
             followersCount: '',
             followingCount: '',
             tweetsCount: '',
-            verified: Boolean(cell.querySelector('svg[data-testid="icon-verified"]')),
+            verified: Boolean(cell.querySelector(params.verifiedIcon)),
             profileUrl: `https://x.com/${handle}`,
             profileImageUrl: '',
           };
@@ -521,7 +527,7 @@ export class XDirectService {
           }
           return null;
         }
-      }, { limit });
+      }, { limit, userCell: this.sel.userCell, userName: this.sel.userName, userDescription: this.sel.userDescription, verifiedIcon: this.sel.verifiedIcon });
 
       return options.verifiedOnly ? all.filter((u) => u.verified) : all;
     } catch (err) {
@@ -571,7 +577,7 @@ export class XDirectService {
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
-      await page.waitForSelector('[data-testid="UserCell"]', { timeout: 15_000 });
+      await page.waitForSelector(this.sel.userCell, { timeout: 15_000 });
       await page.waitForTimeout(2_000);
 
       if (limit > 20) {
@@ -580,14 +586,14 @@ export class XDirectService {
       }
 
       const all = await page.evaluate((params) => {
-        const cells = Array.from(document.querySelectorAll('[data-testid="UserCell"]')).slice(0, params.limit);
+        const cells = Array.from(document.querySelectorAll(params.userCell)).slice(0, params.limit);
         return cells.map(cell => {
-          const nameEl = cell.querySelector('[data-testid="UserName"]');
+          const nameEl = cell.querySelector(params.userName);
           const spans = Array.from(nameEl?.querySelectorAll('span') ?? []).map((span) => span.textContent?.trim() ?? '').filter(Boolean);
           const handle = extractHandleFromCell(cell) ?? spans.find((text) => text.startsWith('@'))?.replace('@', '') ?? '';
           const displayName = spans.find((text) => !text.startsWith('@') && text !== '·') ?? '';
-          const bio = cell.querySelector('[data-testid="UserDescription"]')?.textContent ?? '';
-          const verified = Boolean(cell.querySelector('svg[data-testid="icon-verified"]'));
+          const bio = cell.querySelector(params.userDescription)?.textContent ?? '';
+          const verified = Boolean(cell.querySelector(params.verifiedIcon));
           return { handle, displayName, bio, verified };
         }).filter((user) => user.handle || user.displayName || user.bio);
 
@@ -600,7 +606,7 @@ export class XDirectService {
           }
           return null;
         }
-      }, { limit });
+      }, { limit, userCell: this.sel.userCell, userName: this.sel.userName, userDescription: this.sel.userDescription, verifiedIcon: this.sel.verifiedIcon });
 
       return options.verifiedOnly ? all.filter((u) => u.verified) : all;
     } catch (err) {
@@ -675,11 +681,11 @@ export class XDirectService {
     try {
       await page.goto('https://x.com/explore/tabs/trending', { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await this.browser.assertSessionHealthy(page, acctId);
-      await page.waitForSelector('[data-testid="trend"]', { timeout: 15_000 });
+      await page.waitForSelector(this.sel.trend, { timeout: 15_000 });
       await page.waitForTimeout(1_500);
 
-      return await page.evaluate(() => {
-        const trends = Array.from(document.querySelectorAll('[data-testid="trend"]'));
+      return await page.evaluate((params) => {
+        const trends = Array.from(document.querySelectorAll(params.trend));
         return trends.map((el, i) => {
           const texts = Array.from(el.querySelectorAll('span'))
             .map((span) => span.textContent?.trim() ?? '')
@@ -700,7 +706,7 @@ export class XDirectService {
           if (/(gündem|trending|trend|sponsorlu|promoted|posts?|tweets?|gönderi)/i.test(normalized)) return false;
           return true;
         }
-      });
+      }, { trend: this.sel.trend });
     } catch (err) {
       this.log.error(`getXTrending error: ${err instanceof Error ? err.message : err}`);
       throw this.wrapError(err);
@@ -711,12 +717,25 @@ export class XDirectService {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  /**
+   * Strip control characters that DOM textContent can carry (NUL, BS, FF, etc.)
+   * and normalize line endings. Keeps \n and \t. Prevents downstream JSON.parse
+   * failures and odd display artefacts.
+   */
+  private sanitizeText(s: string): string {
+    return s
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  }
+
   private async extractTweets(page: Page, limit: number): Promise<TweetResult[]> {
-    return await page.evaluate((params) => {
-      const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]')).slice(0, params.limit);
+    const raw = await page.evaluate((params) => {
+      const articles = Array.from(document.querySelectorAll(params.tweetArticle)).slice(0, params.limit);
       return articles.map(a => {
-        const text = a.querySelector('[data-testid="tweetText"]')?.textContent ?? '';
-        const nameEl = a.querySelector('[data-testid="User-Names"] span');
+        const text = a.querySelector(params.tweetText)?.textContent ?? '';
+        const nameEl = a.querySelector(params.userNames);
         const displayName = nameEl?.textContent ?? '';
 
         const timeEl = a.querySelector('time');
@@ -726,9 +745,9 @@ export class XDirectService {
         const url = tweetLink?.href ?? '';
         const handle = tweetLink?.pathname?.split('/').filter(Boolean)[0] ?? '';
 
-        const likeEl = a.querySelector('[data-testid="like"] span[data-testid="app-text-transition-container"]');
-        const rtEl = a.querySelector('[data-testid="retweet"] span[data-testid="app-text-transition-container"]');
-        const replyEl = a.querySelector('[data-testid="reply"] span[data-testid="app-text-transition-container"]');
+        const likeEl = a.querySelector(params.likeCount);
+        const rtEl = a.querySelector(params.retweetCount);
+        const replyEl = a.querySelector(params.replyCount);
 
         return {
           url,
@@ -741,7 +760,20 @@ export class XDirectService {
           postedAt,
         };
       });
-    }, { limit });
+    }, {
+      limit,
+      tweetArticle: this.sel.tweetArticle,
+      tweetText: this.sel.tweetText,
+      userNames: this.sel.userNames,
+      likeCount: this.sel.tweetLikeCount,
+      retweetCount: this.sel.tweetRetweetCount,
+      replyCount: this.sel.tweetReplyCount,
+    });
+    return raw.map((t) => ({
+      ...t,
+      text: this.sanitizeText(t.text),
+      displayName: this.sanitizeText(t.displayName),
+    }));
   }
 
   private wrapError(err: unknown): Error {

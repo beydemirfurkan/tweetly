@@ -52,7 +52,6 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
           await page.waitForSelector(this.sel.quoteComposer, { timeout: 10_000 });
         },
         composerLabel: 'Quote composer',
-        errorPrefix: 'quote',
       });
 
       return {
@@ -67,7 +66,7 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`Patchright quote hata: ${msg}`);
+      this.log.error(`patchright quote error: ${msg}`);
       return { ok: false, errorClass, message: msg };
     }
   }

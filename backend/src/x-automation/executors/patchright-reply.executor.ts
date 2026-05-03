@@ -53,7 +53,6 @@ export class PatchrightReplyExecutor
           await page.waitForSelector('article[data-testid="tweet"]', { timeout: 15000 });
         },
         composerLabel: 'Reply composer',
-        errorPrefix: 'reply',
       });
       return {
         ok: true,
@@ -67,7 +66,7 @@ export class PatchrightReplyExecutor
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`Patchright reply hata: ${msg}`);
+      this.log.error(`patchright reply error: ${msg}`);
       return { ok: false, errorClass, message: msg };
     }
   }

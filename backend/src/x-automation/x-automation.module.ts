@@ -15,6 +15,14 @@ import { PatchrightBookmarkExecutor } from './executors/patchright-bookmark.exec
 import { PatchrightRetweetExecutor } from './executors/patchright-retweet.executor';
 import { PatchrightFollowExecutor } from './executors/patchright-follow.executor';
 import { PatchrightQuoteExecutor } from './executors/patchright-quote.executor';
+import { UnlikeExecutor } from './executors/unlike.executor';
+import { UnretweetExecutor } from './executors/unretweet.executor';
+import { UnfollowExecutor } from './executors/unfollow.executor';
+import { DeleteTweetExecutor } from './executors/delete-tweet.executor';
+import { DmExecutor } from './executors/dm.executor';
+import { ProfileUpdateExecutor } from './executors/profile-update.executor';
+import { AvatarUpdateExecutor } from './executors/avatar-update.executor';
+import { BannerUpdateExecutor } from './executors/banner-update.executor';
 import { XBrowserService } from './browser/x-browser.service';
 import { XPostFlowService } from './browser/x-post-flow.service';
 import { SelectorRegistry } from './browser/selector-registry';
@@ -56,7 +64,19 @@ import { LoginWorker } from './login/login-worker.service';
     PatchrightRetweetExecutor,
     PatchrightFollowExecutor,
     PatchrightQuoteExecutor,
-    // direct (synchronous) service
+    // queue-backed executors for previously synchronous writes (registered in
+    // both modes — they wrap XDirectService which already implements the noop
+    // dry-run path, so a single executor class covers dev and prod).
+    UnlikeExecutor,
+    UnretweetExecutor,
+    UnfollowExecutor,
+    DeleteTweetExecutor,
+    DmExecutor,
+    ProfileUpdateExecutor,
+    AvatarUpdateExecutor,
+    BannerUpdateExecutor,
+    // direct (synchronous) service — still used internally by the queue
+    // executors above; MCP no longer calls it directly.
     XDirectService,
     // login flow (server-side headless X login)
     XLoginService,

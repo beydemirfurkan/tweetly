@@ -47,7 +47,7 @@ export class PatchrightRetweetExecutor implements IXActionExecutor<RetweetPayloa
       await this.browser.release(context);
       const msg = err instanceof Error ? err.message : String(err);
       const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`Patchright retweet hata: ${msg}`);
+      this.log.error(`patchright retweet error: ${msg}`);
       return { ok: false, errorClass, message: msg };
     }
 

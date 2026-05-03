@@ -48,7 +48,7 @@ export class PatchrightLikeExecutor implements IXActionExecutor<LikePayload>, On
       await this.browser.release(context);
       const msg = err instanceof Error ? err.message : String(err);
       const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`Patchright like hata: ${msg}`);
+      this.log.error(`patchright like error: ${msg}`);
       return { ok: false, errorClass, message: msg };
     }
 

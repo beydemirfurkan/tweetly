@@ -47,7 +47,6 @@ export class PatchrightPostExecutor
           await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded', timeout: 30000 });
         },
         composerLabel: 'Tweet composer',
-        errorPrefix: 'post',
       });
       return {
         ok: true,
@@ -61,7 +60,7 @@ export class PatchrightPostExecutor
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`Patchright post hata: ${msg}`);
+      this.log.error(`patchright post error: ${msg}`);
       return { ok: false, errorClass, message: msg };
     }
   }
