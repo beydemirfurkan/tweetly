@@ -1,14 +1,10 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type {
-  ActionContext,
-  ExecutionResult,
-  IXActionExecutor,
-  XSession,
-} from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
-import { XPostFlowService, isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { XPostFlowService } from '@/x-automation/browser/x-post-flow.service';
 import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
+import { BasePatchrightExecutor, classifyExecutionError } from './base.executor';
 
 interface ReplyPayload {
   text: string;
@@ -16,22 +12,15 @@ interface ReplyPayload {
 }
 
 @Injectable()
-export class PatchrightReplyExecutor
-  implements IXActionExecutor<ReplyPayload>, OnApplicationBootstrap
-{
+export class PatchrightReplyExecutor extends BasePatchrightExecutor<ReplyPayload> {
   readonly type: ActionType = 'reply';
-  private readonly log = new Logger(PatchrightReplyExecutor.name);
 
   constructor(
-    private readonly registry: ExecutorRegistry,
+    registry: ExecutorRegistry,
     private readonly flow: XPostFlowService,
     private readonly sel: SelectorRegistry,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    if (process.env.X_EXECUTOR_MODE === 'patchright') {
-      this.registry.register(this);
-    }
+  ) {
+    super(registry);
   }
 
   async execute(action: ActionContext<ReplyPayload>, session: XSession): Promise<ExecutionResult> {
@@ -66,10 +55,9 @@ export class PatchrightReplyExecutor
         },
       };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`patchright reply error: ${msg}`);
-      return { ok: false, errorClass, message: msg };
+      const { errorClass, message } = classifyExecutionError(err);
+      this.log.error(`patchright reply error: ${message}`);
+      return { ok: false, errorClass, message };
     }
   }
 }

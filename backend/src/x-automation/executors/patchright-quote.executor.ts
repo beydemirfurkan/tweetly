@@ -1,27 +1,25 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
-import { XPostFlowService, isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { XPostFlowService } from '@/x-automation/browser/x-post-flow.service';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
 import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
+import { BasePatchrightExecutor, classifyExecutionError } from './base.executor';
 
 interface QuotePayload { text: string; targetTweetUrl: string }
 
 @Injectable()
-export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, OnApplicationBootstrap {
+export class PatchrightQuoteExecutor extends BasePatchrightExecutor<QuotePayload> {
   readonly type: ActionType = 'quote';
-  private readonly log = new Logger(PatchrightQuoteExecutor.name);
 
   constructor(
-    private readonly registry: ExecutorRegistry,
+    registry: ExecutorRegistry,
     private readonly flow: XPostFlowService,
     private readonly browser: XBrowserService,
     private readonly sel: SelectorRegistry,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    if (process.env.X_EXECUTOR_MODE === 'patchright') this.registry.register(this);
+  ) {
+    super(registry);
   }
 
   async execute(action: ActionContext<QuotePayload>, session: XSession): Promise<ExecutionResult> {
@@ -64,10 +62,9 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
         },
       };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`patchright quote error: ${msg}`);
-      return { ok: false, errorClass, message: msg };
+      const { errorClass, message } = classifyExecutionError(err);
+      this.log.error(`patchright quote error: ${message}`);
+      return { ok: false, errorClass, message };
     }
   }
 }

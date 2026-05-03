@@ -1,26 +1,23 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
 import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
-import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { BasePatchrightExecutor, classifyExecutionError } from './base.executor';
 
 interface FollowPayload { targetHandle: string }
 
 @Injectable()
-export class PatchrightFollowExecutor implements IXActionExecutor<FollowPayload>, OnApplicationBootstrap {
+export class PatchrightFollowExecutor extends BasePatchrightExecutor<FollowPayload> {
   readonly type: ActionType = 'follow';
-  private readonly log = new Logger(PatchrightFollowExecutor.name);
 
   constructor(
-    private readonly registry: ExecutorRegistry,
+    registry: ExecutorRegistry,
     private readonly browser: XBrowserService,
     private readonly sel: SelectorRegistry,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    if (process.env.X_EXECUTOR_MODE === 'patchright') this.registry.register(this);
+  ) {
+    super(registry);
   }
 
   async execute(action: ActionContext<FollowPayload>, session: XSession): Promise<ExecutionResult> {
@@ -40,14 +37,13 @@ export class PatchrightFollowExecutor implements IXActionExecutor<FollowPayload>
       await followBtn.click();
       await page.waitForTimeout(2_000);
     } catch (err) {
+      const { errorClass, message } = classifyExecutionError(err);
+      this.log.error(`patchright follow error (${targetHandle}): ${message}`);
+      return { ok: false, errorClass, message };
+    } finally {
       await this.browser.release(context);
-      const msg = err instanceof Error ? err.message : String(err);
-      const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`patchright follow error (${targetHandle}): ${msg}`);
-      return { ok: false, errorClass, message: msg };
     }
 
-    await this.browser.release(context);
     return { ok: true, result: { kind: 'engagement', at: new Date().toISOString() } };
   }
 }

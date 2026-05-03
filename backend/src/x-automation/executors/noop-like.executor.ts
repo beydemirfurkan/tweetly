@@ -1,18 +1,17 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { BaseNoopExecutor } from './base.executor';
 
 interface LikePayload { targetTweetUrl: string }
 
 @Injectable()
-export class NoOpLikeExecutor implements IXActionExecutor<LikePayload>, OnApplicationBootstrap {
+export class NoOpLikeExecutor extends BaseNoopExecutor<LikePayload> {
   readonly type: ActionType = 'like';
-  private readonly log = new Logger(NoOpLikeExecutor.name);
-  constructor(private readonly registry: ExecutorRegistry) {}
 
-  onApplicationBootstrap(): void {
-    if (process.env.X_EXECUTOR_MODE === 'noop') this.registry.register(this);
+  constructor(registry: ExecutorRegistry) {
+    super(registry);
   }
 
   async execute(action: ActionContext<LikePayload>, _session: XSession): Promise<ExecutionResult> {

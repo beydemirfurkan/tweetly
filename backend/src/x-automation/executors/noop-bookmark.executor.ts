@@ -1,18 +1,17 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { BaseNoopExecutor } from './base.executor';
 
 interface BookmarkPayload { targetTweetUrl: string }
 
 @Injectable()
-export class NoOpBookmarkExecutor implements IXActionExecutor<BookmarkPayload>, OnApplicationBootstrap {
+export class NoOpBookmarkExecutor extends BaseNoopExecutor<BookmarkPayload> {
   readonly type: ActionType = 'bookmark';
-  private readonly log = new Logger(NoOpBookmarkExecutor.name);
-  constructor(private readonly registry: ExecutorRegistry) {}
 
-  onApplicationBootstrap(): void {
-    if (process.env.X_EXECUTOR_MODE === 'noop') this.registry.register(this);
+  constructor(registry: ExecutorRegistry) {
+    super(registry);
   }
 
   async execute(action: ActionContext<BookmarkPayload>, _session: XSession): Promise<ExecutionResult> {

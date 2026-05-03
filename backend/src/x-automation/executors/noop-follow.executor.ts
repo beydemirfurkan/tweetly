@@ -1,18 +1,17 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { BaseNoopExecutor } from './base.executor';
 
 interface FollowPayload { targetHandle: string }
 
 @Injectable()
-export class NoOpFollowExecutor implements IXActionExecutor<FollowPayload>, OnApplicationBootstrap {
+export class NoOpFollowExecutor extends BaseNoopExecutor<FollowPayload> {
   readonly type: ActionType = 'follow';
-  private readonly log = new Logger(NoOpFollowExecutor.name);
-  constructor(private readonly registry: ExecutorRegistry) {}
 
-  onApplicationBootstrap(): void {
-    if (process.env.X_EXECUTOR_MODE === 'noop') this.registry.register(this);
+  constructor(registry: ExecutorRegistry) {
+    super(registry);
   }
 
   async execute(action: ActionContext<FollowPayload>, _session: XSession): Promise<ExecutionResult> {

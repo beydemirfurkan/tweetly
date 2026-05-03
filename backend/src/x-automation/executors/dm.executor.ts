@@ -1,24 +1,21 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { XDirectService } from '@/x-automation/x-direct.service';
-import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { BaseDelegatingExecutor, classifyExecutionError } from './base.executor';
 
 interface DmPayload { target_handle: string; message: string }
 
 @Injectable()
-export class DmExecutor implements IXActionExecutor<DmPayload>, OnApplicationBootstrap {
+export class DmExecutor extends BaseDelegatingExecutor<DmPayload> {
   readonly type: ActionType = 'dm';
-  private readonly log = new Logger(DmExecutor.name);
 
   constructor(
-    private readonly registry: ExecutorRegistry,
+    registry: ExecutorRegistry,
     private readonly xDirect: XDirectService,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    this.registry.register(this);
+  ) {
+    super(registry);
   }
 
   async execute(action: ActionContext<DmPayload>, session: XSession): Promise<ExecutionResult> {
@@ -30,8 +27,7 @@ export class DmExecutor implements IXActionExecutor<DmPayload>, OnApplicationBoo
       await this.xDirect.sendDm(target_handle, message, session.accountId);
       return { ok: true, result: { kind: 'engagement', at: new Date().toISOString() } };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
+      const { errorClass, message: msg } = classifyExecutionError(err);
       this.log.error(`dm error (${target_handle}): ${msg}`);
       return { ok: false, errorClass, message: msg };
     }

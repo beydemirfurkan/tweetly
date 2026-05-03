@@ -1,24 +1,21 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { XDirectService } from '@/x-automation/x-direct.service';
-import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { BaseDelegatingExecutor, classifyExecutionError } from './base.executor';
 
 interface AvatarUpdatePayload { file_path: string }
 
 @Injectable()
-export class AvatarUpdateExecutor implements IXActionExecutor<AvatarUpdatePayload>, OnApplicationBootstrap {
+export class AvatarUpdateExecutor extends BaseDelegatingExecutor<AvatarUpdatePayload> {
   readonly type: ActionType = 'avatar_update';
-  private readonly log = new Logger(AvatarUpdateExecutor.name);
 
   constructor(
-    private readonly registry: ExecutorRegistry,
+    registry: ExecutorRegistry,
     private readonly xDirect: XDirectService,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    this.registry.register(this);
+  ) {
+    super(registry);
   }
 
   async execute(action: ActionContext<AvatarUpdatePayload>, session: XSession): Promise<ExecutionResult> {
@@ -30,12 +27,11 @@ export class AvatarUpdateExecutor implements IXActionExecutor<AvatarUpdatePayloa
       await this.xDirect.updateAvatar(filePath, session.accountId);
       return { ok: true, result: { kind: 'engagement', at: new Date().toISOString() } };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const { errorClass: defaultClass, message } = classifyExecutionError(err);
       // ENOENT-style file errors are permanent — no point retrying.
-      const isMissingFile = /file not found/i.test(msg);
-      const errorClass = isMissingFile ? 'permanent' : isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`avatar_update error: ${msg}`);
-      return { ok: false, errorClass, message: msg };
+      const errorClass = /file not found/i.test(message) ? 'permanent' : defaultClass;
+      this.log.error(`avatar_update error: ${message}`);
+      return { ok: false, errorClass, message };
     }
   }
 }

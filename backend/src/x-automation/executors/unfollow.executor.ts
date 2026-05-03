@@ -1,24 +1,21 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { XDirectService } from '@/x-automation/x-direct.service';
-import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { BaseDelegatingExecutor, classifyExecutionError } from './base.executor';
 
 interface UnfollowPayload { target_handle: string }
 
 @Injectable()
-export class UnfollowExecutor implements IXActionExecutor<UnfollowPayload>, OnApplicationBootstrap {
+export class UnfollowExecutor extends BaseDelegatingExecutor<UnfollowPayload> {
   readonly type: ActionType = 'unfollow';
-  private readonly log = new Logger(UnfollowExecutor.name);
 
   constructor(
-    private readonly registry: ExecutorRegistry,
+    registry: ExecutorRegistry,
     private readonly xDirect: XDirectService,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    this.registry.register(this);
+  ) {
+    super(registry);
   }
 
   async execute(action: ActionContext<UnfollowPayload>, session: XSession): Promise<ExecutionResult> {
@@ -30,10 +27,9 @@ export class UnfollowExecutor implements IXActionExecutor<UnfollowPayload>, OnAp
       await this.xDirect.unfollowAccount(handle, session.accountId);
       return { ok: true, result: { kind: 'engagement', at: new Date().toISOString() } };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`unfollow error (${handle}): ${msg}`);
-      return { ok: false, errorClass, message: msg };
+      const { errorClass, message } = classifyExecutionError(err);
+      this.log.error(`unfollow error (${handle}): ${message}`);
+      return { ok: false, errorClass, message };
     }
   }
 }

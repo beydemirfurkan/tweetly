@@ -1,9 +1,9 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { XDirectService } from '@/x-automation/x-direct.service';
-import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { BaseDelegatingExecutor, classifyExecutionError } from './base.executor';
 
 interface ProfileUpdatePayload {
   fields: {
@@ -15,17 +15,14 @@ interface ProfileUpdatePayload {
 }
 
 @Injectable()
-export class ProfileUpdateExecutor implements IXActionExecutor<ProfileUpdatePayload>, OnApplicationBootstrap {
+export class ProfileUpdateExecutor extends BaseDelegatingExecutor<ProfileUpdatePayload> {
   readonly type: ActionType = 'profile_update';
-  private readonly log = new Logger(ProfileUpdateExecutor.name);
 
   constructor(
-    private readonly registry: ExecutorRegistry,
+    registry: ExecutorRegistry,
     private readonly xDirect: XDirectService,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    this.registry.register(this);
+  ) {
+    super(registry);
   }
 
   async execute(action: ActionContext<ProfileUpdatePayload>, session: XSession): Promise<ExecutionResult> {
@@ -42,10 +39,9 @@ export class ProfileUpdateExecutor implements IXActionExecutor<ProfileUpdatePayl
       await this.xDirect.updateProfile(fields, session.accountId);
       return { ok: true, result: { kind: 'engagement', at: new Date().toISOString() } };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const errorClass = isAuthRequiredError(err) ? 'auth' : 'transient';
-      this.log.error(`profile_update error: ${msg}`);
-      return { ok: false, errorClass, message: msg };
+      const { errorClass, message } = classifyExecutionError(err);
+      this.log.error(`profile_update error: ${message}`);
+      return { ok: false, errorClass, message };
     }
   }
 }

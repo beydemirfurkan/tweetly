@@ -1,12 +1,8 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
-import type {
-  ActionContext,
-  ExecutionResult,
-  IXActionExecutor,
-  XSession,
-} from '@domain/ports/x-action-executor.port';
+import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { BaseNoopExecutor } from './base.executor';
 
 interface PostPayload {
   text: string;
@@ -16,21 +12,16 @@ interface PostPayload {
 }
 
 /**
- * Dev/noop fallback executor. Active when X_EXECUTOR_MODE !== 'patchright'.
+ * Dev/noop fallback executor. Active when X_EXECUTOR_MODE === 'noop'.
  * Does not post; returns a synthetic tweet id so the action engine end-to-end
  * flow and idempotency behavior can be exercised without a browser.
  */
 @Injectable()
-export class NoOpPostExecutor implements IXActionExecutor<PostPayload>, OnApplicationBootstrap {
+export class NoOpPostExecutor extends BaseNoopExecutor<PostPayload> {
   readonly type: ActionType = 'post';
-  private readonly log = new Logger(NoOpPostExecutor.name);
 
-  constructor(private readonly registry: ExecutorRegistry) {}
-
-  onApplicationBootstrap(): void {
-    if (process.env.X_EXECUTOR_MODE === 'noop') {
-      this.registry.register(this);
-    }
+  constructor(registry: ExecutorRegistry) {
+    super(registry);
   }
 
   async execute(action: ActionContext<PostPayload>, _session: XSession): Promise<ExecutionResult> {
