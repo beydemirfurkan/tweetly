@@ -1,5 +1,6 @@
 import type { DataSource, Repository } from 'typeorm';
 import { AccountsService } from './accounts.service';
+import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 import type { AccountEntity } from '@persistence/entities/account.entity';
 
 describe('AccountsService', () => {
@@ -16,8 +17,9 @@ describe('AccountsService', () => {
     };
     const query = jest.fn();
     const dataSource = { query } as unknown as DataSource;
+    const state = new ControlStateRepository(dataSource);
     return {
-      service: new AccountsService(repo as unknown as Repository<AccountEntity>, dataSource),
+      service: new AccountsService(repo as unknown as Repository<AccountEntity>, dataSource, state),
       repo,
       query,
     };

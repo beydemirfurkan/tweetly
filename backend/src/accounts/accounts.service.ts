@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AccountEntity } from '@persistence/entities/account.entity';
+import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 import type { AccountStatus } from '@domain/types/account.types';
 
 const AUTH_FAILURE_PAUSE_THRESHOLD = parseInt(process.env.AUTH_FAILURE_PAUSE_THRESHOLD ?? '3', 10);
@@ -31,6 +32,7 @@ export class AccountsService {
     @InjectRepository(AccountEntity)
     private readonly repo: Repository<AccountEntity>,
     private readonly dataSource: DataSource,
+    private readonly state: ControlStateRepository,
   ) {}
 
   async findById(id: string): Promise<AccountEntity | null> {
@@ -93,13 +95,13 @@ export class AccountsService {
       out.set(id, { health: 'unknown', lastCheckAt: null, lastFailureAt: null, lastFailureReason: null, authFailureCount: 0 });
     }
     if (ids.length === 0) return out;
-    const rows: Array<{ key: string; account_id: string; value: string }> = await this.dataSource.query(
-      `SELECT key, account_id, value FROM control_state
-        WHERE account_id = ANY($1)
-          AND key IN ('session.health', 'session.last_check_at', 'session.last_failure_at',
-                      'session.last_failure_reason', 'session.auth_failure_count')`,
-      [ids],
-    );
+    const rows = await this.state.findByKeysForAccounts(ids, [
+      'session.health',
+      'session.last_check_at',
+      'session.last_failure_at',
+      'session.last_failure_reason',
+      'session.auth_failure_count',
+    ]);
     for (const row of rows) {
       const entry = out.get(row.account_id);
       if (!entry) continue;
@@ -153,10 +155,7 @@ export class AccountsService {
   }
 
   async getSessionHealth(id: string): Promise<AccountSessionHealth> {
-    const rows = (await this.dataSource.query(
-      `SELECT key, value FROM control_state WHERE account_id = $1 AND key LIKE 'session.%'`,
-      [id],
-    )) as Array<{ key: string; value: string }>;
+    const rows = await this.state.findByPrefix(id, 'session.');
     const map = new Map(rows.map((r) => [r.key, r.value]));
     const failures = parseInt(map.get('session.auth_failure_count') ?? '0', 10);
     const rawHealth = map.get('session.health');
@@ -174,7 +173,7 @@ export class AccountsService {
   async recordSessionSuccess(id: string): Promise<void> {
     const now = new Date().toISOString();
     await this.touchLastUsed(id);
-    await this.upsertControlState(id, [
+    await this.state.upsert(id, [
       ['session.health', 'healthy'],
       ['session.last_check_at', now],
       ['session.last_success_at', now],
@@ -184,8 +183,9 @@ export class AccountsService {
 
   async recordSessionFailure(id: string, reason: string): Promise<number> {
     const now = new Date().toISOString();
-    const failures = (await this.getControlNumber(id, 'session.auth_failure_count')) + 1;
-    await this.upsertControlState(id, [
+    const prior = parseInt((await this.state.findValue(id, 'session.auth_failure_count')) ?? '0', 10);
+    const failures = (Number.isFinite(prior) ? prior : 0) + 1;
+    await this.state.upsert(id, [
       ['session.health', 'unhealthy'],
       ['session.last_check_at', now],
       ['session.last_failure_at', now],
@@ -200,23 +200,4 @@ export class AccountsService {
     return failures;
   }
 
-  private async getControlNumber(accountId: string, key: string): Promise<number> {
-    const rows = (await this.dataSource.query(
-      `SELECT value FROM control_state WHERE key = $1 AND account_id = $2`,
-      [key, accountId],
-    )) as Array<{ value: string }>;
-    const value = parseInt(rows[0]?.value ?? '0', 10);
-    return Number.isFinite(value) ? value : 0;
-  }
-
-  private async upsertControlState(accountId: string, entries: Array<[string, string]>): Promise<void> {
-    for (const [key, value] of entries) {
-      await this.dataSource.query(
-        `INSERT INTO control_state (key, account_id, value)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (key, account_id) DO UPDATE SET value = EXCLUDED.value`,
-        [key, accountId, value],
-      );
-    }
-  }
 }

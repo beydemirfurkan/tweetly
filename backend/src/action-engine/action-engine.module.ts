@@ -8,6 +8,7 @@ import { RetweetActionEntity } from '@persistence/entities/retweet-action.entity
 import { FollowActionEntity } from '@persistence/entities/follow-action.entity';
 import { QuoteActionEntity } from '@persistence/entities/quote-action.entity';
 import { AccountsModule } from '@/accounts/accounts.module';
+import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 import { ExecutorRegistry } from './executor-registry.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { ClaimWorker } from './claim-worker.service';
@@ -26,7 +27,7 @@ import { ActionEnqueueService } from './action-enqueue.service';
       QuoteActionEntity,
     ]),
   ],
-  providers: [ExecutorRegistry, CircuitBreakerService, ClaimWorker, ActionEnqueueService],
+  providers: [ExecutorRegistry, CircuitBreakerService, ClaimWorker, ActionEnqueueService, ControlStateRepository],
   exports: [ExecutorRegistry, CircuitBreakerService, ActionEnqueueService],
 })
 export class ActionEngineModule {}

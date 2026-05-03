@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 
 import { AccountsService } from '@/accounts/accounts.service';
+import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { AccountEntity } from '@persistence/entities/account.entity';
 import { AppDataSource } from '@persistence/data-source';
@@ -28,7 +29,11 @@ async function main(): Promise<void> {
     const dataSource = AppDataSource;
     const cipher = new CredentialCipherService();
     const jobs = new LoginJobsRepository(dataSource);
-    const accounts = new AccountsService(dataSource.getRepository(AccountEntity), dataSource);
+    const accounts = new AccountsService(
+      dataSource.getRepository(AccountEntity),
+      dataSource,
+      new ControlStateRepository(dataSource),
+    );
     const worker = new LoginWorker(dataSource, jobs, new XLoginService(), cipher, accounts, { refreshInBackground: async () => {} } as any);
     const user = await findOrCreateUser(dataSource, tweetlyUserEmail);
 
