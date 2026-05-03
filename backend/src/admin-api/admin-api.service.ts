@@ -30,6 +30,11 @@ export interface ArchivedDeadActions {
   archived: number;
 }
 
+export interface QueueLag {
+  type: ActionType;
+  oldestPendingSeconds: number;
+}
+
 @Injectable()
 export class AdminApiService {
   constructor(private readonly dataSource: DataSource) {}
@@ -67,6 +72,29 @@ export class AdminApiService {
         running: counts.running ?? 0,
         failed: counts.failed ?? 0,
         dead: counts.dead ?? 0,
+      });
+    }
+    return results;
+  }
+
+  /**
+   * Age of the oldest pending action per type, in seconds. A high value
+   * means the claim worker can't keep up — either workers are stuck or
+   * there's an executor that always fails permanently. Per-type so an
+   * isolated stall doesn't get hidden in an aggregate.
+   */
+  async getQueueLag(): Promise<QueueLag[]> {
+    const results: QueueLag[] = [];
+    for (const [type, cfg] of Object.entries(ACTION_TABLE_CONFIG) as Array<[ActionType, typeof ACTION_TABLE_CONFIG[ActionType]]>) {
+      const rows: Array<{ oldest_seconds: string | null }> = await this.dataSource.query(
+        `SELECT EXTRACT(EPOCH FROM (now() - MIN(scheduled_at)))::text AS oldest_seconds
+           FROM ${cfg.table}
+          WHERE status='pending'`,
+      );
+      const raw = rows[0]?.oldest_seconds;
+      results.push({
+        type,
+        oldestPendingSeconds: raw === null || raw === undefined ? 0 : Math.max(0, Math.floor(parseFloat(raw))),
       });
     }
     return results;

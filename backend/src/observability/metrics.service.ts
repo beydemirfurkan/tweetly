@@ -34,6 +34,13 @@ export class MetricsService implements OnModuleInit {
     registers: [this.registry],
   });
 
+  readonly queueLagSeconds = new Gauge({
+    name: 'tweetly_queue_lag_seconds',
+    help: 'Age of the oldest pending action per type, in seconds',
+    labelNames: ['type'] as const,
+    registers: [this.registry],
+  });
+
   readonly circuitBreakerState = new Gauge({
     name: 'tweetly_circuit_breaker_paused',
     help: '1 if circuit breaker is paused for account',
@@ -57,6 +64,10 @@ export class MetricsService implements OnModuleInit {
 
   setQueueDepth(type: ActionType, status: string, count: number): void {
     this.queueDepth.labels(type, status).set(count);
+  }
+
+  setQueueLagSeconds(type: ActionType, seconds: number): void {
+    this.queueLagSeconds.labels(type).set(seconds);
   }
 
   setCircuitBreakerState(accountId: string, paused: boolean): void {
