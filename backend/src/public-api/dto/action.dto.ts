@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PostActionBody {
-  @ApiProperty({ example: 'Hello from Tweetly', description: 'Tweet text (max 280 chars)' })
+  @ApiProperty({ example: 'Hello from xtweetly', description: 'Tweet text (max 280 chars)' })
   text!: string;
 
   @ApiProperty({ required: false, description: 'Account ID to post from (uses first active account if omitted)' })

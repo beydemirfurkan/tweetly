@@ -6,7 +6,7 @@ const SESSION_TTL_SEC = 60 * 60; // 1 hour — SSE connections that go idle long
 const SESSION_KEY = (sessionId: string) => `mcp:session:${sessionId}`;
 
 /**
- * Tracks which Tweetly instance currently hosts an MCP SSE session.
+ * Tracks which xtweetly instance currently hosts an MCP SSE session.
  *
  * Single-instance / no Redis: registry is in-memory; lookups always
  * report "self".

@@ -110,6 +110,7 @@
     "apiError": "API hatası",
     "create": "Oluştur",
     "creating": "Oluşturuluyor...",
+    "close": "Kapat",
     "none": "—"
   },
   "dashboard": {

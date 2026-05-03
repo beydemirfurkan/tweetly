@@ -78,7 +78,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new GlobalExceptionFilter(app.get(RequestContext)));
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Tweetly API')
+    .setTitle('xtweetly API')
     .setDescription(
       'Multi-tenant X (Twitter) automation platform. Connect your X accounts and run actions ' +
         '(post, reply, like, retweet, quote, follow, bookmark, search, monitor) from your own ' +
@@ -90,7 +90,7 @@ async function bootstrap(): Promise<void> {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'tk_*',
-        description: 'Tweetly API key issued from /auth/api-keys',
+        description: 'xtweetly API key issued from /auth/api-keys',
       },
       'apiKey',
     )
@@ -107,7 +107,7 @@ async function bootstrap(): Promise<void> {
     '/docs',
     apiReference({
       content: document,
-      metaData: { title: 'Tweetly API Reference' },
+      metaData: { title: 'xtweetly API Reference' },
       authentication: { preferredSecurityScheme: 'apiKey' },
     }),
   );

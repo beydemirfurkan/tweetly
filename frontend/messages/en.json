@@ -110,6 +110,7 @@
     "apiError": "API error",
     "create": "Create",
     "creating": "Creating...",
+    "close": "Close",
     "none": "—"
   },
   "dashboard": {
