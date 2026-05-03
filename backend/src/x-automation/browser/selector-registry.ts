@@ -38,6 +38,10 @@ export class SelectorRegistry {
   readonly bookmarkButton = '[data-testid="bookmark"]';
   readonly retweetButton = '[data-testid="retweet"]';
   readonly retweetConfirm = '[data-testid="retweetConfirm"]';
+  // Quote-tweet flow may land on either the retweet or unretweet variant
+  // depending on whether the current account already retweeted; both open
+  // the same menu where "Quote" lives.
+  readonly retweetOrUnretweetButton = '[data-testid="retweet"], [data-testid="unretweet"]';
   readonly quoteMenuItem = '[data-testid="quoteTweet"]';
   readonly quoteComposer = '[data-testid="tweetTextarea_0"]';
 

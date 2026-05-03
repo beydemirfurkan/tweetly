@@ -27,7 +27,7 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
   async execute(action: ActionContext<QuotePayload>, session: XSession): Promise<ExecutionResult> {
     const { text, targetTweetUrl } = action.payload;
     if (!targetTweetUrl?.includes('/status/')) {
-      return { ok: false, errorClass: 'permanent', message: `Geçersiz tweet URL: ${targetTweetUrl}` };
+      return { ok: false, errorClass: 'permanent', message: `invalid tweet URL: ${targetTweetUrl}` };
     }
 
     try {
@@ -41,7 +41,7 @@ export class PatchrightQuoteExecutor implements IXActionExecutor<QuotePayload>, 
           await this.browser.assertSessionHealthy(page, session.accountId);
           await page.waitForSelector(this.sel.tweetArticle, { timeout: 15_000 });
 
-          const retweetBtn = page.locator('[data-testid="retweet"], [data-testid="unretweet"]').first();
+          const retweetBtn = page.locator(this.sel.retweetOrUnretweetButton).first();
           await retweetBtn.waitFor({ timeout: 10_000 });
           await retweetBtn.click();
 

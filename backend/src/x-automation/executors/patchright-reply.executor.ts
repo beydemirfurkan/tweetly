@@ -8,6 +8,7 @@ import type {
 } from '../../domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '../../action-engine/executor-registry.service';
 import { XPostFlowService, isAuthRequiredError } from '../browser/x-post-flow.service';
+import { SelectorRegistry } from '../browser/selector-registry';
 
 interface ReplyPayload {
   text: string;
@@ -24,6 +25,7 @@ export class PatchrightReplyExecutor
   constructor(
     private readonly registry: ExecutorRegistry,
     private readonly flow: XPostFlowService,
+    private readonly sel: SelectorRegistry,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -37,7 +39,7 @@ export class PatchrightReplyExecutor
       return {
         ok: false,
         errorClass: 'permanent',
-        message: `Geçersiz parent URL: ${action.payload.parentTweetUrl}`,
+        message: `invalid parent URL: ${action.payload.parentTweetUrl}`,
       };
     }
     try {
@@ -50,7 +52,7 @@ export class PatchrightReplyExecutor
             waitUntil: 'domcontentloaded',
             timeout: 30000,
           });
-          await page.waitForSelector('article[data-testid="tweet"]', { timeout: 15000 });
+          await page.waitForSelector(this.sel.tweetArticle, { timeout: 15000 });
         },
         composerLabel: 'Reply composer',
       });

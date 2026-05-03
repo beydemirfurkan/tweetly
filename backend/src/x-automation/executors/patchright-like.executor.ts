@@ -26,7 +26,7 @@ export class PatchrightLikeExecutor implements IXActionExecutor<LikePayload>, On
   async execute(action: ActionContext<LikePayload>, session: XSession): Promise<ExecutionResult> {
     const url = action.payload.targetTweetUrl;
     if (!url?.includes('/status/')) {
-      return { ok: false, errorClass: 'permanent', message: `Geçersiz tweet URL: ${url}` };
+      return { ok: false, errorClass: 'permanent', message: `invalid tweet URL: ${url}` };
     }
 
     const { context, page } = await this.browser.launch(session.accountId);
