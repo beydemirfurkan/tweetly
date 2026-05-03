@@ -49,27 +49,22 @@ export default function GuidePage() {
         {/* Step 3 */}
         <StepCard num="03" title={t('step3Title')}>
           <p className="text-sm text-muted-foreground">{t('step3Desc')}</p>
-          <pre className="mt-3 overflow-x-auto rounded-md border border-border bg-muted/40 px-4 py-3 font-mono text-xs text-muted-foreground">
-{`claude mcp add tweetly \\
-  --url <backend>/mcp/sse \\
-  --header "Authorization: Bearer tk_..."`}
-          </pre>
+          <Link
+            href="/"
+            className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+          >
+            {t('step3Link')}
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </StepCard>
 
         {/* Step 4 */}
         <StepCard num="04" title={t('step4Title')}>
           <p className="text-sm text-muted-foreground">{t('step4Desc')}</p>
           <pre className="mt-3 overflow-x-auto rounded-md border border-border bg-muted/40 px-4 py-3 font-mono text-xs text-muted-foreground">
-{`# In Claude Code conversation:
-Use the post_tweet tool to tweet "Hello from Tweetly MCP!"
-
-# Or via tool call:
-{
-  "tool": "post_tweet",
-  "arguments": {
-    "text": "Hello from Tweetly MCP!"
-  }
-}`}
+{`Tweet "Hello from Tweetly!" using my first account
+Search for tweets mentioning @anthropic, last 10
+Follow @elonmusk from account abc-123`}
           </pre>
         </StepCard>
       </div>
