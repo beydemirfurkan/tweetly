@@ -16,8 +16,12 @@ export const LOGIN_URL = 'https://x.com/i/flow/login';
 export const HOME_URL_PREFIX = 'https://x.com/home';
 
 export const SEL = {
-  // Step 1: username/email input (same field handles both)
-  usernameInput: 'input[autocomplete="username"]',
+  // Step 1: username/email input (same field handles both).
+  // Listed in order of stability — Locator.first() picks the first match.
+  // X has rotated through these attributes in the past; keeping a multi-
+  // selector means a single rename of one attribute doesn't break login.
+  usernameInput:
+    'input[autocomplete="username"], input[name="text"][type="text"], input[data-testid="ocfEnterTextTextInput"]',
 
   // Step 1.5: unusual-login challenge re-prompts the same input asking for the
   // *other* identifier (email if you typed handle, or vice-versa).

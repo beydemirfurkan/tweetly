@@ -94,7 +94,7 @@ export class XLoginService {
   private async runFlow(page: Page, input: XLoginInput & { username: string }): Promise<void> {
     await this.step('navigate', async () => {
       await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
-    });
+    }, page);
 
     await this.step('username', async () => {
       const field = page.locator(SEL.usernameInput).first();
@@ -104,7 +104,7 @@ export class XLoginService {
       await field.click();
       await page.keyboard.type(input.username, { delay: 30 });
       await this.submitUsernameStep(page, field);
-    });
+    }, page);
 
     // X may now show:
     //  (a) password screen directly, or
@@ -196,7 +196,7 @@ export class XLoginService {
     await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
   }
 
-  private async step<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  private async step<T>(name: string, fn: () => Promise<T>, page?: Page): Promise<T> {
     const t = Date.now();
     try {
       const out = await fn();
@@ -205,10 +205,22 @@ export class XLoginService {
     } catch (err) {
       if (err instanceof LoginFlowError) throw err;
       const msg = err instanceof Error ? err.message : String(err);
-      // TimeoutError is what Patchright throws on selector waits; map it
-      // generically — concrete classification happens at higher layers (e.g.
-      // verify-home checks the page text).
-      throw new LoginFlowError('unknown', `step ${name}: ${truncate(msg, 200)}`);
+      // Best-effort page-state snapshot so the failure detail surfaces a
+      // *reason* (e.g. "url=…/login/error", "captcha=arkose", visible alert
+      // text) instead of a bare 'Timeout exceeded'. Helpful when X drifts the
+      // login DOM and selectors need tuning. Only inspected if `page` was
+      // passed — keeps non-page steps lean.
+      let extra = '';
+      if (page) {
+        try {
+          const ctx = await captureDebug(page);
+          if (ctx) extra = ` ${ctx}`;
+        } catch {}
+      }
+      throw new LoginFlowError(
+        'unknown',
+        `step ${name}: ${truncate(msg, 160)}${extra}`,
+      );
     }
   }
 
