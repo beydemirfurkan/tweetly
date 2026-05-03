@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
+import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**
@@ -8,8 +9,10 @@ import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
  * touching the monitor row.
  */
 @Injectable()
-export class MonitorHandler {
-  constructor(private readonly monitoring: MonitoringService) {}
+export class MonitorHandler extends BaseMcpHandler {
+  constructor(private readonly monitoring: MonitoringService) {
+    super();
+  }
 
   async createMonitor(args: McpToolArgs, ctx: McpToolContext) {
     const targetHandle = args.target_handle as string;

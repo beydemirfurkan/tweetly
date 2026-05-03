@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
+import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**
@@ -9,8 +10,10 @@ import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
  * other write tools.
  */
 @Injectable()
-export class ProfileHandler {
-  constructor(private readonly enqueue: ActionEnqueueService) {}
+export class ProfileHandler extends BaseMcpHandler {
+  constructor(private readonly enqueue: ActionEnqueueService) {
+    super();
+  }
 
   async unlikeTweet(args: McpToolArgs, ctx: McpToolContext) {
     const tweetUrl = args.tweet_url as string;

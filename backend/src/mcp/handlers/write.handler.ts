@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
+import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**
@@ -8,8 +9,10 @@ import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
  * asynchronously in the action engine workers.
  */
 @Injectable()
-export class WriteHandler {
-  constructor(private readonly enqueue: ActionEnqueueService) {}
+export class WriteHandler extends BaseMcpHandler {
+  constructor(private readonly enqueue: ActionEnqueueService) {
+    super();
+  }
 
   async postTweet(args: McpToolArgs, ctx: McpToolContext) {
     const text = args.text as string;

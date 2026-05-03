@@ -5,7 +5,6 @@ import { AdminApiService } from '@/admin-api/admin-api.service';
 import { SettingsService } from '@/settings/settings.service';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
-import { LoginValidationError } from '@common/exceptions';
 import {
   assertBase32Secret,
   normalizeUsername,
@@ -13,6 +12,7 @@ import {
 } from '@/x-automation/login/login-validation';
 import type { ActionType, ActionStatus } from '@domain/types/action.types';
 import { ACTION_TYPES, ACTION_STATUSES } from '@domain/types/action.types';
+import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**
@@ -22,7 +22,7 @@ import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
  * can stub them.
  */
 @Injectable()
-export class AccountHandler {
+export class AccountHandler extends BaseMcpHandler {
   constructor(
     private readonly accounts: AccountsService,
     private readonly adminApi: AdminApiService,
@@ -30,7 +30,9 @@ export class AccountHandler {
     private readonly cipher: CredentialCipherService,
     private readonly loginJobs: LoginJobsRepository,
     private readonly dataSource: DataSource,
-  ) {}
+  ) {
+    super();
+  }
 
   async getAccounts(_args: McpToolArgs, ctx: McpToolContext) {
     const list = await this.accounts.listAllForUser(ctx.userId);
@@ -61,19 +63,13 @@ export class AccountHandler {
   }
 
   async connectXAccount(args: McpToolArgs, ctx: McpToolContext) {
-    let username: string, email: string | null, password: string;
-    let totpRaw: string | null;
-    try {
-      username = normalizeUsername(args.username);
-      email = typeof args.email === 'string' && args.email.trim() ? args.email.trim() : null;
-      password = requireString(args.password, 'password');
-      const t = args.totp_secret;
-      totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
-      if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
-    } catch (e) {
-      if (e instanceof LoginValidationError) throw new Error(e.message);
-      throw e;
-    }
+    const username = normalizeUsername(args.username);
+    const email = typeof args.email === 'string' && args.email.trim() ? args.email.trim() : null;
+    const password = requireString(args.password, 'password');
+    const t = args.totp_secret;
+    const totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
+    if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
+
     await ctx.assertLoginCooldownIsClear(username);
     const { id } = await this.loginJobs.create({
       userId: ctx.userId,
@@ -100,16 +96,11 @@ export class AccountHandler {
     const account = await this.accounts.findByIdForUser(accountId, ctx.userId);
     if (!account) throw new NotFoundException(`Account ${accountId} not found`);
 
-    let password: string, totpRaw: string | null;
-    try {
-      password = requireString(args.password, 'password');
-      const t = args.totp_secret;
-      totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
-      if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
-    } catch (e) {
-      if (e instanceof LoginValidationError) throw new Error(e.message);
-      throw e;
-    }
+    const password = requireString(args.password, 'password');
+    const t = args.totp_secret;
+    const totpRaw = typeof t === 'string' && t.trim() ? t.trim() : null;
+    if (totpRaw) assertBase32Secret(totpRaw, 'totp_secret');
+
     const encryptedTotp = totpRaw
       ? this.cipher.encrypt(totpRaw)
       : account.totpSecretEncrypted;

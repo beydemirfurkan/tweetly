@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { XDirectService } from '@/x-automation/x-direct.service';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**
@@ -9,11 +10,13 @@ import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
  * idempotent and the result needs to flow back to the caller.
  */
 @Injectable()
-export class ReadHandler {
+export class ReadHandler extends BaseMcpHandler {
   constructor(
     private readonly xDirect: XDirectService,
     private readonly xBrowser: XBrowserService,
-  ) {}
+  ) {
+    super();
+  }
 
   async searchTweets(args: McpToolArgs, ctx: McpToolContext) {
     const query = args.query as string;
