@@ -133,13 +133,13 @@ export default async function DocsPage({
               MCP, or the generated SDK.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a
-                href="/"
+              <Link
+                href={'/connect' as '/connect'}
                 className="pill inline-flex items-center gap-2 border border-border px-5 py-3 text-[13px] font-semibold transition-colors hover:bg-accent"
               >
                 <Code2 className="h-4 w-4" />
                 See MCP setup
-              </a>
+              </Link>
             </div>
           </div>
 

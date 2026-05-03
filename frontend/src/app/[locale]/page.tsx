@@ -172,10 +172,15 @@ export default async function LandingPage({
       {/* DEV-EX BLOCK — terminal-styled command card */}
       <section id="dx" className="border-b border-border">
         <div className="mx-auto max-w-[1100px] px-5 py-20">
-          <SectionEyebrow num="03" label="Developer Experience" />
+          <SectionEyebrow num="03" label="Connect" />
           <h2 className="mt-3 max-w-2xl text-[36px] font-black leading-[1.05] tracking-[-0.03em]">
-            One command to wire it into Claude.
+            Claude Desktop, ChatGPT, Cursor — paste the URL, done.
           </h2>
+          <p className="mt-5 max-w-[58ch] text-[15px] leading-[1.6] text-muted-foreground">
+            Streamable HTTP + OAuth 2.1 ile her MCP-uyumlu client tek tıkta bağlanır.
+            Eski CLI&apos;lar için <code className="font-mono text-foreground">tk_</code>{' '}
+            API key flow&apos;u da hâlâ açık.
+          </p>
           <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-popover">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
               <div className="flex items-center gap-2">
@@ -183,15 +188,29 @@ export default async function LandingPage({
                 <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.78_0.155_80)]/80" />
                 <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
               </div>
-              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">~/agents/xtweetly</span>
-              <span className="font-mono text-[11px] text-muted-foreground">zsh</span>
+              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">MCP server URL</span>
+              <span className="font-mono text-[11px] text-success">● live</span>
             </div>
-            <pre className="overflow-x-auto px-5 py-5 font-mono text-[13px] leading-[1.7]">
-<span className="text-muted-foreground">$ </span><span className="text-foreground">claude mcp add xtweetly \</span>{'\n'}
-<span className="text-muted-foreground">    --url </span><span className="text-primary">https://xtweetly.app/mcp/sse</span><span className="text-foreground"> \</span>{'\n'}
-<span className="text-muted-foreground">    --header </span><span className="text-[oklch(0.78_0.155_80)]">"Authorization: Bearer tk_***"</span>{'\n'}
-<span className="text-success">✓</span><span className="text-muted-foreground"> registered 15 tools · post, reply, quote, search, …</span>
+            <pre className="overflow-x-auto px-5 py-5 font-mono text-[15px] leading-[1.6] text-foreground">
+              https://api.your-domain.com/mcp
             </pre>
+            <div className="border-t border-border px-5 py-4 font-mono text-[12px] leading-[1.65] text-muted-foreground">
+              Claude Desktop → Settings → Connectors → Add → paste URL → Allow.
+              {'\n'}ChatGPT, Cursor, Codex aynı URL ile çalışır.
+            </div>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href={'/connect' as '/connect'}
+              className="pill group inline-flex items-center gap-2 bg-foreground px-6 py-3 text-[14px] font-bold text-background transition-transform hover:scale-[1.02]"
+            >
+              <Sparkles className="h-4 w-4" strokeWidth={2.75} />
+              Per-client setup
+              <ArrowUpRight
+                className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                strokeWidth={2.75}
+              />
+            </Link>
           </div>
         </div>
       </section>
