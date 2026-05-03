@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { useApiFetch, type Monitor, type MonitorsResponse, type MonitorDetailResponse } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { RefreshCw, Plus, Trash2, Pause, Radio, ChevronDown, ChevronUp, External
 import { cn } from '@/lib/utils';
 
 function StatusBadge({ enabled }: { enabled: boolean }) {
+  const t = useTranslations('monitoring');
   return (
     <span
       className={cn(
@@ -19,12 +21,13 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', enabled ? 'bg-emerald-400' : 'bg-muted-foreground')} />
-      {enabled ? 'Aktif' : 'Duraklatıldı'}
+      {enabled ? t('statusActive') : t('statusPaused')}
     </span>
   );
 }
 
 function DeliveryBadge({ status }: { status: 'delivered' | 'failed' }) {
+  const t = useTranslations('monitoring');
   return (
     <span
       className={cn(
@@ -34,7 +37,7 @@ function DeliveryBadge({ status }: { status: 'delivered' | 'failed' }) {
           : 'border-rose-500/25 bg-rose-500/10 text-rose-400',
       )}
     >
-      {status === 'delivered' ? 'İletildi' : 'Başarısız'}
+      {status === 'delivered' ? t('deliveryDelivered') : t('deliveryFailed')}
     </span>
   );
 }
@@ -47,6 +50,9 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
   onExpand: (id: string) => void;
   expanded: boolean;
 }) {
+  const t = useTranslations('monitoring');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const apiFetch = useApiFetch();
   const [detail, setDetail] = useState<MonitorDetailResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -92,7 +98,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
         </td>
         <td className="py-3 pr-4 text-xs text-muted-foreground">
           {monitor.lastCheckAt
-            ? new Date(monitor.lastCheckAt).toLocaleString('tr-TR')
+            ? new Date(monitor.lastCheckAt).toLocaleString(locale)
             : '—'}
         </td>
         <td className="py-3 pr-4">
@@ -101,7 +107,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-              title="Webhook secret'ı yenile"
+              title={t('rotateSecret')}
               onClick={() => onRotate(monitor.id, monitor.targetHandle)}
             >
               <KeyRound className="h-3.5 w-3.5" />
@@ -111,7 +117,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
                 variant="ghost"
                 size="sm"
                 className="h-7 w-7 p-0 text-muted-foreground hover:text-amber-400"
-                title="Duraklat"
+                title={t('pause')}
                 onClick={() => onPause(monitor.id)}
               >
                 <Pause className="h-3.5 w-3.5" />
@@ -121,7 +127,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-              title="Sil"
+              title={tCommon('delete')}
               onClick={() => onDelete(monitor.id)}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -141,7 +147,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
             ) : detail && detail.recentDeliveries.length > 0 ? (
               <div className="space-y-1">
                 <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Son Webhook İletimleri
+                  {t('recentDeliveries')}
                 </p>
                 <table className="w-full text-xs">
                   <tbody>
@@ -153,7 +159,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
                           {d.lastError ?? '—'}
                         </td>
                         <td className="py-1 text-muted-foreground">
-                          {d.createdAt ? new Date(d.createdAt).toLocaleString('tr-TR') : '—'}
+                          {d.createdAt ? new Date(d.createdAt).toLocaleString(locale) : '—'}
                         </td>
                       </tr>
                     ))}
@@ -161,7 +167,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
                 </table>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Henüz webhook iletimi yok.</p>
+              <p className="text-xs text-muted-foreground">{t('noDeliveries')}</p>
             )}
           </td>
         </tr>
@@ -171,6 +177,8 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
 }
 
 export default function MonitoringPage() {
+  const t = useTranslations('monitoring');
+  const tCommon = useTranslations('common');
   const apiFetch = useApiFetch();
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,8 +208,8 @@ export default function MonitoringPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.targetHandle.trim()) { setFormError('Hedef kullanıcı adı zorunlu'); return; }
-    if (!form.webhookUrl.trim()) { setFormError('Webhook URL zorunlu'); return; }
+    if (!form.targetHandle.trim()) { setFormError(t('errorHandleRequired')); return; }
+    if (!form.webhookUrl.trim()) { setFormError(t('errorWebhookRequired')); return; }
     setCreating(true);
     setFormError('');
     try {
@@ -229,7 +237,7 @@ export default function MonitoringPage() {
   };
 
   const handleRotate = async (id: string, handle: string) => {
-    if (!confirm(`"@${handle}" için yeni webhook secret üretilecek; eskisi geçersiz olacak. Devam edilsin mi?`)) return;
+    if (!confirm(t('rotateConfirm', { handle }))) return;
     try {
       const result = await apiFetch<{ webhookSecret: string }>(`/api/v1/monitors/${id}/rotate-secret`, {
         method: 'POST',
@@ -249,7 +257,7 @@ export default function MonitoringPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Bu monitörü silmek istediğinizden emin misiniz?')) return;
+    if (!confirm(t('deleteConfirm'))) return;
     try {
       await apiFetch(`/api/v1/monitors/${id}`, { method: 'DELETE' });
       setMonitors((prev) => prev.filter((m) => m.id !== id));
@@ -274,13 +282,13 @@ export default function MonitoringPage() {
       <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            <span className="text-primary">●</span> Realtime
+            <span className="text-primary">●</span> {t('kicker')}
           </p>
           <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
-            Monitoring
+            {t('title')}
           </h1>
           <p className="mt-1 text-[14px] text-muted-foreground">
-            Hesap izleme ve webhook bildirimleri
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -292,7 +300,7 @@ export default function MonitoringPage() {
             className="h-9 gap-1.5 text-xs"
           >
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin-slow')} />
-            Yenile
+            {tCommon('refresh')}
           </Button>
           <Button
             size="sm"
@@ -300,7 +308,7 @@ export default function MonitoringPage() {
             className="h-9 gap-1.5 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
-            Yeni Monitor
+            {t('newMonitor')}
           </Button>
         </div>
       </header>
@@ -310,7 +318,7 @@ export default function MonitoringPage() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <Radio className="h-3.5 w-3.5 text-primary" />
-              Yeni Monitor Ekle
+              {t('newMonitorTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -318,7 +326,7 @@ export default function MonitoringPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Hedef Kullanıcı Adı <span className="text-destructive">*</span>
+                    {t('targetHandle')} <span className="text-destructive">*</span>
                   </label>
                   <Input
                     placeholder="elonmusk"
@@ -329,10 +337,10 @@ export default function MonitoringPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Webhook URL <span className="text-destructive">*</span>
+                    {t('webhookUrl')} <span className="text-destructive">*</span>
                   </label>
                   <Input
-                    placeholder="https://your-server.com/webhook"
+                    placeholder={t('webhookUrlPlaceholder')}
                     value={form.webhookUrl}
                     onChange={(e) => setForm((f) => ({ ...f, webhookUrl: e.target.value }))}
                     className="h-9 text-sm"
@@ -340,10 +348,10 @@ export default function MonitoringPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Hesap ID <span className="text-muted-foreground/60">(opsiyonel)</span>
+                    {t('accountIdLabel')} <span className="text-muted-foreground/60">{t('optional')}</span>
                   </label>
                   <Input
-                    placeholder="Varsayılan hesap kullanılır"
+                    placeholder={t('accountIdPlaceholder')}
                     value={form.accountId}
                     onChange={(e) => setForm((f) => ({ ...f, accountId: e.target.value }))}
                     className="h-9 text-sm font-mono"
@@ -355,7 +363,7 @@ export default function MonitoringPage() {
               )}
               <div className="flex items-center gap-2">
                 <Button type="submit" size="sm" disabled={creating} className="h-8 text-xs">
-                  {creating ? 'Oluşturuluyor...' : 'Oluştur'}
+                  {creating ? tCommon('creating') : tCommon('create')}
                 </Button>
                 <Button
                   type="button"
@@ -364,7 +372,7 @@ export default function MonitoringPage() {
                   className="h-8 text-xs"
                   onClick={() => { setShowForm(false); setFormError(''); }}
                 >
-                  İptal
+                  {tCommon('cancel')}
                 </Button>
               </div>
             </form>
@@ -374,8 +382,8 @@ export default function MonitoringPage() {
 
       {error && (
         <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <span>API hatası: {error}</span>
-          <button onClick={load} className="ml-auto underline hover:no-underline">Tekrar dene</button>
+          <span>{tCommon('apiError')}: {error}</span>
+          <button onClick={load} className="ml-auto underline hover:no-underline">{tCommon('retry')}</button>
         </div>
       )}
 
@@ -383,7 +391,7 @@ export default function MonitoringPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <span className="h-1 w-3 rounded-full bg-primary" />
-            Aktif Monitörler
+            {t('activeMonitors')}
             <span className="ml-1 rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
               {monitors.length}
             </span>
@@ -400,9 +408,9 @@ export default function MonitoringPage() {
                 <Radio className="h-5 w-5 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">Henüz monitor yok</p>
+                <p className="text-sm font-medium text-foreground">{t('empty')}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Bir Twitter hesabını izlemeye başlamak için "Yeni Monitor" butonuna tıklayın.
+                  {t('emptyHint')}
                 </p>
               </div>
             </div>
@@ -411,9 +419,9 @@ export default function MonitoringPage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border/40">
-                    {['Kullanıcı', 'Webhook URL', 'Durum', 'Son Kontrol', 'İşlemler', ''].map((h) => (
+                    {[t('colUser'), t('colWebhook'), t('colStatus'), t('colLastCheck'), t('colActions'), ''].map((h, i) => (
                       <th
-                        key={h}
+                        key={i}
                         className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
                       >
                         {h}
@@ -445,12 +453,14 @@ export default function MonitoringPage() {
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
               <KeyRound className="h-4 w-4 text-primary" />
-              Webhook secret — sadece bir kez gösterilir
+              {t('secretTitle')}
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
-              <span className="font-mono">@{createdSecret.targetHandle}</span> için secret. Webhook
-              alıcınızda <code className="rounded bg-muted px-1">X-Tweetly-Signature</code>{' '}
-              imzasını doğrulamak için bu değeri saklayın.
+              {t.rich('secretDesc', {
+                handleName: createdSecret.targetHandle,
+                handle: (chunks) => <span className="font-mono">{chunks}</span>,
+                code: (chunks) => <code className="rounded bg-muted px-1">{chunks}</code>,
+              })}
             </p>
             <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs">
               <span className="flex-1 truncate">{createdSecret.secret}</span>
@@ -468,7 +478,7 @@ const expected = crypto.createHmac('sha256', SECRET)
   .update(\`\${ts}.\${rawBody}\`).digest('hex');`}
             </pre>
             <div className="mt-4 flex justify-end">
-              <Button size="sm" onClick={() => setCreatedSecret(null)}>Anladım</Button>
+              <Button size="sm" onClick={() => setCreatedSecret(null)}>{t('secretAck')}</Button>
             </div>
           </div>
         </div>

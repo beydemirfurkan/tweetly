@@ -201,3 +201,9 @@
 .pill {
   border-radius: 9999px;
 }
+
+/* Clerk: hide the "Secured by Clerk" + "Development mode" footer banner.
+   The cl-footerAction container (Sign in/up link) is preserved. */
+.cl-footer > div:not(.cl-footerAction) {
+  display: none !important;
+}

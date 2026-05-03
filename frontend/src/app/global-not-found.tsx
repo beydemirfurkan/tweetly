@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: '404 — Tweetly',
+  title: '404 — xtweetly',
   description: 'This page is not in the timeline.',
 };
 
@@ -46,7 +46,7 @@ export default function GlobalNotFound() {
                 <Bird className="h-[18px] w-[18px]" strokeWidth={2.5} />
               </div>
               <span className="text-[15px] font-extrabold tracking-tight">
-                Tweetly
+                xtweetly
               </span>
             </a>
 
@@ -95,7 +95,7 @@ export default function GlobalNotFound() {
                   <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
                 </div>
                 <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                  tweetly · router
+                  xtweetly · router
                 </span>
                 <span className="font-mono text-[11px] text-destructive">● 404</span>
               </div>

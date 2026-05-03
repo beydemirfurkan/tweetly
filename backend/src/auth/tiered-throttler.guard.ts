@@ -4,12 +4,12 @@ import type { Request } from 'express';
 import type { AuthedRequest } from './api-key.guard';
 
 /**
- * xquik-modeli rate limiter.
+ * Tiered rate limiter.
  * Per-user (req.tweetlyAuth.userId) tracker; IP fallback for unauthenticated requests.
  * Tier limits are applied via @RateLimitRead / @RateLimitWrite / @RateLimitDelete /
  * @RateLimitConnect / @RateLimitFollow factories below.
  *
- * 429 body matches xquik:  { error: "rate_limit_exceeded", retryAfter, statusCode }
+ * 429 body: { error: "rate_limit_exceeded", retryAfter, statusCode }
  * Retry-After response header is set automatically by ThrottlerGuard.
  */
 @Injectable()
@@ -42,7 +42,7 @@ export class TieredThrottlerGuard extends ThrottlerGuard {
   }
 }
 
-// ── Tier decorator factories (xquik mirror) ─────────────────────────────────
+// ── Tier decorator factories ────────────────────────────────────────────────
 
 /** Read tier: 120 requests / 60s */
 export const RateLimitRead = () =>

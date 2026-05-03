@@ -49,7 +49,7 @@ export function Sidebar() {
         </div>
         <div className="min-w-0 leading-tight">
           <span className="block truncate text-[15px] font-extrabold tracking-tight text-foreground">
-            Tweetly
+            xtweetly
           </span>
           <span className="block truncate text-[11px] text-muted-foreground">
             {email ?? 'MCP Platform'}
@@ -122,11 +122,7 @@ export function Sidebar() {
         </div>
         <div className="flex items-center justify-between rounded-full bg-accent/50 px-3 py-2">
           <span className="truncate text-[12px] text-muted-foreground">{t('account')}</span>
-          <UserButton
-            appearance={{
-              elements: { userButtonAvatarBox: 'h-7 w-7' },
-            }}
-          />
+          <UserButton />
         </div>
       </div>
     </aside>

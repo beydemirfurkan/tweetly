@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { useApiFetch, type ActionRow } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,47 +33,50 @@ const ACTION_TYPES = [
   'banner_update',
 ];
 
-const STATUS_STYLES: Record<
-  string,
-  { label: string; className: string }
-> = {
-  pending: {
-    label: 'Bekleyen',
-    className: 'border-border bg-muted/50 text-muted-foreground',
-  },
-  claimed: {
-    label: 'Alındı',
-    className: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
-  },
-  running: {
-    label: 'Çalışıyor',
-    className: 'border-primary/25 bg-primary/10 text-primary',
-  },
-  succeeded: {
-    label: 'Başarılı',
-    className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
-  },
-  failed: {
-    label: 'Başarısız',
-    className: 'border-destructive/25 bg-destructive/10 text-destructive',
-  },
-  dead: {
-    label: 'Dead',
-    className: 'border-destructive/40 bg-destructive/15 text-destructive font-semibold',
-  },
-  cancelled: {
-    label: 'İptal',
-    className: 'border-border bg-muted/30 text-muted-foreground',
-  },
+const STATUS_CLASS: Record<string, string> = {
+  pending: 'border-border bg-muted/50 text-muted-foreground',
+  claimed: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
+  running: 'border-primary/25 bg-primary/10 text-primary',
+  succeeded: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
+  failed: 'border-destructive/25 bg-destructive/10 text-destructive',
+  dead: 'border-destructive/40 bg-destructive/15 text-destructive font-semibold',
+  cancelled: 'border-border bg-muted/30 text-muted-foreground',
+};
+
+const STATUS_LABEL_KEY: Record<string, string> = {
+  pending: 'statusPending',
+  claimed: 'statusClaimed',
+  running: 'statusRunning',
+  succeeded: 'statusSucceeded',
+  failed: 'statusFailed',
+  dead: 'statusDead',
+  cancelled: 'statusCancelled',
 };
 
 export default function ActionsPage() {
+  const t = useTranslations('actions');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const apiFetch = useApiFetch();
   const [type, setType] = useState('post');
   const [status, setStatus] = useState<string>('');
   const [rows, setRows] = useState<ActionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
+
+  const statusOptions = useMemo(
+    () =>
+      Object.keys(STATUS_LABEL_KEY).map((key) => ({
+        key,
+        label: t(STATUS_LABEL_KEY[key] as Parameters<typeof t>[0]),
+      })),
+    [t],
+  );
+
+  const tableHeaders = useMemo(
+    () => [t('colId'), t('colStatus'), t('colAccount'), t('colAttempts'), t('colSchedule'), t('colError'), ''],
+    [t],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,8 +110,8 @@ export default function ActionsPage() {
   if (loadError) {
     return (
       <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-        <span>API hatası: {loadError}</span>
-        <button onClick={load} className="ml-auto underline hover:no-underline">Tekrar dene</button>
+        <span>{tCommon('apiError')}: {loadError}</span>
+        <button onClick={load} className="ml-auto underline hover:no-underline">{tCommon('retry')}</button>
       </div>
     );
   }
@@ -116,13 +120,13 @@ export default function ActionsPage() {
     <div className="space-y-6 animate-fade-up">
       <header className="border-b border-border pb-6">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          <span className="text-primary">●</span> Queue
+          <span className="text-primary">●</span> {t('kicker')}
         </p>
         <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
-          Aksiyonlar
+          {t('title')}
         </h1>
         <p className="mt-1 text-[14px] text-muted-foreground">
-          Kuyruklanmış görevleri izleyin ve yönetin
+          {t('subtitle')}
         </p>
       </header>
 
@@ -133,9 +137,9 @@ export default function ActionsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {ACTION_TYPES.map((t) => (
-              <SelectItem key={t} value={t} className="font-mono text-xs">
-                {t}
+            {ACTION_TYPES.map((tt) => (
+              <SelectItem key={tt} value={tt} className="font-mono text-xs">
+                {tt}
               </SelectItem>
             ))}
           </SelectContent>
@@ -143,13 +147,13 @@ export default function ActionsPage() {
 
         <Select value={status} onValueChange={(v) => setStatus(v ?? '')}>
           <SelectTrigger className="h-9 w-40 text-xs">
-            <SelectValue placeholder="Tüm durumlar" />
+            <SelectValue placeholder={t('allStatuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Tüm durumlar</SelectItem>
-            {Object.entries(STATUS_STYLES).map(([key, s]) => (
+            <SelectItem value="">{t('allStatuses')}</SelectItem>
+            {statusOptions.map(({ key, label }) => (
               <SelectItem key={key} value={key} className="text-xs">
-                {s.label}
+                {label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -163,13 +167,13 @@ export default function ActionsPage() {
           className="h-9 gap-1.5 text-xs"
         >
           <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin-slow')} />
-          Yenile
+          {tCommon('refresh')}
         </Button>
 
         <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
           <Zap className="h-3.5 w-3.5 text-primary" />
           <span className="font-mono">{rows.length}</span>
-          kayıt
+          {t('records')}
         </div>
       </div>
 
@@ -178,7 +182,7 @@ export default function ActionsPage() {
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <span className="h-1 w-3 rounded-full bg-primary" />
             <span className="font-mono">{type}</span>
-            <span className="text-muted-foreground">aksiyonları</span>
+            <span className="text-muted-foreground">{t('ofType')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -190,28 +194,27 @@ export default function ActionsPage() {
             </div>
           ) : rows.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
-              Bu filtrelerle kayıt bulunamadı.
+              {t('empty')}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border/40">
-                    {['ID', 'Durum', 'Hesap', 'Deneme', 'Zamanlama', 'Hata', ''].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground last:text-right"
-                        >
-                          {h}
-                        </th>
-                      ),
-                    )}
+                    {tableHeaders.map((h, i) => (
+                      <th
+                        key={i}
+                        className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground last:text-right"
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const s = STATUS_STYLES[r.status] ?? STATUS_STYLES.pending;
+                    const className = STATUS_CLASS[r.status] ?? STATUS_CLASS.pending;
+                    const labelKey = STATUS_LABEL_KEY[r.status] ?? STATUS_LABEL_KEY.pending;
                     return (
                       <tr
                         key={r.id}
@@ -224,10 +227,10 @@ export default function ActionsPage() {
                           <span
                             className={cn(
                               'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                              s.className,
+                              className,
                             )}
                           >
-                            {s.label}
+                            {t(labelKey as Parameters<typeof t>[0])}
                           </span>
                         </td>
                         <td className="py-2.5 pr-4 font-mono text-muted-foreground">
@@ -237,7 +240,7 @@ export default function ActionsPage() {
                           {r.attempts}/{r.max_attempts}
                         </td>
                         <td className="py-2.5 pr-4 text-muted-foreground">
-                          {new Date(r.scheduled_at).toLocaleString('tr-TR')}
+                          {new Date(r.scheduled_at).toLocaleString(locale)}
                         </td>
                         <td className="max-w-40 truncate py-2.5 pr-4 text-destructive/80">
                           {r.last_error || (
@@ -251,7 +254,7 @@ export default function ActionsPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => replay(r.id)}
-                                title="Tekrar dene"
+                                title={t('retry')}
                                 className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
                               >
                                 <RotateCcw className="h-3 w-3" />
@@ -262,7 +265,7 @@ export default function ActionsPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => cancel(r.id)}
-                                title="İptal et"
+                                title={t('cancelAction')}
                                 className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                               >
                                 <X className="h-3 w-3" />

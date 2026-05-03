@@ -25,12 +25,11 @@ export default async function SignUpPage() {
             <span className="text-primary">●</span> {t('subtitle')}
           </p>
           <h1 className="text-[32px] font-black leading-[1] tracking-[-0.03em]">
-            Join <span className="text-primary">Tweetly</span>
+            Join <span className="text-primary">xtweetly</span>
           </h1>
         </div>
 
         <SignUp
-          appearance={{ variables: { colorPrimary: 'oklch(0.74 0.18 142)' } }}
           routing="hash"
           signInUrl="/login"
           forceRedirectUrl="/dashboard"

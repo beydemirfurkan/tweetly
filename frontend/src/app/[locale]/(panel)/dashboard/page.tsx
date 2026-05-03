@@ -56,7 +56,7 @@ export default function DashboardPage() {
   const queueClean = data.summary.queue.totalPending === 0 && totalDead === 0;
 
   const copyCmd = async () => {
-    const cmd = `claude mcp add tweetly --url ${apiUrl('/mcp/sse')} --header "Authorization: Bearer ${firstActiveKey ? firstActiveKey.prefix + '...' : 'tk_...'}"`;
+    const cmd = `claude mcp add xtweetly --url ${apiUrl('/mcp/sse')} --header "Authorization: Bearer ${firstActiveKey ? firstActiveKey.prefix + '...' : 'tk_...'}"`;
     try {
       await navigator.clipboard.writeText(cmd);
       setCopied(true);
@@ -212,7 +212,7 @@ export default function DashboardPage() {
               </button>
             </div>
             <pre className="overflow-x-auto px-4 py-4 font-mono text-[12.5px] leading-[1.7]">
-<span className="text-muted-foreground">$ </span><span className="text-foreground">claude mcp add tweetly \</span>{'\n'}
+<span className="text-muted-foreground">$ </span><span className="text-foreground">claude mcp add xtweetly \</span>{'\n'}
 <span className="text-muted-foreground">    --url </span><span className="text-primary">{apiUrl('/mcp/sse')}</span><span className="text-foreground"> \</span>{'\n'}
 <span className="text-muted-foreground">    --header </span><span className="text-[oklch(0.78_0.155_80)]">{`"Authorization: Bearer ${firstActiveKey ? firstActiveKey.prefix + '...' : 'tk_...'}"`}</span>
             </pre>

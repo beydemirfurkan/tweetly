@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   useApiFetch,
   type AccountsResponse,
   type RedactedAccount,
   type AccountUpdateBody,
-  type AccountProfile,
 } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,27 +25,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield, Plus, KeyRound, ChevronDown, ChevronUp, ExternalLink, UserCheck, UserPlus, FileText, Loader2 } from 'lucide-react';
+import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield, Plus, KeyRound, ChevronDown, ChevronUp, ExternalLink, UserCheck, UserPlus, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConnectAccountDialog } from '@/components/connect-account-dialog';
 
-const STATUS_STYLES: Record<
-  string,
-  { label: string; className: string }
-> = {
-  active: {
-    label: 'Aktif',
-    className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
-  },
-  paused: {
-    label: 'Duraklatıldı',
-    className: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
-  },
-  banned: {
-    label: 'Yasaklı',
-    className: 'border-destructive/25 bg-destructive/10 text-destructive',
-  },
+const STATUS_CLASS: Record<string, string> = {
+  active: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
+  paused: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
+  banned: 'border-destructive/25 bg-destructive/10 text-destructive',
 };
+
+function statusLabelKey(status: string): 'statusActive' | 'statusPaused' | 'statusBanned' {
+  if (status === 'active') return 'statusActive';
+  if (status === 'banned') return 'statusBanned';
+  return 'statusPaused';
+}
 
 function TokenCell({ has }: { has: boolean }) {
   return has ? (
@@ -56,33 +50,42 @@ function TokenCell({ has }: { has: boolean }) {
 }
 
 function SessionHealthBadge({ session }: { session: RedactedAccount['session'] }) {
+  const t = useTranslations('accounts');
+  const locale = useLocale();
+
   if (session.health === 'healthy') {
+    const title = session.lastCheckAt
+      ? t('sessionLastCheck', { at: new Date(session.lastCheckAt).toLocaleString(locale) })
+      : t('sessionHealthyTitle');
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400"
-        title={session.lastCheckAt ? `Son kontrol: ${new Date(session.lastCheckAt).toLocaleString('tr-TR')}` : 'Sağlıklı'}
+        title={title}
       >
         <ShieldCheck className="h-3 w-3" />
-        Sağlıklı
+        {t('sessionHealthy')}
       </span>
     );
   }
   if (session.health === 'unhealthy') {
-    const reason = session.lastFailureReason ?? 'Auth başarısız';
+    const reason = session.lastFailureReason ?? t('sessionAuthFailed');
+    const at = session.lastFailureAt
+      ? ` (${new Date(session.lastFailureAt).toLocaleString(locale)})`
+      : '';
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive"
-        title={`${reason}${session.lastFailureAt ? ` (${new Date(session.lastFailureAt).toLocaleString('tr-TR')})` : ''} — token süresi dolmuş olabilir`}
+        title={t('sessionTokenExpiredHint', { reason, at })}
       >
         <ShieldAlert className="h-3 w-3" />
-        Token süresi dolmuş?
+        {t('sessionTokenExpired')}
       </span>
     );
   }
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-      title="Henüz aksiyon çalıştırılmadı"
+      title={t('sessionNotChecked')}
     >
       <Shield className="h-3 w-3" />
       —
@@ -115,9 +118,12 @@ function ProfileCard({
   onRefreshProfile: () => void;
   refreshing: boolean;
 }) {
+  const t = useTranslations('accounts');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const accId = String(account.id ?? '');
   const statusKey = typeof account.status === 'string' ? account.status : '';
-  const statusStyle = STATUS_STYLES[statusKey] ?? STATUS_STYLES.paused;
+  const statusClass = STATUS_CLASS[statusKey] ?? STATUS_CLASS.paused;
   const profile = account.profile;
 
   return (
@@ -148,10 +154,10 @@ function ProfileCard({
                   <span
                     className={cn(
                       'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                      statusStyle.className,
+                      statusClass,
                     )}
                   >
-                    {statusStyle.label}
+                    {t(statusLabelKey(statusKey))}
                   </span>
                   <SessionHealthBadge session={account.session} />
                 </div>
@@ -177,7 +183,7 @@ function ProfileCard({
                     size="sm"
                     onClick={onReauth}
                     className="h-7 w-7 p-0 text-amber-400 opacity-100"
-                    title="Yeniden doğrula"
+                    title={t('reauth')}
                   >
                     <KeyRound className="h-3.5 w-3.5" />
                   </Button>
@@ -188,7 +194,7 @@ function ProfileCard({
                   onClick={onRefreshProfile}
                   disabled={refreshing}
                   className="h-7 w-7 p-0"
-                  title="Profili yenile"
+                  title={t('refreshProfile')}
                 >
                   <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
                 </Button>
@@ -197,7 +203,7 @@ function ProfileCard({
                   size="sm"
                   onClick={onEdit}
                   className="h-7 w-7 p-0"
-                  title="Düzenle"
+                  title={tCommon('edit')}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
@@ -206,7 +212,7 @@ function ProfileCard({
                   size="sm"
                   onClick={onDelete}
                   className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                  title="Sil"
+                  title={tCommon('delete')}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -217,17 +223,17 @@ function ProfileCard({
               <StatPill
                 icon={<UserCheck className="h-3 w-3" />}
                 value={profile?.followersCount ?? '—'}
-                label="Takipçi"
+                label={t('statFollowers')}
               />
               <StatPill
                 icon={<UserPlus className="h-3 w-3" />}
                 value={profile?.followingCount ?? '—'}
-                label="Takip"
+                label={t('statFollowing')}
               />
               <StatPill
                 icon={<FileText className="h-3 w-3" />}
                 value={profile?.tweetsCount ?? '—'}
-                label="Gönderi"
+                label={t('statTweets')}
               />
             </div>
           </div>
@@ -242,9 +248,12 @@ function ProfileCard({
               CT0 <TokenCell has={Boolean(account.hasCt0)} />
             </span>
             <span>
-              Son: {account.lastUsedAt != null
-                ? new Date(String(account.lastUsedAt)).toLocaleString('tr-TR')
-                : '—'}
+              {t('lastUsed', {
+                at:
+                  account.lastUsedAt != null
+                    ? new Date(String(account.lastUsedAt)).toLocaleString(locale)
+                    : '—',
+              })}
             </span>
           </div>
           <a
@@ -253,7 +262,7 @@ function ProfileCard({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
           >
-            Profili gör
+            {t('viewProfile')}
             <ExternalLink className="h-3 w-3" />
           </a>
         </div>
@@ -263,6 +272,8 @@ function ProfileCard({
 }
 
 export default function AccountsPage() {
+  const t = useTranslations('accounts');
+  const tCommon = useTranslations('common');
   const apiFetch = useApiFetch();
   const [accounts, setAccounts] = useState<RedactedAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -333,7 +344,7 @@ export default function AccountsPage() {
   };
 
   const deleteAccount = async (id: string) => {
-    if (!confirm(`"${id}" hesabını silmek istediğinizden emin misiniz?\nBağlı monitörler ve bekleyen aksiyonlar da iptal edilir.`)) return;
+    if (!confirm(t('deleteConfirm', { id }))) return;
     try {
       await apiFetch(`/api/v1/accounts/${id}`, { method: 'DELETE' });
       loadAccounts();
@@ -345,8 +356,8 @@ export default function AccountsPage() {
   if (loadError) {
     return (
       <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-        <span>API hatası: {loadError}</span>
-        <button onClick={loadAccounts} className="ml-auto underline hover:no-underline">Tekrar dene</button>
+        <span>{tCommon('apiError')}: {loadError}</span>
+        <button onClick={loadAccounts} className="ml-auto underline hover:no-underline">{tCommon('retry')}</button>
       </div>
     );
   }
@@ -356,13 +367,13 @@ export default function AccountsPage() {
       <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            <span className="text-primary">●</span> Identity
+            <span className="text-primary">●</span> {t('kicker')}
           </p>
           <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
-            Hesaplar
+            {t('title')}
           </h1>
           <p className="mt-1 text-[14px] text-muted-foreground">
-            Kayıtlı Twitter hesaplarını yönetin
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -374,11 +385,11 @@ export default function AccountsPage() {
             className="gap-1.5"
           >
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin-slow')} />
-            Yenile
+            {tCommon('refresh')}
           </Button>
           <Button size="sm" className="gap-1.5" onClick={() => setConnectOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
-            Hesap Ekle
+            {t('addAccount')}
           </Button>
         </div>
       </header>
@@ -393,10 +404,10 @@ export default function AccountsPage() {
         <Card className="border-border/60">
           <CardContent className="py-12 text-center">
             <Users className="mx-auto h-8 w-8 text-muted-foreground/40" />
-            <p className="mt-3 text-sm text-muted-foreground">Henüz kayıtlı hesap yok.</p>
+            <p className="mt-3 text-sm text-muted-foreground">{t('empty')}</p>
             <Button size="sm" className="mt-4 gap-1.5" onClick={() => setConnectOpen(true)}>
               <Plus className="h-3.5 w-3.5" />
-              İlk Hesabı Ekle
+              {t('addFirst')}
             </Button>
           </CardContent>
         </Card>
@@ -434,10 +445,10 @@ export default function AccountsPage() {
             <div className="space-y-4 pt-1">
               <div className="space-y-1.5">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Görünen Ad
+                  {t('displayName')}
                 </Label>
                 <Input
-                  placeholder={editAccount.displayName ?? 'Ad girin...'}
+                  placeholder={editAccount.displayName ?? t('displayNamePlaceholder')}
                   value={editForm.displayName ?? ''}
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, displayName: e.target.value }))
@@ -447,7 +458,7 @@ export default function AccountsPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Durum
+                  {t('status')}
                 </Label>
                 <Select
                   value={editForm.status ?? editAccount.status}
@@ -462,9 +473,9 @@ export default function AccountsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Aktif</SelectItem>
-                    <SelectItem value="paused">Duraklatıldı</SelectItem>
-                    <SelectItem value="banned">Yasaklı</SelectItem>
+                    <SelectItem value="active">{t('statusActive')}</SelectItem>
+                    <SelectItem value="paused">{t('statusPaused')}</SelectItem>
+                    <SelectItem value="banned">{t('statusBanned')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -484,9 +495,9 @@ export default function AccountsPage() {
               >
                 <KeyRound className="h-4 w-4 flex-shrink-0" />
                 <div>
-                  <div className="font-medium">Bu hesabı yeniden doğrula</div>
+                  <div className="font-medium">{t('reauthTitle')}</div>
                   <div className="text-[11px] opacity-80">
-                    Şifre + (gerekiyorsa) 2FA secret ile yeni session aç.
+                    {t('reauthDesc')}
                   </div>
                 </div>
               </button>
@@ -496,7 +507,7 @@ export default function AccountsPage() {
                 onClick={() => setEditAdvancedOpen((v) => !v)}
                 className="flex w-full items-center justify-between rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30"
               >
-                <span>Gelişmiş: manuel cookie yapıştır</span>
+                <span>{t('advancedToggle')}</span>
                 {editAdvancedOpen ? (
                   <ChevronUp className="h-3.5 w-3.5" />
                 ) : (
@@ -508,11 +519,11 @@ export default function AccountsPage() {
                 <div className="space-y-4 rounded-md border border-border/40 bg-muted/20 p-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Auth Token
+                      {t('authToken')}
                     </Label>
                     <Input
                       type="password"
-                      placeholder="Boş bırakırsanız değişmez"
+                      placeholder={t('advancedPlaceholder')}
                       value={editForm.authToken ?? ''}
                       onChange={(e) =>
                         setEditForm((f) => ({ ...f, authToken: e.target.value }))
@@ -523,11 +534,11 @@ export default function AccountsPage() {
 
                   <div className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                      CT0 (CSRF)
+                      {t('ct0')}
                     </Label>
                     <Input
                       type="password"
-                      placeholder="Boş bırakırsanız değişmez"
+                      placeholder={t('advancedPlaceholder')}
                       value={editForm.ct0 ?? ''}
                       onChange={(e) =>
                         setEditForm((f) => ({ ...f, ct0: e.target.value }))
@@ -538,10 +549,10 @@ export default function AccountsPage() {
 
                   <div className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                      TWID
+                      {t('twid')}
                     </Label>
                     <Input
-                      placeholder="Boş bırakırsanız değişmez"
+                      placeholder={t('advancedPlaceholder')}
                       value={editForm.twid ?? ''}
                       onChange={(e) =>
                         setEditForm((f) => ({ ...f, twid: e.target.value }))
@@ -554,9 +565,9 @@ export default function AccountsPage() {
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setEditAccount(null)}>
-                  İptal
+                  {tCommon('cancel')}
                 </Button>
-                <Button onClick={saveEdit}>Kaydet</Button>
+                <Button onClick={saveEdit}>{tCommon('save')}</Button>
               </div>
             </div>
           )}

@@ -31,7 +31,7 @@ export default async function DocsPage({
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background">
               <Bird className="h-[18px] w-[18px]" strokeWidth={2.5} />
             </div>
-            <span className="text-[17px] font-extrabold tracking-tight">Tweetly</span>
+            <span className="text-[17px] font-extrabold tracking-tight">xtweetly</span>
           </Link>
           <Link
             href="/"
@@ -57,7 +57,7 @@ export default async function DocsPage({
             <span className="text-primary">●</span> API Reference
           </p>
           <h1 className="mt-3 max-w-[18ch] text-[48px] font-black leading-[1.05] tracking-[-0.035em] sm:text-[64px]">
-            Tweetly <span className="text-primary">API</span>
+            xtweetly <span className="text-primary">API</span>
           </h1>
           <p className="mt-5 max-w-[52ch] text-[17px] leading-[1.55] text-muted-foreground">
             Production-grade Swagger UI, served live from the backend. Every route
@@ -104,7 +104,7 @@ export default async function DocsPage({
                     Set <span className="font-mono text-foreground">NEXT_PUBLIC_API_URL</span> in your
                     environment to point this page (and every Docs link) at your live
                     backend. In production it&apos;s usually
-                    something like <span className="font-mono text-foreground">https://api.tweetly.app</span>.
+                    something like <span className="font-mono text-foreground">https://api.xtweetly.app</span>.
                   </p>
                   <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-popover px-4 py-3 font-mono text-[12px] leading-[1.65] text-muted-foreground">
 <span className="text-muted-foreground"># frontend/.env.local</span>{'\n'}
@@ -151,7 +151,7 @@ export default async function DocsPage({
                 <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
               </div>
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                tweetly · openapi 3.1
+                xtweetly · openapi 3.1
               </span>
               <span className="font-mono text-[11px] text-success">
                 {apiBase ? '● live' : '○ unset'}
@@ -179,7 +179,7 @@ export default async function DocsPage({
 
       <footer>
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-5 py-7 text-[12px] text-muted-foreground">
-          <span>© 2026 Tweetly</span>
+          <span>© 2026 xtweetly</span>
           <span className="inline-flex items-center gap-1.5">
             <ScrollText className="h-3.5 w-3.5" />
             OpenAPI 3.1

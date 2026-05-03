@@ -62,7 +62,7 @@ export default function GuidePage() {
         <StepCard num="04" title={t('step4Title')}>
           <p className="text-sm text-muted-foreground">{t('step4Desc')}</p>
           <pre className="mt-3 overflow-x-auto rounded-md border border-border bg-muted/40 px-4 py-3 font-mono text-xs text-muted-foreground">
-{`Tweet "Hello from Tweetly!" using my first account
+{`Tweet "Hello from xtweetly!" using my first account
 Search for tweets mentioning @anthropic, last 10
 Follow @elonmusk from account abc-123`}
           </pre>
