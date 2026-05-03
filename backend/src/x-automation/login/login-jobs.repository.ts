@@ -5,7 +5,7 @@ import type {
   LoginJobFailureReason,
   LoginJobKind,
   LoginJobStatus,
-} from '../../persistence/entities/account-login-job.entity';
+} from '@persistence/entities/account-login-job.entity';
 
 export interface CreateLoginJobInput {
   userId: string;

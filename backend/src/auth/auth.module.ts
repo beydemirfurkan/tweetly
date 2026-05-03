@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserEntity } from '../persistence/entities/user.entity';
-import { ApiKeyEntity } from '../persistence/entities/api-key.entity';
-import { MagicLinkEntity } from '../persistence/entities/magic-link.entity';
-import { SettingsModule } from '../settings/settings.module';
+import { UserEntity } from '@persistence/entities/user.entity';
+import { ApiKeyEntity } from '@persistence/entities/api-key.entity';
+import { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
+import { SettingsModule } from '@/settings/settings.module';
 import { UsersService } from './users.service';
 import { ApiKeyService } from './api-key.service';
 import { MagicLinkService } from './magic-link.service';

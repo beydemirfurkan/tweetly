@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ErrorClass } from '../types/action.types';
+import type { ErrorClass } from '@domain/types/action.types';
 
 export interface RetryDecision {
   shouldRetry: boolean;

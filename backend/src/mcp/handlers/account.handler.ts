@@ -1,18 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { AccountsService } from '../../accounts/accounts.service';
-import { AdminApiService } from '../../admin-api/admin-api.service';
-import { SettingsService } from '../../settings/settings.service';
-import { CredentialCipherService } from '../../common/crypto/credential-cipher.service';
-import { LoginJobsRepository } from '../../x-automation/login/login-jobs.repository';
+import { AccountsService } from '@/accounts/accounts.service';
+import { AdminApiService } from '@/admin-api/admin-api.service';
+import { SettingsService } from '@/settings/settings.service';
+import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
 import {
   LoginValidationError,
   assertBase32Secret,
   normalizeUsername,
   requireString,
-} from '../../x-automation/login/login-validation';
-import type { ActionType, ActionStatus } from '../../domain/types/action.types';
-import { ACTION_TYPES, ACTION_STATUSES } from '../../domain/types/action.types';
+} from '@/x-automation/login/login-validation';
+import type { ActionType, ActionStatus } from '@domain/types/action.types';
+import { ACTION_TYPES, ACTION_STATUSES } from '@domain/types/action.types';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**

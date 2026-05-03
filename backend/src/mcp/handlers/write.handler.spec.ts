@@ -1,6 +1,6 @@
 import { WriteHandler } from './write.handler';
 import { fakeContext } from './__tests__/test-helpers';
-import type { ActionEnqueueService } from '../../action-engine/action-enqueue.service';
+import type { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
 
 function mockEnqueue(): jest.Mocked<ActionEnqueueService> {
   const r = (id = 'a-1', key = 'k-1') => Promise.resolve({ id, idempotencyKey: key });

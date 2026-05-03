@@ -1,10 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { ActionType } from '../../domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '../../domain/ports/x-action-executor.port';
-import { ExecutorRegistry } from '../../action-engine/executor-registry.service';
-import { XPostFlowService, isAuthRequiredError } from '../browser/x-post-flow.service';
-import { XBrowserService } from '../browser/x-browser.service';
-import { SelectorRegistry } from '../browser/selector-registry';
+import type { ActionType } from '@domain/types/action.types';
+import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { XPostFlowService, isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
+import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
 
 interface QuotePayload { text: string; targetTweetUrl: string }
 

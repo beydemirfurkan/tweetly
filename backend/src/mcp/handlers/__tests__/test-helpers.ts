@@ -1,4 +1,4 @@
-import type { McpToolContext } from '../mcp-tool.context';
+import type { McpToolContext } from '@/mcp/handlers/mcp-tool.context';
 
 /**
  * Hand-rolled McpToolContext for handler specs. All helpers default to

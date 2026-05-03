@@ -1,4 +1,4 @@
-import type { SourceQualityBreakdown, Topic, TrendingRepo } from '../types/content.types';
+import type { SourceQualityBreakdown, Topic, TrendingRepo } from '@domain/types/content.types';
 import { inferTopic } from './topic-inference';
 
 export interface SourceQualityScore {

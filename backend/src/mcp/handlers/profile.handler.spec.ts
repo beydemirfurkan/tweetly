@@ -1,6 +1,6 @@
 import { ProfileHandler } from './profile.handler';
 import { fakeContext } from './__tests__/test-helpers';
-import type { ActionEnqueueService } from '../../action-engine/action-enqueue.service';
+import type { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
 
 function mockEnqueue(): jest.Mocked<ActionEnqueueService> {
   const r = Promise.resolve({ id: 'a-1', idempotencyKey: 'k-1' });

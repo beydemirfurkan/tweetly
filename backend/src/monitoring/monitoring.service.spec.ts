@@ -1,7 +1,7 @@
 import { MonitoringService } from './monitoring.service';
-import { mockRepository } from '../test/mocks/repository.mock';
-import type { MonitorEntity } from '../persistence/entities/monitor.entity';
-import type { WebhookDeliveryEntity } from '../persistence/entities/webhook-delivery.entity';
+import { mockRepository } from '@/test/mocks/repository.mock';
+import type { MonitorEntity } from '@persistence/entities/monitor.entity';
+import type { WebhookDeliveryEntity } from '@persistence/entities/webhook-delivery.entity';
 
 function createService() {
   const monitors = mockRepository<MonitorEntity>();

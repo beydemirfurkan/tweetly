@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
-import { MonitorEntity } from '../persistence/entities/monitor.entity';
-import { WebhookDeliveryEntity } from '../persistence/entities/webhook-delivery.entity';
+import { MonitorEntity } from '@persistence/entities/monitor.entity';
+import { WebhookDeliveryEntity } from '@persistence/entities/webhook-delivery.entity';
 
 export interface CreateMonitorInput {
   accountId: string;

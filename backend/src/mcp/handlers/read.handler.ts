@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { XDirectService } from '../../x-automation/x-direct.service';
-import { XBrowserService } from '../../x-automation/browser/x-browser.service';
+import { XDirectService } from '@/x-automation/x-direct.service';
+import { XBrowserService } from '@/x-automation/browser/x-browser.service';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**

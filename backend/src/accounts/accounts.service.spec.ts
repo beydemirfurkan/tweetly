@@ -1,6 +1,6 @@
 import type { DataSource, Repository } from 'typeorm';
 import { AccountsService } from './accounts.service';
-import type { AccountEntity } from '../persistence/entities/account.entity';
+import type { AccountEntity } from '@persistence/entities/account.entity';
 
 describe('AccountsService', () => {
   function createService(): {

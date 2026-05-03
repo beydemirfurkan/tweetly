@@ -1,4 +1,4 @@
-import type { TrendingRepo, Topic } from '../types/content.types';
+import type { TrendingRepo, Topic } from '@domain/types/content.types';
 
 const TOPIC_RULES: Array<{ topic: Topic; pattern: RegExp }> = [
   { topic: 'ai-agents', pattern: /\b(agent|agentic|autonomous|crew|langchain|llamaindex|workflow.?engine|multi.?agent)\b/i },

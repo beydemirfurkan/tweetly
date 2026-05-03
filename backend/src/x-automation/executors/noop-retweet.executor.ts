@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { ActionType } from '../../domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '../../domain/ports/x-action-executor.port';
-import { ExecutorRegistry } from '../../action-engine/executor-registry.service';
+import type { ActionType } from '@domain/types/action.types';
+import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 
 interface RetweetPayload { targetTweetUrl: string }
 

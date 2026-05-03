@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 
-import { XLoginService } from '../x-automation/login/x-login.service';
+import { XLoginService } from '@/x-automation/login/x-login.service';
 
 dotenv.config();
 

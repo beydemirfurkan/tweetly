@@ -18,10 +18,10 @@ import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { NestFactory } from '@nestjs/core';
 import type { Page } from 'patchright';
-import { AppModule } from '../app.module';
-import { XBrowserService } from '../x-automation/browser/x-browser.service';
-import { SelectorRegistry } from '../x-automation/browser/selector-registry';
-import { AccountsService } from '../accounts/accounts.service';
+import { AppModule } from '@/app.module';
+import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
+import { AccountsService } from '@/accounts/accounts.service';
 
 dotenv.config();
 

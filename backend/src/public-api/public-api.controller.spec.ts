@@ -1,14 +1,14 @@
 import type { Request } from 'express';
 
-import type { AccountsService } from '../accounts/accounts.service';
-import type { ProfileCacheService } from '../accounts/profile-cache.service';
-import type { ActionEnqueueService } from '../action-engine/action-enqueue.service';
-import type { AdminApiService } from '../admin-api/admin-api.service';
-import type { CredentialCipherService } from '../common/crypto/credential-cipher.service';
-import type { MonitoringService } from '../monitoring/monitoring.service';
-import type { LoginJobsRepository } from '../x-automation/login/login-jobs.repository';
-import type { XBrowserService } from '../x-automation/browser/x-browser.service';
-import type { XDirectService } from '../x-automation/x-direct.service';
+import type { AccountsService } from '@/accounts/accounts.service';
+import type { ProfileCacheService } from '@/accounts/profile-cache.service';
+import type { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
+import type { AdminApiService } from '@/admin-api/admin-api.service';
+import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import type { MonitoringService } from '@/monitoring/monitoring.service';
+import type { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
+import type { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import type { XDirectService } from '@/x-automation/x-direct.service';
 import { PublicApiController } from './public-api.controller';
 
 function makeController(loginJobsOverrides: Partial<jest.Mocked<LoginJobsRepository>> = {}): {

@@ -1,3 +1,10 @@
+const moduleNameMapper = {
+  '^@domain/(.*)$': '<rootDir>/src/domain/$1',
+  '^@common/(.*)$': '<rootDir>/src/common/$1',
+  '^@persistence/(.*)$': '<rootDir>/src/persistence/$1',
+  '^@/(.*)$': '<rootDir>/src/$1',
+};
+
 module.exports = {
   projects: [
     {
@@ -8,6 +15,7 @@ module.exports = {
       rootDir: '.',
       roots: ['<rootDir>/src'],
       moduleFileExtensions: ['js', 'json', 'ts'],
+      moduleNameMapper,
       transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
       setupFiles: ['<rootDir>/src/test/setup.ts'],
       coverageDirectory: '<rootDir>/coverage',
@@ -30,6 +38,7 @@ module.exports = {
       rootDir: '.',
       roots: ['<rootDir>/test/integration'],
       moduleFileExtensions: ['js', 'json', 'ts'],
+      moduleNameMapper,
       transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
       setupFiles: ['<rootDir>/test/integration/setup.ts'],
       maxWorkers: 1,

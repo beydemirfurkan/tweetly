@@ -1,7 +1,7 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ApiKeyGuard, getAuthContext } from './api-key.guard';
-import type { ApiKeyEntity } from '../persistence/entities/api-key.entity';
+import type { ApiKeyEntity } from '@persistence/entities/api-key.entity';
 
 function makeContext(headers: Record<string, string | undefined>) {
   const req: { headers: Record<string, string | undefined>; tweetlyAuth?: unknown } = { headers };

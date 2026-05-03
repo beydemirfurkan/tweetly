@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SettingsService } from '../settings/settings.service';
+import { SettingsService } from '@/settings/settings.service';
 
 @Injectable()
 export class AdminTokenGuard implements CanActivate {

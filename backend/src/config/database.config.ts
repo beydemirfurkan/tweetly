@@ -19,7 +19,7 @@ import {
   BookmarkActionEntity,
   MonitorEntity,
   WebhookDeliveryEntity,
-} from '../persistence/entities';
+} from '@persistence/entities';
 
 export interface DatabaseEnv {
   host: string;

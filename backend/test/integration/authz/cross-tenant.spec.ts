@@ -1,14 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { NotFoundException } from '@nestjs/common';
-import { AppModule } from '../../../src/app.module';
-import { AccountsService } from '../../../src/accounts/accounts.service';
-import { MonitoringService } from '../../../src/monitoring/monitoring.service';
-import { ActionEnqueueService } from '../../../src/action-engine/action-enqueue.service';
-import { McpService } from '../../../src/mcp/mcp.service';
-import { MonitorHandler } from '../../../src/mcp/handlers/monitor.handler';
-import { AccountHandler } from '../../../src/mcp/handlers/account.handler';
-import type { McpToolContext } from '../../../src/mcp/handlers/mcp-tool.context';
+import { AppModule } from '@/app.module';
+import { AccountsService } from '@/accounts/accounts.service';
+import { MonitoringService } from '@/monitoring/monitoring.service';
+import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
+import { McpService } from '@/mcp/mcp.service';
+import { MonitorHandler } from '@/mcp/handlers/monitor.handler';
+import { AccountHandler } from '@/mcp/handlers/account.handler';
+import type { McpToolContext } from '@/mcp/handlers/mcp-tool.context';
 import { IntegrationDbHarness } from '../harness';
 
 /**

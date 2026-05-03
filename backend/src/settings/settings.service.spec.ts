@@ -1,6 +1,6 @@
 import { SettingsService } from './settings.service';
-import { mockRepository } from '../test/mocks/repository.mock';
-import type { SettingEntity } from '../persistence/entities/setting.entity';
+import { mockRepository } from '@/test/mocks/repository.mock';
+import type { SettingEntity } from '@persistence/entities/setting.entity';
 
 function createService() {
   const repo = mockRepository<SettingEntity>();

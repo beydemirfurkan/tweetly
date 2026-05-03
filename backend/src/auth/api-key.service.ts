@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
-import { ApiKeyEntity } from '../persistence/entities/api-key.entity';
+import { ApiKeyEntity } from '@persistence/entities/api-key.entity';
 
 const KEY_PREFIX = 'tk_';
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MonitoringService } from '../../monitoring/monitoring.service';
+import { MonitoringService } from '@/monitoring/monitoring.service';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**

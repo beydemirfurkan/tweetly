@@ -1,5 +1,5 @@
 import { Column, Index, PrimaryGeneratedColumn } from 'typeorm';
-import type { ActionStatus, ErrorClass } from '../../domain/types/action.types';
+import type { ActionStatus, ErrorClass } from '@domain/types/action.types';
 
 export abstract class BaseActionEntity {
   @PrimaryGeneratedColumn('uuid')

@@ -1,8 +1,8 @@
 import { Controller, Get, Header, UseGuards } from '@nestjs/common';
-import { AdminTokenGuard } from '../admin-api/admin-token.guard';
+import { AdminTokenGuard } from '@/admin-api/admin-token.guard';
 import { MetricsService } from './metrics.service';
-import { AdminApiService } from '../admin-api/admin-api.service';
-import type { ActionType } from '../domain/types/action.types';
+import { AdminApiService } from '@/admin-api/admin-api.service';
+import type { ActionType } from '@domain/types/action.types';
 
 @Controller()
 export class MetricsController {

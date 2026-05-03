@@ -15,12 +15,12 @@ import {
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
-import { SettingsService } from '../settings/settings.service';
-import { UsersService } from '../auth/users.service';
-import { MagicLinkService } from '../auth/magic-link.service';
-import { CircuitBreakerService } from '../action-engine/circuit-breaker.service';
-import { XBrowserService } from '../x-automation/browser/x-browser.service';
-import { XDirectService } from '../x-automation/x-direct.service';
+import { SettingsService } from '@/settings/settings.service';
+import { UsersService } from '@/auth/users.service';
+import { MagicLinkService } from '@/auth/magic-link.service';
+import { CircuitBreakerService } from '@/action-engine/circuit-breaker.service';
+import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { XDirectService } from '@/x-automation/x-direct.service';
 
 class SecretUpdateBody {
   @ApiProperty({ required: false, description: 'New persistent admin token (replaces BOOTSTRAP_ADMIN_TOKEN)' })

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ActionStatus } from '../types/action.types';
+import type { ActionStatus } from '@domain/types/action.types';
 
 const ALLOWED: Record<ActionStatus, readonly ActionStatus[]> = {
   pending: ['claimed', 'cancelled'],

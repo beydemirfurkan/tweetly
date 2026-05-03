@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { AdminTokenGuard } from './admin-token.guard';
-import type { SettingsService } from '../settings/settings.service';
+import type { SettingsService } from '@/settings/settings.service';
 
 describe('AdminTokenGuard', () => {
   function createGuard(headers: Record<string, string | undefined>, storedToken = '', bootstrapToken = ''): AdminTokenGuard {

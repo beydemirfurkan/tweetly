@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
-import { AppModule } from '../../../src/app.module';
-import { ActionEnqueueService } from '../../../src/action-engine/action-enqueue.service';
-import { ClaimWorker } from '../../../src/action-engine/claim-worker.service';
-import { ExecutorRegistry } from '../../../src/action-engine/executor-registry.service';
+import { AppModule } from '@/app.module';
+import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
+import { ClaimWorker } from '@/action-engine/claim-worker.service';
+import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { IntegrationDbHarness } from '../harness';
 
 /**

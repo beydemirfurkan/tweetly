@@ -1,4 +1,4 @@
-import { AppDataSource } from '../persistence/data-source';
+import { AppDataSource } from '@persistence/data-source';
 
 async function main(): Promise<void> {
   await AppDataSource.initialize();

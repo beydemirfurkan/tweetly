@@ -1,11 +1,11 @@
 import { AccountHandler } from './account.handler';
 import { fakeContext } from './__tests__/test-helpers';
 import { NotFoundException } from '@nestjs/common';
-import type { AccountsService } from '../../accounts/accounts.service';
-import type { AdminApiService } from '../../admin-api/admin-api.service';
-import type { SettingsService } from '../../settings/settings.service';
-import type { CredentialCipherService } from '../../common/crypto/credential-cipher.service';
-import type { LoginJobsRepository } from '../../x-automation/login/login-jobs.repository';
+import type { AccountsService } from '@/accounts/accounts.service';
+import type { AdminApiService } from '@/admin-api/admin-api.service';
+import type { SettingsService } from '@/settings/settings.service';
+import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import type { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
 import type { DataSource } from 'typeorm';
 
 function mocks() {

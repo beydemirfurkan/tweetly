@@ -1,5 +1,5 @@
 import { scoreRepo, isQualityRepo } from './repo-scoring';
-import type { TrendingRepo } from '../types/content.types';
+import type { TrendingRepo } from '@domain/types/content.types';
 
 const DEFAULT_WEIGHTS: Record<string, number> = {
   relevanceHigh: 20, relevanceTool: 10,

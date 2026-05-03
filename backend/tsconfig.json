@@ -11,7 +11,11 @@
     "paths": {
       "@modelcontextprotocol/sdk/server": ["node_modules/@modelcontextprotocol/sdk/dist/cjs/server/index.d.ts"],
       "@modelcontextprotocol/sdk/server/sse.js": ["node_modules/@modelcontextprotocol/sdk/dist/cjs/server/sse.d.ts"],
-      "@modelcontextprotocol/sdk/types.js": ["node_modules/@modelcontextprotocol/sdk/dist/cjs/types.d.ts"]
+      "@modelcontextprotocol/sdk/types.js": ["node_modules/@modelcontextprotocol/sdk/dist/cjs/types.d.ts"],
+      "@/*": ["src/*"],
+      "@domain/*": ["src/domain/*"],
+      "@common/*": ["src/common/*"],
+      "@persistence/*": ["src/persistence/*"]
     },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,

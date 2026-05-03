@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { ApiKeyGuard, getAuthContext } from '../auth/api-key.guard';
+import { ApiKeyGuard, getAuthContext } from '@/auth/api-key.guard';
 import { McpService } from './mcp.service';
 
 @Controller('mcp')

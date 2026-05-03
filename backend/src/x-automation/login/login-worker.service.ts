@@ -1,8 +1,8 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { CredentialCipherService } from '../../common/crypto/credential-cipher.service';
-import { AccountsService } from '../../accounts/accounts.service';
-import { ProfileCacheService } from '../../accounts/profile-cache.service';
+import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import { AccountsService } from '@/accounts/accounts.service';
+import { ProfileCacheService } from '@/accounts/profile-cache.service';
 import { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
 import { XLoginService } from './x-login.service';
 import type { XLoginInput, XLoginResult } from './login.types';

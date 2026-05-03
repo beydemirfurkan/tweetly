@@ -1,5 +1,5 @@
 import { XDirectService } from './x-direct.service';
-import { mockXBrowserService } from '../test/mocks/x-browser.mock';
+import { mockXBrowserService } from '@/test/mocks/x-browser.mock';
 
 const SEL = {
   tweetArticle: '[data-testid="tweet"]',

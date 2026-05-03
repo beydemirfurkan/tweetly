@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { Client } from 'pg';
-import { buildDataSourceOptions, readDatabaseEnv } from '../../src/config/database.config';
+import { buildDataSourceOptions, readDatabaseEnv } from '@/config/database.config';
 
 /**
  * Integration-test database harness.

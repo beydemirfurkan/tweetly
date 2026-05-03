@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import type { CircuitBreakerSnapshot, ICircuitBreaker } from '../domain/ports/circuit-breaker.port';
+import type { CircuitBreakerSnapshot, ICircuitBreaker } from '@domain/ports/circuit-breaker.port';
 
 interface ControlRow {
   field: string;

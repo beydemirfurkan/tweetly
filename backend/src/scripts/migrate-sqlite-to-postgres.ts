@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import Database from 'better-sqlite3';
 import { DataSource } from 'typeorm';
-import { buildDataSourceOptions, readDatabaseEnv } from '../config/database.config';
+import { buildDataSourceOptions, readDatabaseEnv } from '@/config/database.config';
 import {
   buildPostKey,
   buildReplyKey,

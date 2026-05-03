@@ -2,13 +2,13 @@ import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 
-import { AccountsService } from '../accounts/accounts.service';
-import { CredentialCipherService } from '../common/crypto/credential-cipher.service';
-import { AccountEntity } from '../persistence/entities/account.entity';
-import { AppDataSource } from '../persistence/data-source';
-import { LoginJobsRepository, type ClaimedJob } from '../x-automation/login/login-jobs.repository';
-import { LoginWorker } from '../x-automation/login/login-worker.service';
-import { XLoginService } from '../x-automation/login/x-login.service';
+import { AccountsService } from '@/accounts/accounts.service';
+import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import { AccountEntity } from '@persistence/entities/account.entity';
+import { AppDataSource } from '@persistence/data-source';
+import { LoginJobsRepository, type ClaimedJob } from '@/x-automation/login/login-jobs.repository';
+import { LoginWorker } from '@/x-automation/login/login-worker.service';
+import { XLoginService } from '@/x-automation/login/x-login.service';
 
 dotenv.config();
 

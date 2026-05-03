@@ -1,4 +1,4 @@
-import { ACTION_TYPES } from '../../domain/types/action.types';
+import { ACTION_TYPES } from '@domain/types/action.types';
 
 export const TOOL_DEFINITIONS = [
   {

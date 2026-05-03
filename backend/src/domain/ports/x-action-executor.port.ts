@@ -1,4 +1,4 @@
-import type { ActionType, ErrorClass } from '../types/action.types';
+import type { ActionType, ErrorClass } from '@domain/types/action.types';
 
 export interface XSession {
   accountId: string;

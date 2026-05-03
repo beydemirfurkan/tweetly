@@ -4,7 +4,7 @@ import { LoginFlowError } from './login-error';
 import { redactLoginDebugText, writeLoginDebugArtifact } from './login-debug-artifact';
 import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
 import type { LoginJobFailureReason, XLoginCookies, XLoginInput, XLoginResult } from './login.types';
-import { optionalBrowserChannel } from '../browser/browser-channel';
+import { optionalBrowserChannel } from '@/x-automation/browser/browser-channel';
 import { resolveProxy } from './proxy-resolver';
 import { generateTotp } from './totp';
 

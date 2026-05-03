@@ -23,8 +23,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { ApiKeyGuard, getAuthContext } from '../auth/api-key.guard';
-import { RequiresScope } from '../auth/requires-scope.decorator';
+import { ApiKeyGuard, getAuthContext } from '@/auth/api-key.guard';
+import { RequiresScope } from '@/auth/requires-scope.decorator';
 import {
   RateLimitConnect,
   RateLimitDelete,
@@ -32,26 +32,26 @@ import {
   RateLimitRead,
   RateLimitWrite,
   TieredThrottlerGuard,
-} from '../auth/tiered-throttler.guard';
-import { AccountsService } from '../accounts/accounts.service';
-import { ProfileCacheService } from '../accounts/profile-cache.service';
-import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
-import { AdminApiService } from '../admin-api/admin-api.service';
-import { XDirectService } from '../x-automation/x-direct.service';
-import { XBrowserService } from '../x-automation/browser/x-browser.service';
-import { MonitoringService } from '../monitoring/monitoring.service';
-import { CredentialCipherService } from '../common/crypto/credential-cipher.service';
-import { LoginJobsRepository } from '../x-automation/login/login-jobs.repository';
+} from '@/auth/tiered-throttler.guard';
+import { AccountsService } from '@/accounts/accounts.service';
+import { ProfileCacheService } from '@/accounts/profile-cache.service';
+import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
+import { AdminApiService } from '@/admin-api/admin-api.service';
+import { XDirectService } from '@/x-automation/x-direct.service';
+import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { MonitoringService } from '@/monitoring/monitoring.service';
+import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
 import {
   LoginValidationError,
   assertBase32Secret,
   normalizeUsername,
   requireString,
-} from '../x-automation/login/login-validation';
-import type { ActionType, ActionStatus } from '../domain/types/action.types';
-import { ACTION_TYPES } from '../domain/types/action.types';
-import type { AccountStatus } from '../domain/types/account.types';
-import type { AccountEntity } from '../persistence/entities/account.entity';
+} from '@/x-automation/login/login-validation';
+import type { ActionType, ActionStatus } from '@domain/types/action.types';
+import { ACTION_TYPES } from '@domain/types/action.types';
+import type { AccountStatus } from '@domain/types/account.types';
+import type { AccountEntity } from '@persistence/entities/account.entity';
 import {
   AccountUpsertDto,
   AccountsResponseDto,

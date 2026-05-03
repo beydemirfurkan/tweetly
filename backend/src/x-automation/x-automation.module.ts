@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { ActionEngineModule } from '../action-engine/action-engine.module';
-import { AccountsModule } from '../accounts/accounts.module';
+import { ActionEngineModule } from '@/action-engine/action-engine.module';
+import { AccountsModule } from '@/accounts/accounts.module';
 import { NoOpPostExecutor } from './executors/noop-post.executor';
 import { NoOpReplyExecutor } from './executors/noop-reply.executor';
 import { NoOpLikeExecutor } from './executors/noop-like.executor';

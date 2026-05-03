@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { AccountEntity } from '../persistence/entities/account.entity';
-import type { AccountStatus } from '../domain/types/account.types';
+import { AccountEntity } from '@persistence/entities/account.entity';
+import type { AccountStatus } from '@domain/types/account.types';
 
 const AUTH_FAILURE_PAUSE_THRESHOLD = parseInt(process.env.AUTH_FAILURE_PAUSE_THRESHOLD ?? '3', 10);
 

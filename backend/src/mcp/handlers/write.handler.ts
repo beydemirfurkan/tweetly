@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ActionEnqueueService } from '../../action-engine/action-enqueue.service';
+import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**

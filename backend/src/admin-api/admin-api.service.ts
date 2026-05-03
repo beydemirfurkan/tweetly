@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import type { ActionType, ActionStatus } from '../domain/types/action.types';
-import { ACTION_TABLE_CONFIG } from '../action-engine/repositories/action-repository';
+import type { ActionType, ActionStatus } from '@domain/types/action.types';
+import { ACTION_TABLE_CONFIG } from '@/action-engine/repositories/action-repository';
 
 export interface QueueDepth {
   type: ActionType;

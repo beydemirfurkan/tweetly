@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ACTION_TYPES, ACTION_STATUSES } from '../../domain/types/action.types';
+import { ACTION_TYPES, ACTION_STATUSES } from '@domain/types/action.types';
 
 /**
  * Zod runtime schemas for every MCP tool's arguments. The JSON Schemas in

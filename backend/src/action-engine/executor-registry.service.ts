@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ActionType } from '../domain/types/action.types';
-import type { IXActionExecutor } from '../domain/ports/x-action-executor.port';
+import type { ActionType } from '@domain/types/action.types';
+import type { IXActionExecutor } from '@domain/ports/x-action-executor.port';
 
 @Injectable()
 export class ExecutorRegistry {

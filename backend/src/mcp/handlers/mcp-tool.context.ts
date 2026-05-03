@@ -1,4 +1,4 @@
-import type { ActionType } from '../../domain/types/action.types';
+import type { ActionType } from '@domain/types/action.types';
 
 /**
  * Context passed to every MCP tool handler. Carries the authenticated user

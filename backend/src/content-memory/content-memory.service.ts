@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ContentMemoryEntity } from '../persistence/entities/content-memory.entity';
+import { ContentMemoryEntity } from '@persistence/entities/content-memory.entity';
 
 const SIMILARITY_THRESHOLD = 0.72;
 const MAX_RECENT = 150;

@@ -3,8 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { createTransport, type Transporter } from 'nodemailer';
-import { MagicLinkEntity } from '../persistence/entities/magic-link.entity';
-import { SettingsService } from '../settings/settings.service';
+import { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
+import { SettingsService } from '@/settings/settings.service';
 
 const LINK_TTL_MIN = 15;
 const DEFAULT_FROM = 'Tweetly <noreply@tweetly.local>';

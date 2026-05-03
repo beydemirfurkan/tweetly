@@ -1,8 +1,8 @@
-import type { ActionContext, XSession } from '../../../domain/ports/x-action-executor.port';
-import type { ActionType } from '../../../domain/types/action.types';
-import type { XDirectService } from '../../x-direct.service';
-import type { ExecutorRegistry } from '../../../action-engine/executor-registry.service';
-import { AuthRequiredError } from '../../browser/auth-required-error';
+import type { ActionContext, XSession } from '@domain/ports/x-action-executor.port';
+import type { ActionType } from '@domain/types/action.types';
+import type { XDirectService } from '@/x-automation/x-direct.service';
+import type { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { AuthRequiredError } from '@/x-automation/browser/auth-required-error';
 
 /**
  * Shared mocks/fixtures for the queue-backed direct-action executors.

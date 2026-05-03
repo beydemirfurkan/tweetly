@@ -1,4 +1,4 @@
-import type { LoginJobFailureReason } from '../../persistence/entities/account-login-job.entity';
+import type { LoginJobFailureReason } from '@persistence/entities/account-login-job.entity';
 
 export type { LoginJobFailureReason };
 

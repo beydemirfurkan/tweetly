@@ -9,8 +9,8 @@
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
-import { ActionEnqueueService } from '../action-engine/action-enqueue.service';
+import { AppModule } from '@/app.module';
+import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
 import { DataSource } from 'typeorm';
 
 dotenv.config();

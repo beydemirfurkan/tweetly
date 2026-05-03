@@ -1,13 +1,13 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { ActionType } from '../../domain/types/action.types';
+import type { ActionType } from '@domain/types/action.types';
 import type {
   ActionContext,
   ExecutionResult,
   IXActionExecutor,
   XSession,
-} from '../../domain/ports/x-action-executor.port';
-import { ExecutorRegistry } from '../../action-engine/executor-registry.service';
-import { XPostFlowService, isAuthRequiredError } from '../browser/x-post-flow.service';
+} from '@domain/ports/x-action-executor.port';
+import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { XPostFlowService, isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
 
 interface PostPayload {
   text: string;

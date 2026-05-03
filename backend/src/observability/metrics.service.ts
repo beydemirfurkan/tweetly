@@ -6,7 +6,7 @@ import {
   Histogram,
   Gauge,
 } from 'prom-client';
-import type { ActionType } from '../domain/types/action.types';
+import type { ActionType } from '@domain/types/action.types';
 
 @Injectable()
 export class MetricsService implements OnModuleInit {

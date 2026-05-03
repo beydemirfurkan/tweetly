@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import type { ActionType, ActionStatus, ErrorClass } from '../../domain/types/action.types';
+import type { ActionType, ActionStatus, ErrorClass } from '@domain/types/action.types';
 
 export interface ClaimedActionRow {
   id: string;

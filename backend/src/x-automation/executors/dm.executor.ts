@@ -1,9 +1,9 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { ActionType } from '../../domain/types/action.types';
-import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '../../domain/ports/x-action-executor.port';
-import { ExecutorRegistry } from '../../action-engine/executor-registry.service';
-import { XDirectService } from '../x-direct.service';
-import { isAuthRequiredError } from '../browser/x-post-flow.service';
+import type { ActionType } from '@domain/types/action.types';
+import type { ActionContext, ExecutionResult, IXActionExecutor, XSession } from '@domain/ports/x-action-executor.port';
+import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { XDirectService } from '@/x-automation/x-direct.service';
+import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
 
 interface DmPayload { target_handle: string; message: string }
 

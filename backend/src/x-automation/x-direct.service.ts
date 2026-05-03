@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Page } from 'patchright';
 import { XBrowserService } from './browser/x-browser.service';
 import { SelectorRegistry } from './browser/selector-registry';
-import { AccountsService } from '../accounts/accounts.service';
+import { AccountsService } from '@/accounts/accounts.service';
 import { isAuthRequiredError } from './browser/x-post-flow.service';
 
 export interface TweetResult {

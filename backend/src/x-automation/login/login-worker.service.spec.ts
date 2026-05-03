@@ -1,8 +1,8 @@
 import { LoginWorker } from './login-worker.service';
 import type { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
 import type { XLoginService } from './x-login.service';
-import type { CredentialCipherService } from '../../common/crypto/credential-cipher.service';
-import type { AccountsService } from '../../accounts/accounts.service';
+import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import type { AccountsService } from '@/accounts/accounts.service';
 import type { DataSource, EntityManager } from 'typeorm';
 import type { XLoginResult } from './login.types';
 

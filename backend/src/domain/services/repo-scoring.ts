@@ -1,4 +1,4 @@
-import type { TrendingRepo, Topic } from '../types/content.types';
+import type { TrendingRepo, Topic } from '@domain/types/content.types';
 
 export interface RepoScore {
   repo: string;

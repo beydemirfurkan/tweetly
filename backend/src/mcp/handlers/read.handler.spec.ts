@@ -1,7 +1,7 @@
 import { ReadHandler } from './read.handler';
 import { fakeContext } from './__tests__/test-helpers';
-import type { XDirectService } from '../../x-automation/x-direct.service';
-import type { XBrowserService } from '../../x-automation/browser/x-browser.service';
+import type { XDirectService } from '@/x-automation/x-direct.service';
+import type { XBrowserService } from '@/x-automation/browser/x-browser.service';
 
 function mockXDirect(): jest.Mocked<XDirectService> {
   return {

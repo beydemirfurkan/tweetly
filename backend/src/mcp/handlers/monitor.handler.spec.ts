@@ -1,6 +1,6 @@
 import { MonitorHandler } from './monitor.handler';
 import { fakeContext } from './__tests__/test-helpers';
-import type { MonitoringService } from '../../monitoring/monitoring.service';
+import type { MonitoringService } from '@/monitoring/monitoring.service';
 
 function mockMonitoring(): jest.Mocked<MonitoringService> {
   return {

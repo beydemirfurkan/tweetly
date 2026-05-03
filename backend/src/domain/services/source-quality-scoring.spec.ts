@@ -1,5 +1,5 @@
 import { isStrongSourceCandidate, scoreSourceCandidate } from './source-quality-scoring';
-import type { TrendingRepo } from '../types/content.types';
+import type { TrendingRepo } from '@domain/types/content.types';
 
 function candidate(overrides: Partial<TrendingRepo> = {}): TrendingRepo {
   return {

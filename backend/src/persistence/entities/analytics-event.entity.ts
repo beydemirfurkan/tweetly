@@ -1,5 +1,5 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
-import type { ActionType } from '../../domain/types/action.types';
+import type { ActionType } from '@domain/types/action.types';
 
 @Entity('analytics_events')
 export class AnalyticsEventEntity {

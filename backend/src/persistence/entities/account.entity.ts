@@ -1,5 +1,5 @@
 import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
-import type { AccountStatus } from '../../domain/types/account.types';
+import type { AccountStatus } from '@domain/types/account.types';
 
 @Entity('accounts')
 export class AccountEntity {

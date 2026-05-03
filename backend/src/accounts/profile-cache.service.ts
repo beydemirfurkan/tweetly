@@ -1,8 +1,8 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AccountProfileEntity } from '../persistence/entities/account-profile.entity';
-import { XDirectService } from '../x-automation/x-direct.service';
+import { AccountProfileEntity } from '@persistence/entities/account-profile.entity';
+import { XDirectService } from '@/x-automation/x-direct.service';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 

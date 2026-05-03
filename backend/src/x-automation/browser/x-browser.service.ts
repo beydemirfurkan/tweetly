@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { chromium, type BrowserContext, type Page } from 'patchright';
-import { AccountsService } from '../../accounts/accounts.service';
+import { AccountsService } from '@/accounts/accounts.service';
 import { AuthRequiredError } from './auth-required-error';
 import { optionalBrowserChannel } from './browser-channel';
 import { SelectorRegistry } from './selector-registry';

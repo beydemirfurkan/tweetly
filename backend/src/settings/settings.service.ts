@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SettingEntity } from '../persistence/entities/setting.entity';
+import { SettingEntity } from '@persistence/entities/setting.entity';
 
 type SettingType = 'string' | 'number' | 'boolean' | 'json';
 

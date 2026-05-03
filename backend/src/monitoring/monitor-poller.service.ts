@@ -2,7 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } fro
 import { DataSource } from 'typeorm';
 import { MonitoringService } from './monitoring.service';
 import { WebhookDeliveryService } from './webhook-delivery.service';
-import { XDirectService } from '../x-automation/x-direct.service';
+import { XDirectService } from '@/x-automation/x-direct.service';
 
 const POLL_INTERVAL_MS = parseInt(process.env.MONITOR_POLL_INTERVAL_MS ?? '600000', 10); // 10 min default
 

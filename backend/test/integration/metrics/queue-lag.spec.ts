@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
-import { AppModule } from '../../../src/app.module';
-import { AdminApiService } from '../../../src/admin-api/admin-api.service';
-import { ActionEnqueueService } from '../../../src/action-engine/action-enqueue.service';
+import { AppModule } from '@/app.module';
+import { AdminApiService } from '@/admin-api/admin-api.service';
+import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
 import { IntegrationDbHarness } from '../harness';
 
 /**
