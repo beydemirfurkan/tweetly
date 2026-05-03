@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import {
   ArrowUpRight,
@@ -10,12 +11,11 @@ import {
   Code2,
   Copy,
   ExternalLink,
-  Globe2,
   KeyRound,
-  MessageSquare,
   Sparkles,
   Terminal,
 } from 'lucide-react';
+import { AnthropicLogo, OpenAILogo, CursorLogo } from '@/components/brand-logos';
 
 const apiBase = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
   ?? 'https://api.your-domain.com');
@@ -23,18 +23,21 @@ const mcpUrl = `${apiBase}/mcp`;
 const mcpSseUrl = `${apiBase}/mcp/sse`;
 
 type ClientKind = 'oauth' | 'apikey';
+type ClientId = 'claudeDesktop' | 'claudeWeb' | 'chatgpt' | 'cursor' | 'codex' | 'claudeCode';
 
-interface ClientGuide {
-  id: string;
-  name: string;
+interface ClientConfig {
+  id: ClientId;
   kind: ClientKind;
   icon: React.ReactNode;
-  blurb: string;
-  steps: Array<string | { code: string; lang?: string }>;
+  // Each step is either a translation key segment under `connect.<id>.*`
+  // (e.g. 'step1') or an inline code block to render verbatim.
+  steps: Array<string | { code: string }>;
   docUrl?: string;
 }
 
 export default function ConnectPage() {
+  const t = useTranslations('connect');
+
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-xl">
@@ -50,7 +53,7 @@ export default function ConnectPage() {
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
-            Anasayfa
+            {t('back')}
           </Link>
         </div>
       </header>
@@ -67,33 +70,30 @@ export default function ConnectPage() {
         />
         <div className="mx-auto max-w-[1100px] px-5 py-16 lg:py-20">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            <span className="text-primary">●</span> Connect
+            <span className="text-primary animate-pulse">●</span> {t('hero.eyebrow')}
           </p>
           <h1 className="mt-3 max-w-[20ch] text-[44px] font-black leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
-            xtweetly&apos;yi <span className="text-primary">AI&apos;na bağla</span>
+            {t('hero.title1')} <span className="text-primary">{t('hero.title2')}</span>
           </h1>
           <p className="mt-5 max-w-[58ch] text-[16px] leading-[1.6] text-muted-foreground">
-            Claude Desktop, ChatGPT, Cursor, Claude Code ve MCP konuşan her client
-            doğrudan xtweetly&apos;ye bağlanabilir. OAuth ile tek tıkta veya API key
-            ile manuel — ikisi de yayında.
+            {t('hero.subtitle')}
           </p>
 
-          {/* Quick URL */}
           <div className="mt-8 max-w-[640px]">
             <div className="mb-2 flex items-center justify-between">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                MCP Server URL
+                {t('hero.serverUrlLabel')}
               </span>
               <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-success">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                live
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-75" />
+                  <span className="relative h-1.5 w-1.5 rounded-full bg-success" />
+                </span>
+                {t('hero.live')}
               </span>
             </div>
             <CopyBox value={mcpUrl} large />
-            <p className="mt-2 text-[12px] text-muted-foreground">
-              Streamable HTTP + OAuth 2.1 (PKCE-S256). DCR otomatik —
-              client_id/secret üretmene gerek yok.
-            </p>
+            <p className="mt-2 text-[12px] text-muted-foreground">{t('hero.helper')}</p>
           </div>
         </div>
       </section>
@@ -104,42 +104,38 @@ export default function ConnectPage() {
           <div className="mb-10 flex items-end justify-between gap-6">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                <span className="text-primary">●</span> 1 dakikada kurulum
+                <span className="text-primary">●</span> {t('clients.eyebrow')}
               </p>
               <h2 className="mt-3 text-[32px] font-black leading-[1.05] tracking-[-0.03em]">
-                Client&apos;ı seç
+                {t('clients.title')}
               </h2>
             </div>
             <p className="hidden max-w-[40ch] text-[14px] text-muted-foreground sm:block">
-              OAuth&apos;lı client&apos;larda hesap bağlama tarayıcıda; API key
-              gerekmez. CLI/eski client&apos;lar için <code className="font-mono text-foreground">tk_</code> key kullan.
+              {t('clients.helper')}
             </p>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            {clients.map((c) => (
-              <ClientCard key={c.id} client={c} />
+            {clientConfigs.map((c) => (
+              <ClientCard key={c.id} config={c} />
             ))}
           </div>
 
-          <div className="mt-10 rounded-2xl border border-border bg-card p-6">
+          <div className="mt-10 rounded-2xl border border-border bg-card p-6 transition-colors hover:border-primary/40">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="flex-1">
                 <h3 className="text-[15px] font-bold tracking-tight">
-                  Henüz hesap yok mu?
+                  {t('noAccount.title')}
                 </h3>
-                <p className="mt-1 text-[13px] text-muted-foreground">
-                  xtweetly&apos;ye 30 saniyede magic-link ile gir — X hesabını bağla,
-                  API key veya OAuth flow&apos;uyla bu sayfaya geri dön.
-                </p>
+                <p className="mt-1 text-[13px] text-muted-foreground">{t('noAccount.body')}</p>
                 <Link
                   href="/login"
                   className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:underline"
                 >
-                  Hesap oluştur
+                  {t('noAccount.cta')}
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
@@ -153,15 +149,13 @@ export default function ConnectPage() {
         <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-10 px-5 py-16 lg:grid-cols-[1fr_1.2fr] lg:gap-16">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              <span className="text-primary">●</span> Developer
+              <span className="text-primary">●</span> {t('developer.eyebrow')}
             </p>
             <h2 className="mt-3 text-[28px] font-black leading-[1.1] tracking-[-0.025em]">
-              Kendi MCP client&apos;ını mı yazıyorsun?
+              {t('developer.title')}
             </h2>
             <p className="mt-4 max-w-[44ch] text-[14px] leading-[1.65] text-muted-foreground">
-              Standart MCP 2025-06-18 + RFC 9728 + RFC 8414. Discovery zinciri{' '}
-              <code className="font-mono text-foreground">/.well-known/oauth-protected-resource</code>{' '}
-              ile başlar. PKCE S256 zorunlu, refresh token şu anda yok (tk_* uzun-ömürlü).
+              {t('developer.body')}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <a
@@ -170,7 +164,7 @@ export default function ConnectPage() {
                 rel="noreferrer"
                 className="pill inline-flex items-center gap-2 border border-border px-4 py-2.5 text-[12px] font-mono text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                resource metadata
+                {t('developer.resourceMetadata')}
                 <ExternalLink className="h-3 w-3" />
               </a>
               <a
@@ -179,21 +173,21 @@ export default function ConnectPage() {
                 rel="noreferrer"
                 className="pill inline-flex items-center gap-2 border border-border px-4 py-2.5 text-[12px] font-mono text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                authorization server
+                {t('developer.authServer')}
                 <ExternalLink className="h-3 w-3" />
               </a>
               <Link
-                href={`/docs` as '/docs'}
+                href={'/docs' as '/docs'}
                 className="pill inline-flex items-center gap-2 border border-border px-4 py-2.5 text-[12px] font-mono text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                API reference
+                {t('apiReference')}
                 <ArrowUpRight className="h-3 w-3" />
               </Link>
             </div>
           </div>
 
           <CodeBlock
-            title="DCR örneği"
+            title={t('developer.codeTitle')}
             code={`# 1. Register a new OAuth client (no auth required)
 curl -X POST ${apiBase}/oauth/register \\
   -H 'Content-Type: application/json' \\
@@ -225,10 +219,10 @@ curl -X POST ${apiBase}/oauth/token \\
 
       <footer>
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-5 py-7 text-[12px] text-muted-foreground">
-          <span>© 2026 xtweetly</span>
+          <span>{t('footer')}</span>
           <Link href="/docs" className="inline-flex items-center gap-1.5 hover:text-foreground">
             <Code2 className="h-3.5 w-3.5" />
-            API reference
+            {t('apiReference')}
           </Link>
         </div>
       </footer>
@@ -236,132 +230,98 @@ curl -X POST ${apiBase}/oauth/token \\
   );
 }
 
-const clients: ClientGuide[] = [
+const clientConfigs: ClientConfig[] = [
   {
-    id: 'claude-desktop',
-    name: 'Claude Desktop',
+    id: 'claudeDesktop',
     kind: 'oauth',
-    icon: <MessageSquare className="h-4 w-4" />,
-    blurb: 'Custom Connectors UI. OAuth otomatik.',
+    icon: <AnthropicLogo className="h-4 w-4" title="Anthropic" />,
     docUrl: 'https://support.anthropic.com/en/articles/10168395-setting-up-custom-connectors',
-    steps: [
-      'Settings → Connectors → "Add custom connector" düğmesine bas.',
-      `Remote MCP server URL alanına yapıştır:`,
-      { code: mcpUrl },
-      'OAuth Client ID/Secret alanlarını boş bırak (DCR otomatik halleder).',
-      '"Add" → tarayıcı açılır → xtweetly\'ye giriş yap → "İzin ver" → "Connected".',
-    ],
+    steps: ['step1', 'step2', { code: mcpUrl }, 'step3', 'step4'],
   },
   {
-    id: 'claude-web',
-    name: 'Claude.ai (web)',
+    id: 'claudeWeb',
     kind: 'oauth',
-    icon: <Globe2 className="h-4 w-4" />,
-    blurb: 'Connectors paneli, aynı OAuth flow.',
+    icon: <AnthropicLogo className="h-4 w-4" title="Anthropic" />,
     docUrl: 'https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp',
-    steps: [
-      'Sol menü → Settings → Connectors → "Add custom connector".',
-      'Server URL:',
-      { code: mcpUrl },
-      'Tarayıcıda consent → Allow → tools listesi yüklendiğinde hazır.',
-    ],
+    steps: ['step1', 'step2', { code: mcpUrl }, 'step3'],
   },
   {
     id: 'chatgpt',
-    name: 'ChatGPT (Connectors)',
     kind: 'oauth',
-    icon: <MessageSquare className="h-4 w-4" />,
-    blurb: 'Plus / Team / Enterprise — Connectors özelliği.',
+    icon: <OpenAILogo className="h-4 w-4" title="OpenAI" />,
     docUrl: 'https://help.openai.com/en/articles/11487775-connectors-in-chatgpt',
-    steps: [
-      'Settings → Connectors → "Add" → "Custom MCP server".',
-      'URL:',
-      { code: mcpUrl },
-      'Authorize → ChatGPT yeni chat\'inde "@xtweetly" ile araçları çağır.',
-    ],
+    steps: ['step1', 'step2', { code: mcpUrl }, 'step3'],
   },
   {
     id: 'cursor',
-    name: 'Cursor',
     kind: 'oauth',
-    icon: <Code2 className="h-4 w-4" />,
-    blurb: 'Settings → MCP. OAuth otomatik tetiklenir.',
+    icon: <CursorLogo className="h-4 w-4" title="Cursor" />,
     docUrl: 'https://docs.cursor.com/en/context/mcp',
-    steps: [
-      'Settings (Cmd/Ctrl+,) → MCP & Integrations → "+ Add custom MCP" → "HTTP".',
-      'Name: xtweetly, URL:',
-      { code: mcpUrl },
-      'Save → Cursor tarayıcıda OAuth\'u açar → izin → araçlar Composer\'da görünür.',
-    ],
+    steps: ['step1', 'step2', { code: mcpUrl }, 'step3'],
   },
   {
     id: 'codex',
-    name: 'OpenAI Codex CLI',
     kind: 'oauth',
-    icon: <Terminal className="h-4 w-4" />,
-    blurb: 'Remote HTTP MCP desteği. Config dosyası.',
+    icon: <OpenAILogo className="h-4 w-4" title="OpenAI" />,
     docUrl: 'https://github.com/openai/codex',
     steps: [
-      '~/.codex/config.toml dosyana ekle:',
-      {
-        code: `[mcp_servers.xtweetly]
-url = "${mcpUrl}"`,
-      },
-      'codex çalıştırınca terminal OAuth flow\'unu başlatır.',
+      'step1',
+      { code: `[mcp_servers.xtweetly]\nurl = "${mcpUrl}"` },
+      'step2',
     ],
   },
   {
-    id: 'claude-code',
-    name: 'Claude Code (CLI)',
+    id: 'claudeCode',
     kind: 'apikey',
     icon: <Terminal className="h-4 w-4" />,
-    blurb: 'Eski SSE transport + tk_* API key.',
     steps: [
-      'Panel → API Keys → "+ Yeni Key" → "Full access" → secret\'ı kopyala.',
-      'Terminal\'da:',
+      'step1',
+      'step2',
       {
-        code: `claude mcp add xtweetly \\
-  --transport sse \\
-  --url ${mcpSseUrl} \\
-  --header "Authorization: Bearer tk_***"`,
+        code: `claude mcp add xtweetly \\\n  --transport sse \\\n  --url ${mcpSseUrl} \\\n  --header "Authorization: Bearer tk_***"`,
       },
-      'claude başlat — "/mcp" komutuyla araçların listelendiğini gör.',
+      'step3',
     ],
   },
 ];
 
-function ClientCard({ client }: { client: ClientGuide }) {
+function ClientCard({ config }: { config: ClientConfig }) {
+  const t = useTranslations(`connect.${config.id}`);
+  const tShared = useTranslations('connect.clients');
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40">
+    <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
       <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 text-foreground">
-            {client.icon}
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/5 text-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+            {config.icon}
           </div>
           <div>
-            <h3 className="text-[14px] font-bold tracking-tight">{client.name}</h3>
-            <p className="text-[11px] text-muted-foreground">{client.blurb}</p>
+            <h3 className="text-[14px] font-bold tracking-tight">{t('name')}</h3>
+            <p className="text-[11px] text-muted-foreground">{t('blurb')}</p>
           </div>
         </div>
         <span
           className={
-            client.kind === 'oauth'
+            config.kind === 'oauth'
               ? 'pill border border-success/40 bg-success/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-success'
               : 'pill border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground'
           }
         >
-          {client.kind === 'oauth' ? 'OAuth' : 'API key'}
+          {config.kind === 'oauth'
+            ? tShared('oauthBadge')
+            : tShared('apikeyBadge')}
         </span>
       </div>
       <ol className="space-y-2.5 px-5 py-4 text-[13px] leading-[1.55]">
-        {client.steps.map((step, i) => {
+        {config.steps.map((step, i) => {
           if (typeof step === 'string') {
             return (
               <li key={i} className="flex gap-2.5">
                 <span className="font-mono text-[10px] text-muted-foreground/60">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <span className="flex-1 text-muted-foreground">{step}</span>
+                <span className="flex-1 text-muted-foreground">{t(step)}</span>
               </li>
             );
           }
@@ -372,15 +332,15 @@ function ClientCard({ client }: { client: ClientGuide }) {
           );
         })}
       </ol>
-      {client.docUrl && (
+      {config.docUrl && (
         <div className="border-t border-border px-5 py-2.5">
           <a
-            href={client.docUrl}
+            href={config.docUrl}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground transition-colors hover:text-foreground"
           >
-            resmi doküman
+            {tShared('officialDocs')}
             <ExternalLink className="h-3 w-3" />
           </a>
         </div>
@@ -407,7 +367,8 @@ function CopyBox({
   return (
     <div
       className={
-        'flex items-start gap-2 rounded-md border border-border bg-popover ' +
+        'flex items-start gap-2 rounded-md border border-border bg-popover transition-colors ' +
+        (copied ? 'border-success/50 ' : 'hover:border-border/80 ') +
         (large ? 'px-4 py-3' : small ? 'px-3 py-2' : 'px-3 py-2.5')
       }
     >
@@ -422,7 +383,7 @@ function CopyBox({
       <button
         type="button"
         onClick={onCopy}
-        className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-all hover:bg-accent hover:text-foreground active:scale-90"
         aria-label="Copy"
       >
         {copied ? (
@@ -454,7 +415,7 @@ function CodeBlock({ title, code }: { title: string; code: string }) {
         <button
           type="button"
           onClick={onCopy}
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="rounded-md p-1.5 text-muted-foreground transition-all hover:bg-accent hover:text-foreground active:scale-90"
         >
           {copied ? (
             <Check className="h-3.5 w-3.5 text-success" />

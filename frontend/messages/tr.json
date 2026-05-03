@@ -251,5 +251,82 @@
     "subtitle": "Aradığın yol ya hiç var olmadı ya da taşındı. URL'i kontrol et veya panele dön.",
     "home": "Ana sayfaya dön",
     "docs": "API Reference"
+  },
+  "connect": {
+    "back": "Anasayfa",
+    "footer": "© 2026 xtweetly",
+    "apiReference": "API reference",
+    "hero": {
+      "eyebrow": "Connect",
+      "title1": "xtweetly'yi",
+      "title2": "AI'na bağla",
+      "subtitle": "Claude Desktop, ChatGPT, Cursor, Claude Code ve MCP konuşan her client doğrudan xtweetly'ye bağlanabilir. OAuth ile tek tıkta veya API key ile manuel — ikisi de yayında.",
+      "serverUrlLabel": "MCP Server URL",
+      "live": "live",
+      "helper": "Streamable HTTP + OAuth 2.1 (PKCE-S256). DCR otomatik — client_id/secret üretmene gerek yok."
+    },
+    "clients": {
+      "eyebrow": "1 dakikada kurulum",
+      "title": "Client'ı seç",
+      "helper": "OAuth'lı client'larda hesap bağlama tarayıcıda; API key gerekmez. CLI/eski client'lar için tk_ key kullan.",
+      "oauthBadge": "OAuth",
+      "apikeyBadge": "API key",
+      "officialDocs": "resmi doküman"
+    },
+    "noAccount": {
+      "title": "Henüz hesap yok mu?",
+      "body": "xtweetly'ye 30 saniyede magic-link ile gir — X hesabını bağla, API key veya OAuth flow'uyla bu sayfaya geri dön.",
+      "cta": "Hesap oluştur"
+    },
+    "developer": {
+      "eyebrow": "Developer",
+      "title": "Kendi MCP client'ını mı yazıyorsun?",
+      "body": "Standart MCP 2025-06-18 + RFC 9728 + RFC 8414. Discovery zinciri /.well-known/oauth-protected-resource ile başlar. PKCE S256 zorunlu, refresh token şu anda yok (tk_* uzun-ömürlü).",
+      "resourceMetadata": "resource metadata",
+      "authServer": "authorization server",
+      "codeTitle": "DCR örneği"
+    },
+    "claudeDesktop": {
+      "name": "Claude Desktop",
+      "blurb": "Custom Connectors UI. OAuth otomatik.",
+      "step1": "Settings → Connectors → \"Add custom connector\" düğmesine bas.",
+      "step2": "Remote MCP server URL alanına yapıştır:",
+      "step3": "OAuth Client ID/Secret alanlarını boş bırak (DCR otomatik halleder).",
+      "step4": "\"Add\" → tarayıcı açılır → xtweetly'ye giriş yap → \"İzin ver\" → \"Connected\"."
+    },
+    "claudeWeb": {
+      "name": "Claude.ai (web)",
+      "blurb": "Connectors paneli, aynı OAuth flow.",
+      "step1": "Sol menü → Settings → Connectors → \"Add custom connector\".",
+      "step2": "Server URL:",
+      "step3": "Tarayıcıda consent → Allow → tools listesi yüklendiğinde hazır."
+    },
+    "chatgpt": {
+      "name": "ChatGPT (Connectors)",
+      "blurb": "Plus / Team / Enterprise — Connectors özelliği.",
+      "step1": "Settings → Connectors → \"Add\" → \"Custom MCP server\".",
+      "step2": "URL:",
+      "step3": "Authorize → ChatGPT yeni chat'inde \"@xtweetly\" ile araçları çağır."
+    },
+    "cursor": {
+      "name": "Cursor",
+      "blurb": "Settings → MCP. OAuth otomatik tetiklenir.",
+      "step1": "Settings (Cmd/Ctrl+,) → MCP & Integrations → \"+ Add custom MCP\" → \"HTTP\".",
+      "step2": "Name: xtweetly, URL:",
+      "step3": "Save → Cursor tarayıcıda OAuth'u açar → izin → araçlar Composer'da görünür."
+    },
+    "codex": {
+      "name": "OpenAI Codex CLI",
+      "blurb": "Remote HTTP MCP desteği. Config dosyası.",
+      "step1": "~/.codex/config.toml dosyana ekle:",
+      "step2": "codex çalıştırınca terminal OAuth flow'unu başlatır."
+    },
+    "claudeCode": {
+      "name": "Claude Code (CLI)",
+      "blurb": "Eski SSE transport + tk_* API key.",
+      "step1": "Panel → API Keys → \"+ Yeni Key\" → \"Full access\" → secret'ı kopyala.",
+      "step2": "Terminal'da:",
+      "step3": "claude başlat — \"/mcp\" komutuyla araçların listelendiğini gör."
+    }
   }
 }

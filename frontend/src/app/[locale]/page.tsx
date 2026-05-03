@@ -177,9 +177,9 @@ export default async function LandingPage({
             Claude Desktop, ChatGPT, Cursor — paste the URL, done.
           </h2>
           <p className="mt-5 max-w-[58ch] text-[15px] leading-[1.6] text-muted-foreground">
-            Streamable HTTP + OAuth 2.1 ile her MCP-uyumlu client tek tıkta bağlanır.
-            Eski CLI&apos;lar için <code className="font-mono text-foreground">tk_</code>{' '}
-            API key flow&apos;u da hâlâ açık.
+            Streamable HTTP + OAuth 2.1 — every MCP-aware client connects in one click.
+            Legacy CLIs can still paste a <code className="font-mono text-foreground">tk_</code>{' '}
+            API key.
           </p>
           <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-popover">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
@@ -196,7 +196,7 @@ export default async function LandingPage({
             </pre>
             <div className="border-t border-border px-5 py-4 font-mono text-[12px] leading-[1.65] text-muted-foreground">
               Claude Desktop → Settings → Connectors → Add → paste URL → Allow.
-              {'\n'}ChatGPT, Cursor, Codex aynı URL ile çalışır.
+              {'\n'}Same URL works in ChatGPT, Cursor, and Codex.
             </div>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
