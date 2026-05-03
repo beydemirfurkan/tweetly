@@ -5,7 +5,15 @@ import { AdminApiModule } from '@/admin-api/admin-api.module';
 import { AuthModule } from '@/auth/auth.module';
 import { MonitoringModule } from '@/monitoring/monitoring.module';
 import { XAutomationModule } from '@/x-automation/x-automation.module';
-import { PublicApiController } from './public-api.controller';
+import { AccountsController } from './controllers/accounts.controller';
+import { ActionsController } from './controllers/actions.controller';
+import { LoginController } from './controllers/login.controller';
+import { MonitorsController } from './controllers/monitors.controller';
+import { XController } from './controllers/x.controller';
+import { AccountFacade } from './facades/account.facade';
+import { ActionFacade } from './facades/action.facade';
+import { MonitorFacade } from './facades/monitor.facade';
+import { XFacade } from './facades/x.facade';
 
 @Module({
   imports: [
@@ -16,6 +24,13 @@ import { PublicApiController } from './public-api.controller';
     MonitoringModule,
     XAutomationModule,
   ],
-  controllers: [PublicApiController],
+  controllers: [
+    AccountsController,
+    ActionsController,
+    LoginController,
+    MonitorsController,
+    XController,
+  ],
+  providers: [AccountFacade, ActionFacade, MonitorFacade, XFacade],
 })
 export class PublicApiModule {}
