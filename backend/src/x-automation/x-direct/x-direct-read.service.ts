@@ -38,25 +38,38 @@ export class XDirectReadService extends XDirectBaseService {
         const handleEl = nameEl?.querySelectorAll('span')?.[1];
         const rawHandle = handleEl?.textContent?.replace('@', '') ?? params.handle;
 
+        // Modern X profile renders the post count as a small header line
+        // under the back-arrow ("112 posts" / "112 gönderi"), NOT inside
+        // any tab link. Scope to primaryColumn (the profile column) and
+        // pick the first leaf-ish element whose trimmed text exactly
+        // matches "<number> posts|gönderi". Anchored match avoids partial
+        // hits like "post 112 ago".
         let tweetsCount = '';
-        const profileHandle = `/${rawHandle}`;
-        const allStatLinks = document.querySelectorAll(`a[href="${profileHandle}"], a[href="${profileHandle}/"]`);
-        for (const link of allStatLinks) {
-          const text = link.textContent ?? '';
-          if (text.match(/gönderi|posts/i)) {
-            const numMatch = text.match(/([\d.,]+\s*[KkMmBb]?)/);
-            if (numMatch) {
-              tweetsCount = numMatch[1].trim();
-              break;
-            }
+        const tweetCountFullRe = /^[\d.,]+\s*[KkMmBb]?\s+(?:posts?|gönderi)$/iu;
+        const tweetCountNumRe = /^([\d.,]+\s*[KkMmBb]?)/;
+        const scopeEl = document.querySelector('[data-testid="primaryColumn"]') ?? document.body;
+        const candidates = scopeEl.querySelectorAll('span, div, h1, h2');
+        for (const el of candidates) {
+          const text = (el.textContent ?? '').trim();
+          // Skip both empty and obviously-too-long elements (page bodies
+          // would otherwise match because their textContent contains
+          // "112 posts" somewhere).
+          if (text.length === 0 || text.length > 30) continue;
+          if (!tweetCountFullRe.test(text)) continue;
+          const numMatch = text.match(tweetCountNumRe);
+          if (numMatch) {
+            tweetsCount = numMatch[1].trim();
+            break;
           }
         }
 
+        // Legacy fallbacks — kept for the rare case the header element
+        // is missing (e.g. shadow-DOM-skinned variants seen on some
+        // accounts). All three look for a count next to a profile link.
         if (!tweetsCount) {
-          const navLinks = document.querySelectorAll('nav a[href], [role="tablist"] a[href], [role="tab"]');
-          for (const link of navLinks) {
-            const href = link.getAttribute('href') ?? '';
-            if (href.includes('/followers') || href.includes('/following') || href.includes('/verified_followers')) continue;
+          const profileHandle = `/${rawHandle}`;
+          const allStatLinks = document.querySelectorAll(`a[href="${profileHandle}"], a[href="${profileHandle}/"]`);
+          for (const link of allStatLinks) {
             const text = link.textContent ?? '';
             if (text.match(/gönderi|posts/i)) {
               const numMatch = text.match(/([\d.,]+\s*[KkMmBb]?)/);
@@ -64,20 +77,6 @@ export class XDirectReadService extends XDirectBaseService {
                 tweetsCount = numMatch[1].trim();
                 break;
               }
-            }
-          }
-        }
-
-        if (!tweetsCount) {
-          const allLinks = document.querySelectorAll('a[href]');
-          for (const link of allLinks) {
-            const href = link.getAttribute('href') ?? '';
-            if (href !== profileHandle && href !== profileHandle + '/') continue;
-            const text = link.textContent ?? '';
-            const numMatch = text.match(/([\d.,]+\s*[KkMmBb]?)/);
-            if (numMatch) {
-              tweetsCount = numMatch[1].trim();
-              break;
             }
           }
         }
