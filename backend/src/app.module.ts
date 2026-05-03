@@ -17,6 +17,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { AuthModule } from './auth/auth.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { CryptoModule } from './common/crypto/crypto.module';
+import { ContextModule } from './common/context';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { CryptoModule } from './common/crypto/crypto.module';
         };
       },
     }),
+    ContextModule,
     CryptoModule,
     PersistenceModule,
     DomainModule,

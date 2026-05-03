@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { ApiKeyService } from './api-key.service';
 import { REQUIRES_SCOPE_KEY, type ApiScope } from './requires-scope.decorator';
+import { RequestContext } from '@common/context';
 
 export interface AuthContext {
   userId: string;
@@ -17,6 +18,7 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     private readonly apiKeys: ApiKeyService,
     private readonly reflector: Reflector,
+    private readonly requestContext: RequestContext,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,6 +46,7 @@ export class ApiKeyGuard implements CanActivate {
       apiKeyId: row.id,
       scopes: granted,
     };
+    this.requestContext.setUserId(row.userId);
     this.apiKeys.touchLastUsed(row.id).catch(() => undefined);
     return true;
   }

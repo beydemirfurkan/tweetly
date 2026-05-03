@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { ApplicationException } from './application.exception';
+import type { RequestContext } from '@common/context';
 
 interface ErrorBody {
   statusCode: number;
@@ -15,6 +16,7 @@ interface ErrorBody {
   errorClass: string;
   message: string;
   path: string;
+  correlationId?: string;
 }
 
 /**
@@ -27,20 +29,25 @@ interface ErrorBody {
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger('GlobalExceptionFilter');
 
+  constructor(private readonly requestContext?: RequestContext) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
 
     const body = this.toBody(exception, req.url);
+    const correlationId = this.requestContext?.correlationId();
+    if (correlationId) body.correlationId = correlationId;
 
+    const tag = correlationId ? `[${correlationId}] ` : '';
     if (body.statusCode >= 500) {
       this.logger.error(
-        `${req.method} ${req.url} -> ${body.statusCode} ${body.code}: ${body.message}`,
+        `${tag}${req.method} ${req.url} -> ${body.statusCode} ${body.code}: ${body.message}`,
         exception instanceof Error ? exception.stack : undefined,
       );
     } else {
-      this.logger.warn(`${req.method} ${req.url} -> ${body.statusCode} ${body.code}: ${body.message}`);
+      this.logger.warn(`${tag}${req.method} ${req.url} -> ${body.statusCode} ${body.code}: ${body.message}`);
     }
 
     res.status(body.statusCode).json(body);
