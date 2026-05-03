@@ -13,6 +13,35 @@ interface WorkerOptions {
   enabled: boolean;
 }
 
+/** Wait between the first attempt and the auto-retry, in ms. */
+const RETRY_DELAY_MS = parseInt(process.env.LOGIN_WORKER_RETRY_DELAY_MS ?? '30000', 10);
+
+/**
+ * A failure is transient (worth one retry) when the reason is `unknown` AND
+ * the detail looks like infrastructure noise rather than X policy. We never
+ * retry on user-side reasons (invalid_credentials, captcha_required,
+ * account_locked, login_cooldown, …) — re-trying those wastes the cooldown
+ * window and confuses the user.
+ *
+ * Visible for unit tests.
+ */
+const TRANSIENT_DETAIL_PATTERNS = [
+  /\bnet::/i,                  // chromium net errors (e.g. net::ERR_TIMED_OUT)
+  /navigation timeout/i,       // patchright navigation timeout
+  /Target page, context or browser has been closed/i,
+  /ECONNRESET|ECONNREFUSED|EAI_AGAIN|ETIMEDOUT/i,
+  /step navigate:/i,           // navigate-step failures (DNS, route, transient X 5xx)
+];
+
+export function isTransientFailure(result: Extract<XLoginResult, { ok: false }>): boolean {
+  if (result.reason !== 'unknown') return false;
+  return TRANSIENT_DETAIL_PATTERNS.some((re) => re.test(result.detail));
+}
+
+function truncateForLog(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
+
 @Injectable()
 export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly log = new Logger(LoginWorker.name);
@@ -123,7 +152,25 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
-    const result: XLoginResult = await this.login.run(creds);
+    let result: XLoginResult = await this.login.run(creds);
+
+    // Auto-retry once for transient infra hiccups (network drop, navigation
+    // timeout that didn't reach the login URL). User-side failures
+    // (invalid_credentials, captcha_required, account_locked, …) bypass the
+    // retry — re-trying those just burns the cooldown counter.
+    if (!result.ok && isTransientFailure(result)) {
+      this.log.warn(
+        `transient login failure job=${job.id} reason=${result.reason} ` +
+          `detail=${truncateForLog(result.detail, 120)} — retrying once after ${RETRY_DELAY_MS}ms`,
+      );
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      const retry: XLoginResult = await this.login.run(creds);
+      this.log.log(
+        `retry result job=${job.id} ok=${retry.ok} ` +
+          `reason=${retry.ok ? '-' : retry.reason} duration=${retry.durationMs}ms`,
+      );
+      result = retry;
+    }
 
     if (!result.ok) {
       await this.jobs.markFailure(job.id, result.reason, result.detail);

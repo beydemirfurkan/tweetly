@@ -1,4 +1,4 @@
-import { LoginWorker } from './login-worker.service';
+import { LoginWorker, isTransientFailure } from './login-worker.service';
 import type { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
 import type { XLoginService } from './x-login.service';
 import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
@@ -190,5 +190,35 @@ describe('LoginWorker.process', () => {
     // by marking the job failed (covered separately at integration level).
     await expect(worker.process(makeJob())).rejects.toThrow(/another user/);
     expect(jobs.markSuccess).not.toHaveBeenCalled();
+  });
+});
+
+describe('isTransientFailure', () => {
+  const fail = (reason: 'unknown' | 'invalid_credentials' | 'captcha_required', detail: string) => ({
+    ok: false as const,
+    reason,
+    detail,
+    durationMs: 0,
+  });
+
+  it('matches Patchright navigation timeout', () => {
+    expect(isTransientFailure(fail('unknown', 'step navigate: navigation timeout 45000ms exceeded'))).toBe(true);
+  });
+
+  it('matches chromium net errors', () => {
+    expect(isTransientFailure(fail('unknown', 'step navigate: net::ERR_TIMED_OUT at https://x.com/'))).toBe(true);
+  });
+
+  it('matches socket errors', () => {
+    expect(isTransientFailure(fail('unknown', 'fetch failed: ECONNRESET'))).toBe(true);
+  });
+
+  it('does not retry user-side failures', () => {
+    expect(isTransientFailure(fail('invalid_credentials', 'password rejected'))).toBe(false);
+    expect(isTransientFailure(fail('captcha_required', 'arkose iframe visible'))).toBe(false);
+  });
+
+  it('does not retry an unknown reason whose detail is non-transient', () => {
+    expect(isTransientFailure(fail('unknown', 'step username: locator timeout 20000ms exceeded'))).toBe(false);
   });
 });
