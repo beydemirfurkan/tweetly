@@ -15,7 +15,7 @@ describe('XBrowserService', () => {
   it('does not hang when browser context close never resolves', async () => {
     jest.useFakeTimers();
     process.env.PATCHRIGHT_RELEASE_TIMEOUT_MS = '25';
-    const service = new XBrowserService({} as any);
+    const service = new XBrowserService({} as any, {} as any);
     const context = {
       close: jest.fn(() => new Promise<void>(() => undefined)),
     };
@@ -28,7 +28,10 @@ describe('XBrowserService', () => {
   });
 
   it('waits for profile tweet extraction before releasing the browser context', async () => {
-    const service = new XBrowserService({ findById: jest.fn().mockResolvedValue(null) } as any);
+    const service = new XBrowserService(
+      { findById: jest.fn().mockResolvedValue(null) } as any,
+      {} as any,
+    );
     const context = { close: jest.fn().mockResolvedValue(null) };
     const page = {
       goto: jest.fn().mockResolvedValue(null),

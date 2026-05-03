@@ -5,6 +5,7 @@ import { chromium, type BrowserContext, type Page } from 'patchright';
 import { AccountsService } from '../../accounts/accounts.service';
 import { AuthRequiredError } from './auth-required-error';
 import { optionalBrowserChannel } from './browser-channel';
+import { SelectorRegistry } from './selector-registry';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -91,7 +92,10 @@ export class XBrowserService implements OnModuleDestroy {
   private readonly active = new Set<BrowserContext>();
   private readonly cfg: BrowserConfig;
 
-  constructor(private readonly accounts: AccountsService) {
+  constructor(
+    private readonly accounts: AccountsService,
+    private readonly sel: SelectorRegistry,
+  ) {
     this.cfg = {
       headless: (process.env.HEADLESS ?? 'true').toLowerCase() !== 'false',
       rootDir: process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data'),
@@ -255,12 +259,12 @@ export class XBrowserService implements OnModuleDestroy {
         ? await launched.page.evaluate((value) => document.querySelectorAll(value).length, selector)
         : null;
       const tweets = options.extractTweets
-        ? await launched.page.evaluate(() => {
-          return Array.from(document.querySelectorAll('article[data-testid="tweet"]')).map((article) => {
+        ? await launched.page.evaluate((p) => {
+          return Array.from(document.querySelectorAll(p.tweetArticle)).map((article) => {
             const link = Array.from(article.querySelectorAll('a[href*="/status/"]'))[0] as HTMLAnchorElement | undefined;
             return { url: link?.href ?? '' };
           });
-        }) as Array<{ url: string }>
+        }, { tweetArticle: this.sel.tweetArticle }) as Array<{ url: string }>
         : null;
       const title = await launched.page.title().catch(() => null);
       const url = launched.page.url();
@@ -324,25 +328,33 @@ export class XBrowserService implements OnModuleDestroy {
 
   private async extractTweetCards(page: Page, limit: number): Promise<BrowserTweetResult[]> {
     return await page.evaluate((params) => {
-      const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]')).slice(0, params.limit);
+      const articles = Array.from(document.querySelectorAll(params.tweetArticle)).slice(0, params.limit);
       return articles.map((article) => {
         const tweetLink = article.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null;
-        const likeEl = article.querySelector('[data-testid="like"] span[data-testid="app-text-transition-container"]');
-        const rtEl = article.querySelector('[data-testid="retweet"] span[data-testid="app-text-transition-container"]');
-        const replyEl = article.querySelector('[data-testid="reply"] span[data-testid="app-text-transition-container"]');
+        const likeEl = article.querySelector(params.likeCount);
+        const rtEl = article.querySelector(params.retweetCount);
+        const replyEl = article.querySelector(params.replyCount);
 
         return {
           url: tweetLink?.href ?? '',
-          text: article.querySelector('[data-testid="tweetText"]')?.textContent ?? '',
+          text: article.querySelector(params.tweetText)?.textContent ?? '',
           handle: tweetLink?.pathname?.split('/').filter(Boolean)[0] ?? '',
-          displayName: article.querySelector('[data-testid="User-Names"] span')?.textContent ?? '',
+          displayName: article.querySelector(params.userNames)?.textContent ?? '',
           likeCount: likeEl?.textContent ?? '0',
           retweetCount: rtEl?.textContent ?? '0',
           replyCount: replyEl?.textContent ?? '0',
           postedAt: article.querySelector('time')?.getAttribute('datetime') ?? '',
         };
       });
-    }, { limit });
+    }, {
+      limit,
+      tweetArticle: this.sel.tweetArticle,
+      tweetText: this.sel.tweetText,
+      userNames: this.sel.userNames,
+      likeCount: this.sel.tweetLikeCount,
+      retweetCount: this.sel.tweetRetweetCount,
+      replyCount: this.sel.tweetReplyCount,
+    });
   }
 
   private resolveExecutablePath(): string | null {

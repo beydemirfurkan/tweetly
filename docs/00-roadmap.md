@@ -1,57 +1,52 @@
-# Tweetly Gelistirme Roadmap'i
+# Tweetly Roadmap
 
-## Vizyon
+## Şu Anki Durum (2026-05-03)
 
-Tweetly'u "repo paylasan bot"tan "Turkce AI/dev tool medya hesabi"na donusturmek.
-Amac: X'te etkilesim artirmak, takipci kazanmak ve para kazanmak.
+Bu projenin orijinal roadmap'i (Faz 0–5: güvenlik, format motoru, reply
+flow, analytics, scoring, monetizasyon) `archive/` altında. Çoğu hayata
+geçti veya çok daha kapsamlı bir mimariye dönüştü:
 
-## Mevcut Durum
+- **Action engine + queue uniformity** — 15 ActionType, hepsi action
+  engine üzerinden idempotent + retry'lı çalışıyor.
+- **MCP tool surface** — 43 araç, 5 handler dosyasına bölünmüş, runtime
+  Zod parsing + drift testleri.
+- **Multi-tenant auth** — kullanıcı izolasyonu integration test'leriyle
+  pinned.
+- **Observability** — Prometheus metrics (`/metrics`): queue depth, lag,
+  action duration, circuit breaker state.
+- **Operability** — GitHub Actions CI (build + unit + integration),
+  migration runbook + Coolify pre-deploy hook, queue alarm templates.
+- **Test foundation** — 357 unit + 24 integration spec, hepsi CI'da.
 
-- Tek kaynak: GitHub Trending
-- Tek format: kisa repo aciklamasi + GitHub linki
-- Gunde 20 tweet, 30 dk aralikla
-- Analytics yok
-- Reply/thread destegi yok
-- Monetizasyon yok
+## Mimari Genel Bakış
 
-## Hedef Durum
+Yeni katkıcılar için kısa harita:
 
-- Coklu kaynak ve kalite skorlamasi
-- 8+ icerik formati, her biri farkli etkilesim hedefi
-- Link ana tweet yerine reply'da
-- Haftalik performans raporu
-- Sponsor/affiliate/mini-urun monetizasyon kanallari
+```
+MCP client ──▶ mcp.service (router)
+              └─▶ handlers/{write,profile,read,monitor,account}
+                  ├─▶ enqueue (queue-backed writes)
+                  └─▶ xDirect / xBrowser (sync reads)
 
-## Fazlar
+ClaimWorker ──▶ ExecutorRegistry ──▶ executors/<type>.executor
+                                      └─▶ xDirect (Playwright)
+```
 
-| Faz | Ad | Sure | Durum |
-|-----|----|------|-------|
-| 0 | Guvenlik ve Temel | 1 gun | Bekliyor |
-| 1 | Format Motoru | 2-3 gun | Bekliyor |
-| 2 | Reply ve Thread Yayinlama | 2-3 gun | Bekliyor |
-| 3 | Analytics ve Raporlama | 1-2 gun | Bekliyor |
-| 4 | Scoring ve Kaynak Kalitesi | 2-3 gun | Bekliyor |
-| 5 | Monetizasyon | 2-3 gun | Bekliyor |
+Dökümanlar:
 
-## X Algoritma Kararlari (twitter/the-algorithm)
+- `09-data-models.md` — DB tabloları ve action engine state machine
+- `10-multi-account-plan.md` — multi-tenant auth modeli
+- `11-migration-runbook.md` — DB migration süreci ve Coolify entegrasyonu
+- `12-queue-alarms.md` — Prometheus alert template'leri
+- `07-algorithm-analysis.md` — X algoritma analizi (içerik stratejisi
+  için kalıcı referans)
+- `08-content-strategy.md` — içerik stratejisi
+- `archive/` — orijinal Faz 0–5 roadmap'i (tarihçe)
 
-Detayli analiz icin: `06-algorithm-analysis.md`
+## Açık Yön
 
-Onemli cikarimlar:
-- Reply ve author-engaged reply en guclu sinyaller (agirlik: 75, 13.5)
-- Profile click, dwell, conversation depth odulendirilir (12, 11, 10)
-- Negative feedback ve report ciddi hasar verir (-74, -369)
-- Tek tip icerik ve yuksek frekans yorulma yaratabilir
-- Hasitasi konu kumelerinde tutarlilik (SimClusters) onemli
-
-## Baglantili Dokumanlar
-
-- `01-phase-0-security.md` - Guvenlik ve config temizligi
-- `02-phase-1-format-engine.md` - Format motoru
-- `03-phase-2-reply-thread.md` - Reply ve thread yayinlama
-- `04-phase-3-analytics.md` - Analytics ve raporlama
-- `05-phase-4-scoring.md` - Scoring ve kaynak kalitesi
-- `06-phase-5-monetization.md` - Monetizasyon
-- `07-algorithm-analysis.md` - X algoritma analizi
-- `08-content-strategy.md` - Icerik stratejisi
-- `09-data-models.md` - Veri modelleri
+Önceki roadmap'in monetizasyon ve content-strategy kısımları büyük
+ölçüde "henüz başlanmamış" durumda. Mimari altyapı sağlam — production
+ölçeğinde güvenle yeni özellik eklenebilir hale geldi. Sıradaki strate-
+jik adım: hangi içerik formatına yatırım yapılacak ve ne ölçer? — bu
+ürün kararı, mühendislik kararı değil.
