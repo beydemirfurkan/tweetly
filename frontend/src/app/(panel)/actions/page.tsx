@@ -14,7 +14,23 @@ import {
 import { RefreshCw, RotateCcw, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const ACTION_TYPES = ['post', 'reply', 'retweet', 'like', 'follow', 'quote', 'bookmark'];
+const ACTION_TYPES = [
+  'post',
+  'reply',
+  'retweet',
+  'like',
+  'follow',
+  'quote',
+  'bookmark',
+  'unlike',
+  'unretweet',
+  'unfollow',
+  'delete_tweet',
+  'dm',
+  'profile_update',
+  'avatar_update',
+  'banner_update',
+];
 
 const STATUS_STYLES: Record<
   string,
