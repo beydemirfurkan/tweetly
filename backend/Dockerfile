@@ -3,7 +3,10 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package*.json tsconfig.json ./
-RUN npm ci
+# eslint-plugin-import hasn't shipped eslint@10 peer support yet; use
+# legacy resolution so npm ci doesn't bail. Build doesn't invoke lint,
+# so runtime is unaffected.
+RUN npm ci --legacy-peer-deps
 
 COPY src ./src
 RUN npm run build
@@ -36,7 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # Pull Patchright's bundled Chromium into the image. Do not place browser
 # binaries under /data: Coolify mounts /data as a volume and would hide files
