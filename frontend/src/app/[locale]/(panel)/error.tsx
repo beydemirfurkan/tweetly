@@ -19,23 +19,23 @@ export default function PanelError({
   }, [error]);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-destructive/25 bg-destructive/10">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-6 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-destructive/40 bg-destructive/10">
         <AlertTriangle className="h-6 w-6 text-destructive" />
       </div>
-      <div className="space-y-1.5">
-        <h2
-          className="text-lg font-bold text-foreground"
-          style={{ fontFamily: 'var(--font-syne)' }}
-        >
+      <div className="space-y-2 max-w-md">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-destructive">
+          <span className="animate-pulse-dot">●</span> Error
+        </p>
+        <h2 className="text-[28px] font-black leading-tight tracking-[-0.025em]">
           Bir şeyler ters gitti
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[14px] leading-[1.55] text-muted-foreground">
           {error.message || 'Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.'}
         </p>
         {error.digest && (
-          <p className="font-mono text-xs text-muted-foreground/60">
-            {error.digest}
+          <p className="pt-1 font-mono text-[11px] text-muted-foreground/60">
+            digest: {error.digest}
           </p>
         )}
       </div>

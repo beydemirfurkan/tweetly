@@ -9,16 +9,16 @@ export default function GuidePage() {
   const t = useTranslations('guide');
 
   return (
-    <div className="space-y-8 animate-fade-up max-w-3xl">
-      <div>
-        <h1
-          className="text-2xl font-bold tracking-tight text-foreground"
-          style={{ fontFamily: 'var(--font-syne)' }}
-        >
+    <div className="max-w-3xl space-y-8 animate-fade-up">
+      <header className="border-b border-border pb-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="text-primary">●</span> Onboarding
+        </p>
+        <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
-      </div>
+        <p className="mt-1 text-[14px] text-muted-foreground">{t('subtitle')}</p>
+      </header>
 
       {/* Steps */}
       <div className="space-y-6">
