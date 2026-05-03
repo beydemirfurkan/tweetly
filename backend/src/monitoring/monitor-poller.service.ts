@@ -107,7 +107,7 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
     eventTypes: string[],
     webhookSecret: string | null,
   ): Promise<void> {
-    const tweets = await this.xDirect.getUserTweets(targetHandle, 1, accountId);
+    const { items: tweets } = await this.xDirect.getUserTweets(targetHandle, 1, accountId);
 
     if (tweets.length === 0) {
       await this.monitoring.updateLastCheck(monitorId);

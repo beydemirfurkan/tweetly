@@ -3,23 +3,26 @@ import { fakeContext } from './__tests__/test-helpers';
 import type { XDirectReadService } from '@/x-automation/x-direct';
 import type { XBrowserService } from '@/x-automation/browser/x-browser.service';
 
+const emptyPage = { items: [], nextCursor: null };
+
 function mockXDirect(): jest.Mocked<XDirectReadService> {
   return {
-    searchTweets: jest.fn().mockResolvedValue([]),
+    searchTweets: jest.fn().mockResolvedValue(emptyPage),
     getUser: jest.fn().mockResolvedValue({}),
     getTweet: jest.fn().mockResolvedValue({}),
-    searchUsers: jest.fn().mockResolvedValue([]),
-    getUserFollowers: jest.fn().mockResolvedValue([]),
-    getUserFollowing: jest.fn().mockResolvedValue([]),
-    getTweetRetweeters: jest.fn().mockResolvedValue([]),
-    getTweetQuotes: jest.fn().mockResolvedValue([]),
-    getTweetReplies: jest.fn().mockResolvedValue([]),
-    getUserMentions: jest.fn().mockResolvedValue([]),
+    searchUsers: jest.fn().mockResolvedValue(emptyPage),
+    getUserTweets: jest.fn().mockResolvedValue(emptyPage),
+    getUserFollowers: jest.fn().mockResolvedValue(emptyPage),
+    getUserFollowing: jest.fn().mockResolvedValue(emptyPage),
+    getTweetRetweeters: jest.fn().mockResolvedValue(emptyPage),
+    getTweetQuotes: jest.fn().mockResolvedValue(emptyPage),
+    getTweetReplies: jest.fn().mockResolvedValue(emptyPage),
+    getUserMentions: jest.fn().mockResolvedValue(emptyPage),
     getXTrending: jest.fn().mockResolvedValue([]),
-    getUserLikes: jest.fn().mockResolvedValue([]),
-    getMyBookmarks: jest.fn().mockResolvedValue([]),
-    getListMembers: jest.fn().mockResolvedValue([]),
-    getMutualFollowers: jest.fn().mockResolvedValue([]),
+    getUserLikes: jest.fn().mockResolvedValue(emptyPage),
+    getMyBookmarks: jest.fn().mockResolvedValue(emptyPage),
+    getListMembers: jest.fn().mockResolvedValue(emptyPage),
+    getMutualFollowers: jest.fn().mockResolvedValue(emptyPage),
     getThread: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<XDirectReadService>;
 }
@@ -41,14 +44,21 @@ describe('ReadHandler', () => {
       const x = mockXDirect();
       const h = new ReadHandler(x, mockXBrowser());
       await h.searchTweets({ query: 'q', limit: 999 }, fakeContext());
-      expect(x.searchTweets).toHaveBeenCalledWith('q', 50, 'acc-1');
+      expect(x.searchTweets).toHaveBeenCalledWith('q', 50, 'acc-1', undefined);
     });
 
     it('defaults limit to 20 when omitted', async () => {
       const x = mockXDirect();
       const h = new ReadHandler(x, mockXBrowser());
       await h.searchTweets({ query: 'q' }, fakeContext());
-      expect(x.searchTweets).toHaveBeenCalledWith('q', 20, 'acc-1');
+      expect(x.searchTweets).toHaveBeenCalledWith('q', 20, 'acc-1', undefined);
+    });
+
+    it('forwards cursor verbatim', async () => {
+      const x = mockXDirect();
+      const h = new ReadHandler(x, mockXBrowser());
+      await h.searchTweets({ query: 'q', cursor: 'eyJ2IjoxfQ' }, fakeContext());
+      expect(x.searchTweets).toHaveBeenCalledWith('q', 20, 'acc-1', 'eyJ2IjoxfQ');
     });
   });
 
@@ -65,44 +75,43 @@ describe('ReadHandler', () => {
   });
 
   describe('getUserTweets', () => {
-    it('returns [] short-circuit when no account resolves', async () => {
+    it('returns empty page short-circuit when no account resolves', async () => {
       const x = mockXDirect();
-      const browser = mockXBrowser();
       const ctx = fakeContext({ resolveAccountIdOptional: jest.fn().mockResolvedValue(undefined) });
-      const h = new ReadHandler(x, browser);
+      const h = new ReadHandler(x, mockXBrowser());
 
       const result = await h.getUserTweets({ handle: 'u' }, ctx);
 
-      expect(result).toEqual([]);
-      // Browser should NOT be called when no account is available — saves the
+      expect(result).toEqual({ items: [], nextCursor: null });
+      // xDirect should NOT be called when no account is available — saves the
       // cost of an empty timeline launch.
-      expect(browser.readProfileTweets).not.toHaveBeenCalled();
+      expect(x.getUserTweets).not.toHaveBeenCalled();
     });
 
-    it('delegates to xBrowser when an account is resolved', async () => {
-      const browser = mockXBrowser();
-      const h = new ReadHandler(mockXDirect(), browser);
-      await h.getUserTweets({ handle: 'u', limit: 10 }, fakeContext());
-      expect(browser.readProfileTweets).toHaveBeenCalledWith('u', 10, 'acc-1');
+    it('delegates to xDirect with cursor when an account is resolved', async () => {
+      const x = mockXDirect();
+      const h = new ReadHandler(x, mockXBrowser());
+      await h.getUserTweets({ handle: 'u', limit: 10, cursor: 'C' }, fakeContext());
+      expect(x.getUserTweets).toHaveBeenCalledWith('u', 10, 'acc-1', 'C');
     });
   });
 
   describe('searchUsers / getUserFollowers / getUserFollowing / getTweetRetweeters', () => {
-    it('passes verifiedOnly through as a boolean (defaulting to false)', async () => {
+    it('passes verifiedOnly + cursor through (defaulting verified to false)', async () => {
       const x = mockXDirect();
       const h = new ReadHandler(x, mockXBrowser());
       await h.searchUsers({ query: 'q', verified_only: true }, fakeContext());
-      expect(x.searchUsers).toHaveBeenCalledWith('q', 20, 'acc-1', { verifiedOnly: true });
+      expect(x.searchUsers).toHaveBeenCalledWith('q', 20, 'acc-1', undefined, { verifiedOnly: true });
 
-      await h.getUserFollowers({ handle: 'u' }, fakeContext());
-      expect(x.getUserFollowers).toHaveBeenCalledWith('u', 50, 'acc-1', { verifiedOnly: false });
+      await h.getUserFollowers({ handle: 'u', cursor: 'C' }, fakeContext());
+      expect(x.getUserFollowers).toHaveBeenCalledWith('u', 50, 'acc-1', 'C', { verifiedOnly: false });
     });
 
     it('clamps user-list limits at 200', async () => {
       const x = mockXDirect();
       const h = new ReadHandler(x, mockXBrowser());
       await h.getUserFollowing({ handle: 'u', limit: 9999 }, fakeContext());
-      expect(x.getUserFollowing).toHaveBeenCalledWith('u', 200, 'acc-1', { verifiedOnly: false });
+      expect(x.getUserFollowing).toHaveBeenCalledWith('u', 200, 'acc-1', undefined, { verifiedOnly: false });
     });
 
     it('getTweetRetweeters validates tweet_url presence', async () => {
@@ -122,7 +131,7 @@ describe('ReadHandler', () => {
       const h = new ReadHandler(x, mockXBrowser());
       await expect(h.getUserMentions({}, fakeContext())).rejects.toThrow(/handle/);
       await h.getUserMentions({ handle: 'u', limit: 999 }, fakeContext());
-      expect(x.getUserMentions).toHaveBeenCalledWith('u', 50, 'acc-1');
+      expect(x.getUserMentions).toHaveBeenCalledWith('u', 50, 'acc-1', undefined);
     });
   });
 
@@ -141,14 +150,14 @@ describe('ReadHandler', () => {
       const h = new ReadHandler(x, mockXBrowser());
       await expect(h.getUserLikes({}, fakeContext())).rejects.toThrow(/handle/);
       await h.getUserLikes({ handle: 'u', limit: 999 }, fakeContext());
-      expect(x.getUserLikes).toHaveBeenCalledWith('u', 50, 'acc-1');
+      expect(x.getUserLikes).toHaveBeenCalledWith('u', 50, 'acc-1', undefined);
     });
 
     it('getMyBookmarks needs an account (uses resolveAccountId, not optional)', async () => {
       const x = mockXDirect();
       const h = new ReadHandler(x, mockXBrowser());
-      await h.getMyBookmarks({ limit: 10 }, fakeContext());
-      expect(x.getMyBookmarks).toHaveBeenCalledWith(10, 'acc-1');
+      await h.getMyBookmarks({ limit: 10, cursor: 'C' }, fakeContext());
+      expect(x.getMyBookmarks).toHaveBeenCalledWith(10, 'acc-1', 'C');
     });
 
     it('getThread requires /status/ tweet URL', async () => {
@@ -167,7 +176,7 @@ describe('ReadHandler', () => {
       const x = mockXDirect();
       const h = new ReadHandler(x, mockXBrowser());
       await h.getListMembers({ list_id: '12345', limit: 9999, verified_only: true }, fakeContext());
-      expect(x.getListMembers).toHaveBeenCalledWith('12345', 200, 'acc-1', { verifiedOnly: true });
+      expect(x.getListMembers).toHaveBeenCalledWith('12345', 200, 'acc-1', undefined, { verifiedOnly: true });
     });
 
     it('getMutualFollowers requires handle and an authed account', async () => {
@@ -175,7 +184,7 @@ describe('ReadHandler', () => {
       const h = new ReadHandler(x, mockXBrowser());
       await expect(h.getMutualFollowers({}, fakeContext())).rejects.toThrow(/handle/);
       await h.getMutualFollowers({ handle: 'u' }, fakeContext());
-      expect(x.getMutualFollowers).toHaveBeenCalledWith('u', 50, 'acc-1', { verifiedOnly: false });
+      expect(x.getMutualFollowers).toHaveBeenCalledWith('u', 50, 'acc-1', undefined, { verifiedOnly: false });
     });
   });
 });

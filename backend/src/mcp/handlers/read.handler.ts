@@ -5,17 +5,21 @@ import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**
- * Read-only tools. All run synchronously through XDirectReadService /
- * XBrowserService — there is no queueing for reads since they are
- * idempotent and the result needs to flow back to the caller.
+ * Read-only tools. All run synchronously through XDirectReadService —
+ * there is no queueing for reads since they are idempotent and the result
+ * needs to flow back to the caller.
+ *
+ * List-style reads return `{ items, nextCursor }`. Callers paginate by
+ * echoing `nextCursor` back as the `cursor` argument.
  */
 @Injectable()
 export class ReadHandler extends BaseMcpHandler {
   constructor(
     private readonly xDirect: XDirectReadService,
-    private readonly xBrowser: XBrowserService,
+    private readonly _xBrowser: XBrowserService,
   ) {
     super();
+    void this._xBrowser;
   }
 
   async searchTweets(args: McpToolArgs, ctx: McpToolContext) {
@@ -23,7 +27,8 @@ export class ReadHandler extends BaseMcpHandler {
     if (!query) throw new Error('query is required');
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
-    return this.xDirect.searchTweets(query, limit, accountId);
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.searchTweets(query, limit, accountId, cursor);
   }
 
   async getUser(args: McpToolArgs, ctx: McpToolContext) {
@@ -45,8 +50,9 @@ export class ReadHandler extends BaseMcpHandler {
     if (!handle) throw new Error('handle is required');
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
-    if (!accountId) return [];
-    return this.xBrowser.readProfileTweets(handle, limit, accountId);
+    if (!accountId) return { items: [], nextCursor: null };
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getUserTweets(handle, limit, accountId, cursor);
   }
 
   async searchUsers(args: McpToolArgs, ctx: McpToolContext) {
@@ -55,7 +61,8 @@ export class ReadHandler extends BaseMcpHandler {
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
     const verifiedOnly = Boolean(args.verified_only);
-    return this.xDirect.searchUsers(query, limit, accountId, { verifiedOnly });
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.searchUsers(query, limit, accountId, cursor, { verifiedOnly });
   }
 
   async getUserFollowers(args: McpToolArgs, ctx: McpToolContext) {
@@ -64,7 +71,8 @@ export class ReadHandler extends BaseMcpHandler {
     const limit = Math.min(Number(args.limit ?? 50), 200);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
     const verifiedOnly = Boolean(args.verified_only);
-    return this.xDirect.getUserFollowers(handle, limit, accountId, { verifiedOnly });
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getUserFollowers(handle, limit, accountId, cursor, { verifiedOnly });
   }
 
   async getUserFollowing(args: McpToolArgs, ctx: McpToolContext) {
@@ -73,7 +81,8 @@ export class ReadHandler extends BaseMcpHandler {
     const limit = Math.min(Number(args.limit ?? 50), 200);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
     const verifiedOnly = Boolean(args.verified_only);
-    return this.xDirect.getUserFollowing(handle, limit, accountId, { verifiedOnly });
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getUserFollowing(handle, limit, accountId, cursor, { verifiedOnly });
   }
 
   async getTweetRetweeters(args: McpToolArgs, ctx: McpToolContext) {
@@ -82,7 +91,8 @@ export class ReadHandler extends BaseMcpHandler {
     const limit = Math.min(Number(args.limit ?? 50), 200);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
     const verifiedOnly = Boolean(args.verified_only);
-    return this.xDirect.getTweetRetweeters(tweetUrl, limit, accountId, { verifiedOnly });
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getTweetRetweeters(tweetUrl, limit, accountId, cursor, { verifiedOnly });
   }
 
   async getTweetQuotes(args: McpToolArgs, ctx: McpToolContext) {
@@ -90,7 +100,8 @@ export class ReadHandler extends BaseMcpHandler {
     if (!tweetUrl) throw new Error('tweet_url is required');
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
-    return this.xDirect.getTweetQuotes(tweetUrl, limit, accountId);
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getTweetQuotes(tweetUrl, limit, accountId, cursor);
   }
 
   async getTweetReplies(args: McpToolArgs, ctx: McpToolContext) {
@@ -98,7 +109,8 @@ export class ReadHandler extends BaseMcpHandler {
     if (!tweetUrl) throw new Error('tweet_url is required');
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
-    return this.xDirect.getTweetReplies(tweetUrl, limit, accountId);
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getTweetReplies(tweetUrl, limit, accountId, cursor);
   }
 
   async getUserMentions(args: McpToolArgs, ctx: McpToolContext) {
@@ -106,7 +118,8 @@ export class ReadHandler extends BaseMcpHandler {
     if (!handle) throw new Error('handle is required');
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
-    return this.xDirect.getUserMentions(handle, limit, accountId);
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getUserMentions(handle, limit, accountId, cursor);
   }
 
   async getXTrending(args: McpToolArgs, ctx: McpToolContext) {
@@ -119,13 +132,15 @@ export class ReadHandler extends BaseMcpHandler {
     if (!handle) throw new Error('handle is required');
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
-    return this.xDirect.getUserLikes(handle, limit, accountId);
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getUserLikes(handle, limit, accountId, cursor);
   }
 
   async getMyBookmarks(args: McpToolArgs, ctx: McpToolContext) {
     const limit = Math.min(Number(args.limit ?? 20), 50);
     const accountId = await ctx.resolveAccountId(args.account_id as string | undefined);
-    return this.xDirect.getMyBookmarks(limit, accountId);
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getMyBookmarks(limit, accountId, cursor);
   }
 
   async getListMembers(args: McpToolArgs, ctx: McpToolContext) {
@@ -134,7 +149,8 @@ export class ReadHandler extends BaseMcpHandler {
     const limit = Math.min(Number(args.limit ?? 50), 200);
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
     const verifiedOnly = Boolean(args.verified_only);
-    return this.xDirect.getListMembers(listId, limit, accountId, { verifiedOnly });
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getListMembers(listId, limit, accountId, cursor, { verifiedOnly });
   }
 
   async getMutualFollowers(args: McpToolArgs, ctx: McpToolContext) {
@@ -143,7 +159,8 @@ export class ReadHandler extends BaseMcpHandler {
     const limit = Math.min(Number(args.limit ?? 50), 200);
     const accountId = await ctx.resolveAccountId(args.account_id as string | undefined);
     const verifiedOnly = Boolean(args.verified_only);
-    return this.xDirect.getMutualFollowers(handle, limit, accountId, { verifiedOnly });
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getMutualFollowers(handle, limit, accountId, cursor, { verifiedOnly });
   }
 
   async getThread(args: McpToolArgs, ctx: McpToolContext) {

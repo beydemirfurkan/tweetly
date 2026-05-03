@@ -11,7 +11,7 @@ function createService() {
     deliver: jest.fn().mockResolvedValue({ ok: true }),
   };
   const xDirect = {
-    getUserTweets: jest.fn().mockResolvedValue([]),
+    getUserTweets: jest.fn().mockResolvedValue({ items: [], nextCursor: null }),
   };
   // Mock DataSource for advisory-lock calls. Default: lock acquired.
   const dataSource = {
@@ -53,7 +53,7 @@ describe('MonitorPollerService', () => {
       monitoring.findEnabled.mockResolvedValue([
         { id: 'mon-1', accountId: 'acc-1', targetHandle: 'user', webhookUrl: 'https://hook.test', lastTweetUrl: null, eventTypes: ['tweet.new'] },
       ]);
-      xDirect.getUserTweets.mockResolvedValue([]);
+      xDirect.getUserTweets.mockResolvedValue({ items: [], nextCursor: null });
 
       await service.poll();
 
@@ -67,7 +67,10 @@ describe('MonitorPollerService', () => {
       monitoring.findEnabled.mockResolvedValue([
         { id: 'mon-1', accountId: 'acc-1', targetHandle: 'user', webhookUrl: 'https://hook.test', lastTweetUrl: url, eventTypes: ['tweet.new'] },
       ]);
-      xDirect.getUserTweets.mockResolvedValue([{ url, text: 'hi', displayName: 'User', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' }]);
+      xDirect.getUserTweets.mockResolvedValue({
+        items: [{ url, text: 'hi', displayName: 'User', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' }],
+        nextCursor: null,
+      });
 
       await service.poll();
 
@@ -81,9 +84,12 @@ describe('MonitorPollerService', () => {
       monitoring.findEnabled.mockResolvedValue([
         { id: 'mon-1', accountId: 'acc-1', targetHandle: 'user', webhookUrl: 'https://hook.test', lastTweetUrl: 'https://x.com/user/status/1', eventTypes: ['tweet.new'] },
       ]);
-      xDirect.getUserTweets.mockResolvedValue([
-        { url: newUrl, text: 'new tweet', displayName: 'User', likeCount: '5', retweetCount: '2', replyCount: '1', postedAt: '2025-01-01' },
-      ]);
+      xDirect.getUserTweets.mockResolvedValue({
+        items: [
+          { url: newUrl, text: 'new tweet', displayName: 'User', likeCount: '5', retweetCount: '2', replyCount: '1', postedAt: '2025-01-01' },
+        ],
+        nextCursor: null,
+      });
       monitoring.recordDelivery.mockResolvedValue(null);
 
       await service.poll();
@@ -102,7 +108,10 @@ describe('MonitorPollerService', () => {
       monitoring.findEnabled.mockResolvedValue([
         { id: 'mon-1', accountId: 'acc-1', targetHandle: 'user', webhookUrl: 'https://hook.test', lastTweetUrl: null, eventTypes: [] },
       ]);
-      xDirect.getUserTweets.mockResolvedValue([{ url: 'https://x.com/user/status/2', text: 'hi', displayName: 'U', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' }]);
+      xDirect.getUserTweets.mockResolvedValue({
+        items: [{ url: 'https://x.com/user/status/2', text: 'hi', displayName: 'U', likeCount: '0', retweetCount: '0', replyCount: '0', postedAt: '' }],
+        nextCursor: null,
+      });
 
       await service.poll();
 

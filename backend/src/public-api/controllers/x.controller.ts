@@ -48,13 +48,15 @@ export class XController {
   @ApiQuery({ name: 'query', required: true })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'account', required: false })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async searchTweets(
     @Req() req: Request,
     @Query('query') query: string,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.searchTweets(getAuthContext(req).userId, query, limit, account);
+    return this.x.searchTweets(getAuthContext(req).userId, query, limit, account, cursor);
   }
 
   @Get('x/search/users')
@@ -62,13 +64,15 @@ export class XController {
   @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: 'Search users by name or handle' })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async searchUsers(
     @Req() req: Request,
     @Query('query') query: string,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.searchUsers(getAuthContext(req).userId, query, limit, account);
+    return this.x.searchUsers(getAuthContext(req).userId, query, limit, account, cursor);
   }
 
   @Get('x/users/:handle')
@@ -89,13 +93,15 @@ export class XController {
   @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: "Get a user's recent tweets" })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async getUserTweets(
     @Req() req: Request,
     @Param('handle') handle: string,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.getUserTweets(getAuthContext(req).userId, handle, limit, account);
+    return this.x.getUserTweets(getAuthContext(req).userId, handle, limit, account, cursor);
   }
 
   @Get('x/users/:handle/followers')
@@ -103,13 +109,15 @@ export class XController {
   @RequiresScope('read')
   @RateLimitRead()
   @ApiOperation({ summary: "Get a user's followers" })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async getUserFollowers(
     @Req() req: Request,
     @Param('handle') handle: string,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.getUserFollowers(getAuthContext(req).userId, handle, limit, account);
+    return this.x.getUserFollowers(getAuthContext(req).userId, handle, limit, account, cursor);
   }
 
   @Post('x/tweets/get')
@@ -137,13 +145,15 @@ export class XController {
   @ApiOperation({ summary: "Get tweets a user has liked" })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'account', required: false })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async getUserLikes(
     @Req() req: Request,
     @Param('handle') handle: string,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.getUserLikes(getAuthContext(req).userId, handle, limit, account);
+    return this.x.getUserLikes(getAuthContext(req).userId, handle, limit, account, cursor);
   }
 
   @Get('x/me/bookmarks')
@@ -153,12 +163,14 @@ export class XController {
   @ApiOperation({ summary: "Get the calling account's own bookmarks" })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'account', required: false })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async getMyBookmarks(
     @Req() req: Request,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.getMyBookmarks(getAuthContext(req).userId, limit, account);
+    return this.x.getMyBookmarks(getAuthContext(req).userId, limit, account, cursor);
   }
 
   @Get('x/lists/:listId/members')
@@ -168,13 +180,15 @@ export class XController {
   @ApiOperation({ summary: 'Get members of a public X list by numeric ID' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'account', required: false })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async getListMembers(
     @Req() req: Request,
     @Param('listId') listId: string,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.getListMembers(getAuthContext(req).userId, listId, limit, account);
+    return this.x.getListMembers(getAuthContext(req).userId, listId, limit, account, cursor);
   }
 
   @Get('x/users/:handle/mutual-followers')
@@ -186,13 +200,15 @@ export class XController {
   })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'account', required: false })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
   async getMutualFollowers(
     @Req() req: Request,
     @Param('handle') handle: string,
     @Query('limit') limit: string,
     @Query('account') account: string,
+    @Query('cursor') cursor: string,
   ) {
-    return this.x.getMutualFollowers(getAuthContext(req).userId, handle, limit, account);
+    return this.x.getMutualFollowers(getAuthContext(req).userId, handle, limit, account, cursor);
   }
 
   @Post('x/tweets/thread')

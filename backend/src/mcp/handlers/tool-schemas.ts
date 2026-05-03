@@ -44,6 +44,12 @@ const filePath = z.string().min(1).describe('Local file path');
 
 const verifiedOnly = z.boolean().optional().describe('Filter to verified accounts only');
 
+const cursor = z
+  .string()
+  .min(1)
+  .optional()
+  .describe('Opaque cursor from a previous response (echo nextCursor verbatim)');
+
 // ── Write tools (queue-backed, original 8) ──────────────────────────────
 
 const postTweet = z.object({
@@ -144,6 +150,7 @@ const searchTweets = z.object({
   query: z.string().min(1).describe('Search query (X advanced operators supported)'),
   limit: limit(50),
   account_id: accountId,
+  cursor,
 });
 const getUser = z.object({
   handle: xHandle.describe('Handle of the user to fetch'),
@@ -157,45 +164,53 @@ const getUserTweets = z.object({
   handle: xHandle.describe('Handle of the user whose tweets to fetch'),
   limit: limit(50),
   account_id: accountId,
+  cursor,
 });
 const searchUsers = z.object({
   query: z.string().min(1).describe('Search query for users (name or handle)'),
   limit: limit(50),
   account_id: accountId,
   verified_only: verifiedOnly,
+  cursor,
 });
 const getUserFollowers = z.object({
   handle: xHandle.describe('Handle whose followers to list'),
   limit: limit(200),
   account_id: accountId,
   verified_only: verifiedOnly,
+  cursor,
 });
 const getUserFollowing = z.object({
   handle: xHandle.describe('Handle whose following list to fetch'),
   limit: limit(200),
   account_id: accountId,
   verified_only: verifiedOnly,
+  cursor,
 });
 const getTweetRetweeters = z.object({
   tweet_url: z.string().min(1).describe('URL of the tweet whose retweeters to list'),
   limit: limit(200),
   account_id: accountId,
   verified_only: verifiedOnly,
+  cursor,
 });
 const getTweetQuotes = z.object({
   tweet_url: z.string().min(1).describe('URL of the tweet whose quote tweets to list'),
   limit: limit(50),
   account_id: accountId,
+  cursor,
 });
 const getTweetReplies = z.object({
   tweet_url: z.string().min(1).describe('URL of the tweet whose replies to list'),
   limit: limit(50),
   account_id: accountId,
+  cursor,
 });
 const getUserMentions = z.object({
   handle: xHandle.describe('Handle whose mentions to search for'),
   limit: limit(50),
   account_id: accountId,
+  cursor,
 });
 const getXTrending = z.object({ account_id: accountId });
 
@@ -203,10 +218,12 @@ const getUserLikes = z.object({
   handle: xHandle.describe('Handle whose liked tweets to fetch'),
   limit: limit(50),
   account_id: accountId,
+  cursor,
 });
 const getMyBookmarks = z.object({
   limit: limit(50),
   account_id: accountId,
+  cursor,
 });
 const getListMembers = z.object({
   list_id: z
@@ -216,12 +233,14 @@ const getListMembers = z.object({
   limit: limit(200),
   account_id: accountId,
   verified_only: verifiedOnly,
+  cursor,
 });
 const getMutualFollowers = z.object({
   handle: xHandle.describe('Handle whose mutual followers to compute'),
   limit: limit(200),
   account_id: accountId,
   verified_only: verifiedOnly,
+  cursor,
 });
 const getThread = z.object({
   tweet_url: tweetUrl.describe('URL of the root tweet of the thread'),

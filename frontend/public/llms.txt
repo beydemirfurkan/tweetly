@@ -39,6 +39,9 @@ The MCP server is mounted at `https://api.xtweetly.app/mcp`. It exposes 43 tools
 - `update_avatar` / `update_banner`: Replace the profile image or banner.
 
 ### Read tools (synchronous lookups)
+
+List-style reads return `{ items, nextCursor }`. Pass `nextCursor` back as the `cursor` argument to fetch subsequent pages; cursors are opaque (don't parse them). Single-resource reads (`get_user`, `get_tweet`, `get_x_trending`, `get_thread`) return their plain shape.
+
 - `search_tweets`: Live tweet search by query.
 - `search_users`: Search users by name or handle.
 - `get_user`: Profile (display name, bio, counts, verified).

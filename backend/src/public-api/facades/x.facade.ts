@@ -29,18 +29,30 @@ export class XFacade {
     private readonly accounts: AccountFacade,
   ) {}
 
-  async searchTweets(userId: string, query: string, limitStr?: string, account?: string) {
+  async searchTweets(
+    userId: string,
+    query: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
     if (!query) throw new BadRequestException('query is required');
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.reads.searchTweets(query, limit, acct);
+    return this.reads.searchTweets(query, limit, acct, cursor);
   }
 
-  async searchUsers(userId: string, query: string, limitStr?: string, account?: string) {
+  async searchUsers(
+    userId: string,
+    query: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
     if (!query) throw new BadRequestException('query is required');
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.reads.searchUsers(query, limit, acct);
+    return this.reads.searchUsers(query, limit, acct, cursor);
   }
 
   async getUser(userId: string, handle: string, account?: string) {
@@ -48,17 +60,29 @@ export class XFacade {
     return this.reads.getUser(handle, acct);
   }
 
-  async getUserTweets(userId: string, handle: string, limitStr?: string, account?: string) {
+  async getUserTweets(
+    userId: string,
+    handle: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    if (!acct) return [];
-    return this.xBrowser.readProfileTweets(handle, limit, acct);
+    if (!acct) return { items: [], nextCursor: null };
+    return this.reads.getUserTweets(handle, limit, acct, cursor);
   }
 
-  async getUserFollowers(userId: string, handle: string, limitStr?: string, account?: string) {
+  async getUserFollowers(
+    userId: string,
+    handle: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
     const limit = Math.min(parseInt(limitStr ?? '50', 10), 200);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.reads.getUserFollowers(handle, limit, acct);
+    return this.reads.getUserFollowers(handle, limit, acct, cursor);
   }
 
   async getTweet(userId: string, body: GetTweetBody) {
@@ -74,29 +98,47 @@ export class XFacade {
     return this.reads.getXTrending(acct);
   }
 
-  async getUserLikes(userId: string, handle: string, limitStr?: string, account?: string) {
+  async getUserLikes(
+    userId: string,
+    handle: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.reads.getUserLikes(handle, limit, acct);
+    return this.reads.getUserLikes(handle, limit, acct, cursor);
   }
 
-  async getMyBookmarks(userId: string, limitStr?: string, account?: string) {
+  async getMyBookmarks(userId: string, limitStr?: string, account?: string, cursor?: string) {
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.accounts.resolveAccountId(userId, account);
-    return this.reads.getMyBookmarks(limit, acct);
+    return this.reads.getMyBookmarks(limit, acct, cursor);
   }
 
-  async getListMembers(userId: string, listId: string, limitStr?: string, account?: string) {
+  async getListMembers(
+    userId: string,
+    listId: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
     if (!/^\d+$/.test(listId)) throw new BadRequestException('listId must be numeric');
     const limit = Math.min(parseInt(limitStr ?? '50', 10), 200);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.reads.getListMembers(listId, limit, acct);
+    return this.reads.getListMembers(listId, limit, acct, cursor);
   }
 
-  async getMutualFollowers(userId: string, handle: string, limitStr?: string, account?: string) {
+  async getMutualFollowers(
+    userId: string,
+    handle: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
     const limit = Math.min(parseInt(limitStr ?? '50', 10), 200);
     const acct = await this.accounts.resolveAccountId(userId, account);
-    return this.reads.getMutualFollowers(handle, limit, acct);
+    return this.reads.getMutualFollowers(handle, limit, acct, cursor);
   }
 
   async getThread(userId: string, body: GetTweetBody, limitStr?: string) {
