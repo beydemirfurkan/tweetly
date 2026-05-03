@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { AccountsService } from '@/accounts/accounts.service';
+import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
 import { XDirectBaseService } from './x-direct-base.service';
 import type { PaginatedResult } from './pagination.util';
 import {
@@ -22,6 +25,12 @@ import type { TweetResult, UserResult, UserListItem } from './x-direct.types';
  */
 @Injectable()
 export class XDirectReadService extends XDirectBaseService {
+  // Explicit ctor so TypeScript emits design:paramtypes for NestJS DI —
+  // subclasses without their own ctor get no metadata even when decorated.
+  constructor(browser: XBrowserService, sel: SelectorRegistry, accounts: AccountsService) {
+    super(browser, sel, accounts);
+  }
+
   // ── List-style reads (cursor-paginated) ───────────────────────────────
 
   async searchTweets(

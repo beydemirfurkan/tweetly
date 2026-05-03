@@ -1,5 +1,8 @@
 import * as fs from 'fs';
 import { Injectable } from '@nestjs/common';
+import { AccountsService } from '@/accounts/accounts.service';
+import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
 import { XDirectBaseService } from './x-direct-base.service';
 import type { DryRunFlag } from './x-direct.types';
 
@@ -17,6 +20,12 @@ interface ProfileFields {
  */
 @Injectable()
 export class XDirectProfileService extends XDirectBaseService {
+  // Explicit ctor so TypeScript emits design:paramtypes for NestJS DI —
+  // subclasses without their own ctor get no metadata even when decorated.
+  constructor(browser: XBrowserService, sel: SelectorRegistry, accounts: AccountsService) {
+    super(browser, sel, accounts);
+  }
+
   async updateProfile(
     fields: ProfileFields,
     accountId?: string,
