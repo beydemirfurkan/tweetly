@@ -5,8 +5,8 @@ import { AdminApiService } from '@/admin-api/admin-api.service';
 import { SettingsService } from '@/settings/settings.service';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
+import { LoginValidationError } from '@common/exceptions';
 import {
-  LoginValidationError,
   assertBase32Secret,
   normalizeUsername,
   requireString,

@@ -43,7 +43,6 @@ import { MonitoringService } from '@/monitoring/monitoring.service';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
 import {
-  LoginValidationError,
   assertBase32Secret,
   normalizeUsername,
   requireString,
@@ -213,18 +212,11 @@ export class PublicApiController {
     @Body() body: AccountConnectDto,
   ): Promise<LoginJobAcceptedDto> {
     const ctx = getAuthContext(req);
-    let username: string, email: string | null, password: string;
-    let totpSecretRaw: string | null;
-    try {
-      username = normalizeUsername(body.username);
-      email = optionalTrimmedString(body.email);
-      password = requireString(body.password, 'password');
-      totpSecretRaw = body.totpSecret?.trim() || null;
-      if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
-    } catch (e) {
-      if (e instanceof LoginValidationError) throw new BadRequestException(e.message);
-      throw e;
-    }
+    const username = normalizeUsername(body.username);
+    const email = optionalTrimmedString(body.email);
+    const password = requireString(body.password, 'password');
+    const totpSecretRaw = body.totpSecret?.trim() || null;
+    if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
 
     await this.assertLoginCooldownIsClear(ctx.userId, username);
 
@@ -297,15 +289,9 @@ export class PublicApiController {
     const account = await this.accounts.findByIdForUser(accountId, ctx.userId);
     if (!account) throw new NotFoundException(`Account ${id} not found`);
 
-    let password: string, totpSecretRaw: string | null;
-    try {
-      password = requireString(body.password, 'password');
-      totpSecretRaw = body.totpSecret?.trim() || null;
-      if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
-    } catch (e) {
-      if (e instanceof LoginValidationError) throw new BadRequestException(e.message);
-      throw e;
-    }
+    const password = requireString(body.password, 'password');
+    const totpSecretRaw = body.totpSecret?.trim() || null;
+    if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
     // Reuse stored TOTP secret when caller didn't pass one.
     const encryptedTotp = totpSecretRaw
       ? this.cipher.encrypt(totpSecretRaw)

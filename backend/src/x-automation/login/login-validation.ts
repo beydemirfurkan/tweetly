@@ -1,11 +1,5 @@
 import { decodeBase32 } from './totp';
-
-export class LoginValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'LoginValidationError';
-  }
-}
+import { LoginValidationError } from '@common/exceptions';
 
 export function normalizeUsername(raw: unknown): string {
   if (typeof raw !== 'string') throw new LoginValidationError('username is required');

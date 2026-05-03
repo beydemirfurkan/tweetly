@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { loadMasterKeyFromEnv } from './common/crypto/credential-cipher.service';
+import { GlobalExceptionFilter } from './common/exceptions';
 
 dotenv.config();
 
@@ -67,6 +68,7 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
   app.enableCors(buildCorsOptions(isProd));
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tweetly API')
