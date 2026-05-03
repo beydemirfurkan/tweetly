@@ -199,6 +199,22 @@ export class AccountFacade {
     const totpSecretRaw = body.totpSecret?.trim() || null;
     if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
 
+    // X account ids are stored lowercase; reject a second 'connect' for an
+    // account the user already owns and steer them to /reauth so we don't
+    // silently overwrite their cookies via upsertAccountWithCookies.
+    const candidateAccountId = username.toLowerCase();
+    const existing = await this.accounts.findByIdForUser(candidateAccountId, userId);
+    if (existing) {
+      throw new HttpException(
+        {
+          message: 'Account is already connected. Use the reauth flow to refresh its session.',
+          code: 'account_already_connected',
+          existingAccountId: existing.id,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     await this.assertLoginCooldownIsClear(userId, username);
 
     const { id } = await this.loginJobs.create({

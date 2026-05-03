@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { Link, useRouter } from '@/i18n/navigation';
 import {
   useApiFetch,
   ApiError,
@@ -24,7 +25,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, KeyRound, ShieldAlert, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import {
+  Loader2,
+  KeyRound,
+  ShieldAlert,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  UserCheck,
+  ArrowRight,
+} from 'lucide-react';
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -56,17 +66,25 @@ const EMPTY_FORM: FormState = {
   saveTotpSecret: false,
 };
 
+interface AlreadyConnectedPayload {
+  code: 'account_already_connected';
+  existingAccountId: string;
+}
+
 type Phase =
   | { kind: 'idle' }
   | { kind: 'submitting' }
   | { kind: 'polling'; jobId: string; status: LoginJobResponse['status'] }
   | { kind: 'success'; targetAccountId: string }
   | { kind: 'failed'; reason: NonNullable<LoginJobResponse['failureReason']>; detail: string | null }
-  | { kind: 'cooldown'; payload: LoginCooldownPayload };
+  | { kind: 'cooldown'; payload: LoginCooldownPayload }
+  | { kind: 'alreadyConnected'; existingAccountId: string };
 
 export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId, onSuccess }: Props) {
   const apiFetch = useApiFetch();
+  const t = useTranslations('connectDialog');
   const locale = useLocale();
+  const router = useRouter();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [submitError, setSubmitError] = useState('');
@@ -91,9 +109,9 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
   const submit = async () => {
     setSubmitError('');
     if (mode === 'connect') {
-      if (!form.username.trim()) return setSubmitError('Kullanıcı adı zorunlu.');
+      if (!form.username.trim()) return setSubmitError(t('errorUsernameRequired'));
     }
-    if (!form.password) return setSubmitError('Şifre zorunlu.');
+    if (!form.password) return setSubmitError(t('errorPasswordRequired'));
 
     setPhase({ kind: 'submitting' });
 
@@ -103,14 +121,20 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
       setPhase({ kind: 'polling', jobId: accepted.jobId, status: 'queued' });
       pollLoop(accepted.jobId);
     } catch (err) {
-      // Cooldown 429 carries a structured payload (retryAt + manualReviewRequired).
-      // Surface it as its own phase so the user sees a live countdown instead
-      // of a generic "too many attempts" toast.
+      // 409: backend rejected because the same handle is already connected
+      // for this user. Steer the caller to the reauth flow instead of
+      // silently overwriting cookies via upsertAccountWithCookies.
+      if (err instanceof ApiError && err.status === 409 && isAlreadyConnectedPayload(err.body)) {
+        setPhase({ kind: 'alreadyConnected', existingAccountId: err.body.existingAccountId });
+        return;
+      }
+      // 429: cooldown payload (retryAt + manualReviewRequired). Surface as
+      // its own phase so the user sees a live countdown.
       if (err instanceof ApiError && err.status === 429 && isLoginCooldownPayload(err.body)) {
         setPhase({ kind: 'cooldown', payload: err.body });
         return;
       }
-      const msg = err instanceof Error ? err.message : 'Bilinmeyen hata';
+      const msg = err instanceof Error ? err.message : t('errorUnknown');
       setPhase({ kind: 'idle' });
       setSubmitError(msg);
     }
@@ -146,7 +170,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
         setTimeout(tick, POLL_INTERVAL_MS);
       } catch (err) {
         if (cancelledRef.current) return;
-        const msg = err instanceof Error ? err.message : 'Sorgulama hatası';
+        const msg = err instanceof Error ? err.message : t('errorUnknown');
         setPhase({ kind: 'failed', reason: 'unknown', detail: msg });
       }
     };
@@ -157,23 +181,43 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
   // already lets the user dismiss in that phase.
   const isBusy = phase.kind === 'submitting' || phase.kind === 'polling';
 
+  const goToManualCookieEdit = (accountId: string) => {
+    onOpenChange(false);
+    // Hash so the accounts page can scroll to / open the edit dialog if it
+    // wires that up later. For now it's just a deep-link to /accounts.
+    router.push(`/accounts#edit-${accountId}` as '/accounts');
+  };
+
+  const title =
+    mode === 'connect'
+      ? t('titleConnect')
+      : t('titleReauth', { handle: targetAccountId ?? '' });
+
   return (
     <Dialog open={open} onOpenChange={(o) => !isBusy && onOpenChange(o)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <KeyRound className="h-4 w-4 text-primary" />
-            {mode === 'connect' ? 'X Hesabı Bağla' : `Yeniden doğrula: @${targetAccountId}`}
+            {title}
           </DialogTitle>
         </DialogHeader>
 
         {phase.kind === 'success' ? (
           <SuccessPanel accountId={phase.targetAccountId} />
+        ) : phase.kind === 'alreadyConnected' ? (
+          <AlreadyConnectedPanel
+            accountId={phase.existingAccountId}
+            onClose={() => onOpenChange(false)}
+          />
         ) : phase.kind === 'cooldown' ? (
           <CooldownPanel
             payload={phase.payload}
-            locale={locale}
+            // For username-typed connect attempts we don't yet know the
+            // account id; for reauth we do. Pass through if available.
+            targetAccountId={mode === 'reauth' ? (targetAccountId ?? null) : null}
             onDone={() => setPhase({ kind: 'idle' })}
+            onSwitchToManual={(id) => goToManualCookieEdit(id)}
           />
         ) : phase.kind === 'failed' ? (
           <FailurePanel
@@ -199,6 +243,12 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
       </DialogContent>
     </Dialog>
   );
+}
+
+function isAlreadyConnectedPayload(value: unknown): value is AlreadyConnectedPayload {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return v.code === 'account_already_connected' && typeof v.existingAccountId === 'string';
 }
 
 async function sendRequest(args: {
@@ -228,8 +278,8 @@ async function sendRequest(args: {
       ? '/api/v1/accounts/connect'
       : `/api/v1/accounts/${encodeURIComponent(args.targetAccountId ?? '')}/reauth`;
 
-  // Don't translate ApiErrors here — the caller handles 429 cooldown-with-
-  // payload as its own phase, and other statuses surface their server message.
+  // Don't translate ApiErrors here — the caller handles 409 already-connected,
+  // 429 cooldown, and surfaces other server errors verbatim.
   return args.apiFetch<LoginJobAccepted>(path, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -244,6 +294,7 @@ function FormPanel(props: {
   error: string;
   onCancel: () => void;
 }) {
+  const t = useTranslations('connectDialog');
   const { mode, form, setForm, submit, error, onCancel } = props;
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -253,10 +304,10 @@ function FormPanel(props: {
       {mode === 'connect' && (
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Kullanıcı adı (@username)
+            {t('usernameLabel')}
           </Label>
           <Input
-            placeholder="alice"
+            placeholder={t('usernamePlaceholder')}
             value={form.username}
             onChange={(e) => update('username', e.target.value)}
             autoComplete="username"
@@ -266,11 +317,11 @@ function FormPanel(props: {
 
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          E-posta <span className="text-muted-foreground/60">(opsiyonel)</span>
+          {t('emailLabel')} <span className="text-muted-foreground/60">{t('emailOptional')}</span>
         </Label>
         <Input
           type="email"
-          placeholder="X ekstra doğrulama isterse gerekli olabilir"
+          placeholder={t('emailPlaceholder')}
           value={form.email}
           onChange={(e) => update('email', e.target.value)}
           autoComplete="email"
@@ -279,43 +330,40 @@ function FormPanel(props: {
 
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Şifre
+          {t('passwordLabel')}
         </Label>
         <Input
           type="password"
-          placeholder="••••••••"
+          placeholder={t('passwordPlaceholder')}
           value={form.password}
           onChange={(e) => update('password', e.target.value)}
           autoComplete="current-password"
         />
-        <p className="text-[11px] text-muted-foreground/80">
-          Şifreniz AES-256-GCM ile şifrelenir; giriş tamamlanınca silinir.
-        </p>
+        <p className="text-[11px] text-muted-foreground/80">{t('passwordHint')}</p>
       </div>
 
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          2FA secret (opsiyonel)
+          {t('totpLabel')}
         </Label>
         <Input
-          placeholder="JBSWY3DPEHPK3PXP..."
+          placeholder={t('totpPlaceholder')}
           value={form.totpSecret}
           onChange={(e) => update('totpSecret', e.target.value)}
           className="font-mono"
         />
         <p className="text-[11px] text-muted-foreground/80">
-          X → Ayarlar → Güvenlik → 2FA → Authenticator app → &quot;QR&apos;ı tarayamıyorum&quot; altındaki
-          base32 metni. <strong>6 haneli kod değil.</strong>
+          {t.rich('totpHint', {
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </p>
       </div>
 
       {form.totpSecret && (
         <div className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2">
           <div className="space-y-0.5">
-            <Label className="text-xs font-medium">2FA secret&apos;ini kaydet</Label>
-            <p className="text-[11px] text-muted-foreground/80">
-              Açıksa session düştüğünde otomatik yeniden bağlanabiliriz.
-            </p>
+            <Label className="text-xs font-medium">{t('saveTotpLabel')}</Label>
+            <p className="text-[11px] text-muted-foreground/80">{t('saveTotpHint')}</p>
           </div>
           <Switch
             checked={form.saveTotpSecret}
@@ -333,10 +381,10 @@ function FormPanel(props: {
 
       <div className="flex justify-end gap-2 pt-1">
         <Button variant="outline" onClick={onCancel}>
-          İptal
+          {t('cancel')}
         </Button>
         <Button onClick={submit}>
-          {props.mode === 'connect' ? 'Bağla' : 'Yeniden doğrula'}
+          {props.mode === 'connect' ? t('submitConnect') : t('submitReauth')}
         </Button>
       </div>
     </div>
@@ -344,6 +392,7 @@ function FormPanel(props: {
 }
 
 function PollingPanel({ status }: { status: LoginJobResponse['status'] }) {
+  const t = useTranslations('connectDialog');
   return (
     <div className="space-y-3 pt-2 text-center">
       <div className="flex justify-center">
@@ -351,27 +400,29 @@ function PollingPanel({ status }: { status: LoginJobResponse['status'] }) {
       </div>
       <div className="space-y-1">
         <p className="text-sm font-medium">
-          {status === 'queued' ? 'Sıraya alındı...' : 'X\'e giriş yapılıyor...'}
+          {status === 'queued' ? t('queued') : t('running')}
         </p>
-        <p className="text-xs text-muted-foreground">
-          Bu işlem 20-40 saniye sürer.
-        </p>
+        <p className="text-xs text-muted-foreground">{t('durationHint')}</p>
       </div>
     </div>
   );
 }
 
 function SuccessPanel({ accountId }: { accountId: string }) {
+  const t = useTranslations('connectDialog');
   return (
     <div className="space-y-3 pt-2 text-center">
       <div className="flex justify-center">
         <CheckCircle2 className="h-10 w-10 text-emerald-400" />
       </div>
       <div>
-        <p className="text-sm font-medium">Bağlandı</p>
+        <p className="text-sm font-medium">{t('successTitle')}</p>
         {accountId && (
           <p className="text-xs text-muted-foreground">
-            <span className="font-mono">@{accountId}</span> hesabı kullanıma hazır.
+            {t.rich('successDesc', {
+              accountId,
+              handle: (chunks) => <span className="font-mono">{chunks}</span>,
+            })}
           </p>
         )}
       </div>
@@ -379,16 +430,54 @@ function SuccessPanel({ accountId }: { accountId: string }) {
   );
 }
 
+function AlreadyConnectedPanel({
+  accountId,
+  onClose,
+}: {
+  accountId: string;
+  onClose: () => void;
+}) {
+  const t = useTranslations('connectDialog');
+  return (
+    <div className="space-y-3 pt-2">
+      <div className="flex items-start gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-300">
+        <UserCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
+        <div className="space-y-1.5 flex-1">
+          <p className="font-medium">{t('alreadyConnectedTitle')}</p>
+          <p className="text-xs opacity-90">
+            {t.rich('alreadyConnectedBody', {
+              accountId,
+              handle: (chunks) => <span className="font-mono">{chunks}</span>,
+            })}
+          </p>
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Link
+          href={'/accounts' as '/accounts'}
+          onClick={onClose}
+          className="pill inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-colors hover:opacity-90"
+        >
+          {t('alreadyConnectedCta')}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function CooldownPanel({
   payload,
-  locale,
+  targetAccountId,
   onDone,
+  onSwitchToManual,
 }: {
   payload: LoginCooldownPayload;
-  locale: string;
+  targetAccountId: string | null;
   onDone: () => void;
+  onSwitchToManual: (accountId: string) => void;
 }) {
-  const isEn = locale.toLowerCase().startsWith('en');
+  const t = useTranslations('connectDialog');
   const retryAtMs = useMemo(() => new Date(payload.retryAt).getTime(), [payload.retryAt]);
   const [now, setNow] = useState(() => Date.now());
 
@@ -400,6 +489,7 @@ function CooldownPanel({
   const remainingSec = Math.max(0, Math.ceil((retryAtMs - now) / 1000));
   const mm = Math.floor(remainingSec / 60).toString().padStart(2, '0');
   const ss = (remainingSec % 60).toString().padStart(2, '0');
+  const countdown = `${mm}:${ss}`;
   const expired = remainingSec === 0;
   const requiresManual = payload.manualReviewRequired;
 
@@ -419,30 +509,28 @@ function CooldownPanel({
         )}
         <div className="space-y-1.5 flex-1">
           <p className="font-medium">
-            {requiresManual
-              ? isEn
-                ? 'Too many recent failures — manual review needed'
-                : 'Çok fazla başarısız deneme — manuel inceleme gerekiyor'
-              : isEn
-                ? 'Login temporarily blocked'
-                : 'Giriş geçici olarak engellendi'}
+            {requiresManual ? t('cooldownManualTitle') : t('cooldownTitle')}
           </p>
           <p className="text-xs opacity-90">
             {requiresManual
-              ? isEn
-                ? `${payload.failureCount} failed attempts in a row. Try the manual cookie-paste path or wait at least ${mm}:${ss}.`
-                : `Üst üste ${payload.failureCount} başarısız deneme. Manuel cookie yapıştırma yolunu deneyin veya en az ${mm}:${ss} bekleyin.`
-              : isEn
-                ? `Wait ${mm}:${ss} before trying again.`
-                : `Tekrar denemek için ${mm}:${ss} kadar bekleyin.`}
+              ? t('cooldownManualBody', { count: payload.failureCount, countdown })
+              : t('cooldownBody', { countdown })}
           </p>
         </div>
       </div>
       <div className="flex justify-end gap-2">
+        {requiresManual && targetAccountId && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onSwitchToManual(targetAccountId)}
+            className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+          >
+            {t('cooldownManualCta')}
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={onDone} disabled={!expired}>
-          {expired
-            ? isEn ? 'Try again' : 'Tekrar dene'
-            : `${mm}:${ss}`}
+          {expired ? t('tryAgain') : countdown}
         </Button>
       </div>
     </div>
@@ -460,7 +548,7 @@ function FailurePanel({
   locale: string;
   onRetry: () => void;
 }) {
-  const isEn = locale.toLowerCase().startsWith('en');
+  const t = useTranslations('connectDialog');
   return (
     <div className="space-y-3 pt-2">
       <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
@@ -469,14 +557,14 @@ function FailurePanel({
           <p className="font-medium">{failureReasonMessage(reason, locale)}</p>
           {detail && (
             <p className="text-[11px] opacity-70">
-              {isEn ? 'Technical detail' : 'Teknik detay'}: {detail}
+              {t('techDetail')}: {detail}
             </p>
           )}
         </div>
       </div>
       <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={onRetry}>
-          {isEn ? 'Try again' : 'Tekrar dene'}
+          {t('tryAgain')}
         </Button>
       </div>
     </div>
