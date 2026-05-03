@@ -144,6 +144,14 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
       result = { ok: false, errorClass: this.retry.classify(e), message: e.message };
     }
 
+    await this.persistOutcome(row, result, repo);
+  }
+
+  private async persistOutcome(
+    row: ClaimedActionRow,
+    result: ExecutionResult,
+    repo: GenericActionRepository,
+  ): Promise<void> {
     if (result.ok) {
       const payload = result.result;
       if (payload.kind === 'tweet') {
@@ -153,9 +161,7 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
           sentAt: new Date(payload.sentAt),
         });
       } else {
-        await repo.markSucceeded(row.id, {
-          resultAt: new Date(payload.at),
-        });
+        await repo.markSucceeded(row.id, { resultAt: new Date(payload.at) });
       }
       await this.circuitBreaker.recordSuccess(row.account_id);
       await this.accounts.recordSessionSuccess(row.account_id);
@@ -164,22 +170,13 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
 
     const attempts = row.attempts + 1;
     const decision = this.retry.decide(attempts, result.errorClass, row.max_attempts);
-    if (!decision.shouldRetry) {
-      await repo.markFailed(row.id, {
-        status: 'dead',
-        attempts,
-        lastError: result.message,
-        errorClass: result.errorClass,
-      });
-    } else {
-      await repo.markFailed(row.id, {
-        status: 'failed',
-        attempts,
-        lastError: result.message,
-        errorClass: result.errorClass,
-        scheduledAt: new Date(Date.now() + decision.delayMs),
-      });
-    }
+    await repo.markFailed(row.id, {
+      status: decision.shouldRetry ? 'failed' : 'dead',
+      attempts,
+      lastError: result.message,
+      errorClass: result.errorClass,
+      scheduledAt: decision.shouldRetry ? new Date(Date.now() + decision.delayMs) : undefined,
+    });
     await this.circuitBreaker.recordFailure(row.account_id, result.message);
     if (result.errorClass === 'auth') {
       await this.accounts.recordSessionFailure(row.account_id, result.message);

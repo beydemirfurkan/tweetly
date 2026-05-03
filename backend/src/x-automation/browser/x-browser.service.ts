@@ -6,6 +6,9 @@ import { AccountsService } from '@/accounts/accounts.service';
 import { AuthRequiredError } from './auth-required-error';
 import { optionalBrowserChannel } from './browser-channel';
 import { SelectorRegistry } from './selector-registry';
+import { extractTweetCards, type BrowserTweetResult } from './profile-tweet-extractor';
+
+export type { BrowserTweetResult };
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -73,17 +76,6 @@ export interface BrowserNavigateProbeResult extends BrowserProbeResult {
   tweetCount: number | null;
   firstTweetUrl: string | null;
   title: string | null;
-}
-
-export interface BrowserTweetResult {
-  url: string;
-  text: string;
-  handle: string;
-  displayName: string;
-  likeCount: string;
-  retweetCount: string;
-  replyCount: string;
-  postedAt: string;
 }
 
 @Injectable()
@@ -320,41 +312,10 @@ export class XBrowserService implements OnModuleDestroy {
     try {
       await page.goto(`https://x.com/${handle}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.waitForTimeout(5_000);
-      return await this.extractTweetCards(page, limit);
+      return await extractTweetCards(page, limit, this.sel);
     } finally {
       await this.release(context);
     }
-  }
-
-  private async extractTweetCards(page: Page, limit: number): Promise<BrowserTweetResult[]> {
-    return await page.evaluate((params) => {
-      const articles = Array.from(document.querySelectorAll(params.tweetArticle)).slice(0, params.limit);
-      return articles.map((article) => {
-        const tweetLink = article.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null;
-        const likeEl = article.querySelector(params.likeCount);
-        const rtEl = article.querySelector(params.retweetCount);
-        const replyEl = article.querySelector(params.replyCount);
-
-        return {
-          url: tweetLink?.href ?? '',
-          text: article.querySelector(params.tweetText)?.textContent ?? '',
-          handle: tweetLink?.pathname?.split('/').filter(Boolean)[0] ?? '',
-          displayName: article.querySelector(params.userNames)?.textContent ?? '',
-          likeCount: likeEl?.textContent ?? '0',
-          retweetCount: rtEl?.textContent ?? '0',
-          replyCount: replyEl?.textContent ?? '0',
-          postedAt: article.querySelector('time')?.getAttribute('datetime') ?? '',
-        };
-      });
-    }, {
-      limit,
-      tweetArticle: this.sel.tweetArticle,
-      tweetText: this.sel.tweetText,
-      userNames: this.sel.userNames,
-      likeCount: this.sel.tweetLikeCount,
-      retweetCount: this.sel.tweetRetweetCount,
-      replyCount: this.sel.tweetReplyCount,
-    });
   }
 
   private resolveExecutablePath(): string | null {
@@ -423,7 +384,7 @@ export class XBrowserService implements OnModuleDestroy {
     }
   }
 
-  async assertSessionHealthy(page: Page, accountId?: string): Promise<void> {
+  async assertSessionHealthy(page: Page, _accountId?: string): Promise<void> {
     if (!STRICT_SESSION_HEALTH_ENABLED) return;
 
     const url = page.url();

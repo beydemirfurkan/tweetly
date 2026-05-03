@@ -147,9 +147,31 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+    await this.upsertAccountWithCookies(job, accountId, result);
+
+    await this.jobs.markSuccess(job.id, {
+      targetAccountId: accountId,
+      keepEncryptedTotp: job.saveTotpSecret,
+    });
+    await this.accounts
+      .recordSessionSuccess(accountId)
+      .catch((e) => this.log.warn(`recordSessionSuccess swallow: ${e}`));
+
+    this.profileCache.refreshInBackground(accountId);
+
+    this.log.log(`success job=${job.id} accountId=${accountId} duration=${result.durationMs}ms`);
+  }
+
+  /**
+   * Cookie persistence + TOTP-secret retention in one transaction so a
+   * partial failure can't leave an account row with mismatched secrets.
+   */
+  private async upsertAccountWithCookies(
+    job: ClaimedJob,
+    accountId: string,
+    result: Extract<XLoginResult, { ok: true }>,
+  ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      // Upsert via raw SQL inside the same transaction as the secret-handling
-      // updates to keep cookies + totp secret atomically consistent.
       const existing = (await manager.query(
         `SELECT id, user_id, status, totp_secret_encrypted, proxy_country
            FROM accounts WHERE id = $1`,
@@ -165,22 +187,22 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
           ? job.encryptedTotpSecret
           : existing[0]?.totp_secret_encrypted ?? null;
 
+      const params = [
+        accountId,
+        result.cookies.authToken,
+        result.cookies.ct0,
+        result.cookies.twid,
+        totpToStore,
+        job.proxyCountry,
+      ];
+
       if (existing.length === 0) {
         await manager.query(
           `INSERT INTO accounts
              (id, user_id, display_name, auth_token, ct0, twid,
               status, totp_secret_encrypted, proxy_country, created_at, last_used_at)
-           VALUES ($1,$2,$3,$4,$5,$6,'active',$7,$8, now(), now())`,
-          [
-            accountId,
-            job.userId,
-            result.screenName,
-            result.cookies.authToken,
-            result.cookies.ct0,
-            result.cookies.twid,
-            totpToStore,
-            job.proxyCountry,
-          ],
+           VALUES ($1,$7,$8,$2,$3,$4,'active',$5,$6, now(), now())`,
+          [...params, job.userId, result.screenName],
         );
       } else {
         await manager.query(
@@ -193,28 +215,9 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
                   proxy_country = COALESCE($6, proxy_country),
                   last_used_at = now()
             WHERE id = $1`,
-          [
-            accountId,
-            result.cookies.authToken,
-            result.cookies.ct0,
-            result.cookies.twid,
-            totpToStore,
-            job.proxyCountry,
-          ],
+          params,
         );
       }
     });
-
-    await this.jobs.markSuccess(job.id, {
-      targetAccountId: accountId,
-      keepEncryptedTotp: job.saveTotpSecret,
-    });
-    await this.accounts
-      .recordSessionSuccess(accountId)
-      .catch((e) => this.log.warn(`recordSessionSuccess swallow: ${e}`));
-
-    this.profileCache.refreshInBackground(accountId);
-
-    this.log.log(`success job=${job.id} accountId=${accountId} duration=${result.durationMs}ms`);
   }
 }
