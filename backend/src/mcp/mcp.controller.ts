@@ -11,6 +11,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -18,6 +19,7 @@ import { ApiKeyGuard, getAuthContext } from '@/auth/api-key.guard';
 import { OAuthChallenge } from '@/oauth/oauth-challenge.decorator';
 import { McpService } from './mcp.service';
 
+@ApiExcludeController()
 @Controller('mcp')
 @UseGuards(ApiKeyGuard)
 export class McpController {

@@ -99,7 +99,6 @@ async function bootstrap(): Promise<void> {
     .addTag('actions', 'Asynchronous X actions (post, reply, like, ...)')
     .addTag('x', 'Direct X read/undo operations (synchronous via Patchright)')
     .addTag('monitors', 'Account monitors with webhook delivery')
-    .addTag('admin', 'Bootstrap-only endpoints (system token required)')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -14,7 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ACTION_TYPES, type ActionType } from '@domain/types/action.types';
-import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiExcludeController, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
 import { SettingsService } from '@/settings/settings.service';
@@ -55,6 +55,7 @@ class CreateUserBody {
   email?: string;
 }
 
+@ApiExcludeController()
 @ApiTags('admin')
 @Controller('admin')
 @UseGuards(AdminTokenGuard)

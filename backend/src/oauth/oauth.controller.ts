@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ApiKeyGuard, getAuthContext } from '@/auth/api-key.guard';
 import { ApiKeyService } from '@/auth/api-key.service';
@@ -52,6 +53,7 @@ interface RevokeBody {
   client_secret?: unknown;
 }
 
+@ApiExcludeController()
 @Controller('oauth')
 export class OAuthController {
   private readonly log = new Logger(OAuthController.name);

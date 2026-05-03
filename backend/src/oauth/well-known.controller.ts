@@ -1,9 +1,11 @@
 import { Controller, Get, Req } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { appBaseUrl, backendBaseUrl, MCP_RESOURCE_PATH } from './oauth-urls';
 
 // Public discovery endpoints per MCP 2025-06-18 + RFC 9728 (Protected
 // Resource Metadata) + RFC 8414 (Authorization Server Metadata). No auth.
+@ApiExcludeController()
 @Controller('.well-known')
 export class WellKnownController {
   @Get('oauth-protected-resource')
