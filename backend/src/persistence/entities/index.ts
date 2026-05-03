@@ -1,6 +1,7 @@
 export { AccountEntity } from './account.entity';
 export { AccountProfileEntity } from './account-profile.entity';
 export { AccountLoginJobEntity } from './account-login-job.entity';
+export { ExtractionJobEntity } from './extraction-job.entity';
 export { UserEntity } from './user.entity';
 export { ApiKeyEntity } from './api-key.entity';
 export { MagicLinkEntity } from './magic-link.entity';

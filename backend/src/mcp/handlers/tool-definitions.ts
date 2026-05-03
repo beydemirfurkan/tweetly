@@ -59,6 +59,12 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   delete_monitor: 'Delete a monitor',
   pause_monitor: 'Pause a monitor (stops polling without deleting)',
 
+  create_extraction:
+    'Queue a bulk extraction job that drives a cursor-paginated read endpoint until max_rows. Output is JSONL on disk; download via REST.',
+  get_extraction: 'Get an extraction job status + metadata (rows extracted, file path, error if any)',
+  list_extractions: "List the caller's recent extraction jobs",
+  cancel_extraction: 'Cancel a queued or running extraction job',
+
   // Accounts / login / actions / settings
   get_accounts: 'List connected X accounts (handle, status, session health)',
   get_account_health: 'Per-account session health snapshot',

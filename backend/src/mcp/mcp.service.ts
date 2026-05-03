@@ -15,6 +15,7 @@ import { ProfileHandler } from './handlers/profile.handler';
 import { ReadHandler } from './handlers/read.handler';
 import { MonitorHandler } from './handlers/monitor.handler';
 import { AccountHandler } from './handlers/account.handler';
+import { ExtractionHandler } from './handlers/extraction.handler';
 
 @Injectable()
 export class McpService {
@@ -31,6 +32,7 @@ export class McpService {
     private readonly readHandler: ReadHandler,
     private readonly monitorHandler: MonitorHandler,
     private readonly accountHandler: AccountHandler,
+    private readonly extractionHandler: ExtractionHandler,
   ) {}
 
   get instanceId(): string {
@@ -111,6 +113,7 @@ export class McpService {
     const r = this.readHandler;
     const m = this.monitorHandler;
     const a = this.accountHandler;
+    const e = this.extractionHandler;
 
     switch (name) {
       // Queue-backed writes
@@ -160,6 +163,12 @@ export class McpService {
       case 'get_monitor': return m.getMonitor(args, ctx);
       case 'delete_monitor': return m.deleteMonitor(args, ctx);
       case 'pause_monitor': return m.pauseMonitor(args, ctx);
+
+      // Extractions
+      case 'create_extraction': return e.createExtraction(args, ctx);
+      case 'get_extraction': return e.getExtraction(args, ctx);
+      case 'list_extractions': return e.listExtractions(args, ctx);
+      case 'cancel_extraction': return e.cancelExtraction(args, ctx);
 
       // Accounts, login, action queue, settings
       case 'get_accounts': return a.getAccounts(args, ctx);

@@ -62,6 +62,17 @@ List-style reads return `{ items, nextCursor }`. Pass `nextCursor` back as the `
 - `list_monitors` / `get_monitor`: Inspect monitors and recent deliveries.
 - `pause_monitor` / `delete_monitor`: Stop polling or remove.
 
+### Bulk extractions (async, file output)
+
+Queue large jobs that run a cursor-paginated read endpoint to completion (up to 100K rows). Output is JSONL on the server; download via REST.
+
+- `create_extraction`: Queue an extraction job (`type` + `params` + `max_rows`). Returns `{id}`.
+- `get_extraction`: Poll job status (rows extracted, file path, error).
+- `list_extractions`: Recent jobs for the caller.
+- `cancel_extraction`: Cancel a queued or running job.
+
+Supported `type` values: `user_followers`, `user_following`, `user_tweets`, `user_likes`, `user_mentions`, `tweet_retweeters`, `search_tweets`, `list_members`. Download endpoint is REST-only: `GET /api/v1/extractions/{id}/download`.
+
 ### Accounts, jobs, settings
 - `get_accounts` / `get_account_health`: Connected accounts + session health.
 - `connect_x_account` / `reauth_x_account` / `get_x_login_job`: Server-side login flow.

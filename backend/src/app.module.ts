@@ -18,6 +18,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { AuthModule } from './auth/auth.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { PublicApiModule } from './public-api/public-api.module';
+import { ExtractionsModule } from './extractions/extractions.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ContextModule } from './common/context';
 
@@ -65,6 +66,7 @@ import { ContextModule } from './common/context';
     OAuthModule,
     AdminApiModule,
     PublicApiModule,
+    ExtractionsModule,
     McpModule,
     MonitoringModule,
     HealthModule,

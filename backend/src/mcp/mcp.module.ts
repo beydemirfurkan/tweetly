@@ -6,6 +6,7 @@ import { AdminApiModule } from '@/admin-api/admin-api.module';
 import { AuthModule } from '@/auth/auth.module';
 import { XAutomationModule } from '@/x-automation/x-automation.module';
 import { MonitoringModule } from '@/monitoring/monitoring.module';
+import { ExtractionsModule } from '@/extractions/extractions.module';
 import { McpController } from './mcp.controller';
 import { McpService } from './mcp.service';
 import { McpSessionRouter } from './mcp-session-router.service';
@@ -14,6 +15,7 @@ import { ProfileHandler } from './handlers/profile.handler';
 import { ReadHandler } from './handlers/read.handler';
 import { MonitorHandler } from './handlers/monitor.handler';
 import { AccountHandler } from './handlers/account.handler';
+import { ExtractionHandler } from './handlers/extraction.handler';
 
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { AccountHandler } from './handlers/account.handler';
     AuthModule,
     XAutomationModule,
     MonitoringModule,
+    ExtractionsModule,
   ],
   controllers: [McpController],
   providers: [
@@ -34,6 +37,7 @@ import { AccountHandler } from './handlers/account.handler';
     ReadHandler,
     MonitorHandler,
     AccountHandler,
+    ExtractionHandler,
   ],
 })
 export class McpModule {}
