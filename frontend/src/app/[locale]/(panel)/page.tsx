@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { apiFetch, type ApiKey, type UserSummary } from '@/lib/api';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
+import { apiFetch, apiUrl, type ApiKey, type UserSummary } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth-context';
-import { AlertTriangle, Users, KeyRound, Radio, ArrowRight, Activity, Clock } from 'lucide-react';
+import { AlertTriangle, Users, KeyRound, ArrowRight, Activity, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DashboardData {
   summary: UserSummary;
-  activeKeys: number;
+  apiKeys: ApiKey[];
 }
 
 export default function DashboardPage() {
+  const t = useTranslations('dashboard');
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState('');
@@ -23,12 +25,7 @@ export default function DashboardPage() {
       apiFetch<UserSummary>('/api/v1/me/summary'),
       apiFetch<ApiKey[]>('/auth/api-keys'),
     ])
-      .then(([summary, keys]) => {
-        setData({
-          summary,
-          activeKeys: keys.filter((k) => !k.revokedAt).length,
-        });
-      })
+      .then(([summary, apiKeys]) => setData({ summary, apiKeys }))
       .catch((err: Error) => setError(err.message));
   }, []);
 
@@ -36,12 +33,15 @@ export default function DashboardPage() {
     return (
       <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
         <AlertTriangle className="h-4 w-4 shrink-0" />
-        Sunucuya bağlanılamadı: {error}
+        {t('serverError')}: {error}
       </div>
     );
   }
 
   if (!data) return <DashboardSkeleton />;
+
+  const activeKeys = data.apiKeys.filter((k) => !k.revokedAt);
+  const firstActiveKey = activeKeys[0];
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -50,36 +50,36 @@ export default function DashboardPage() {
           className="text-2xl font-bold tracking-tight text-foreground"
           style={{ fontFamily: 'var(--font-syne)' }}
         >
-          Dashboard
+          {t('title')}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Hoş geldin{user ? ` ${user.email}` : ''}
+          {t('welcome')}{user ? ` ${user.email}` : ''}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Hesaplar"
+          title={t('accounts')}
           value={`${data.summary.accounts.active}/${data.summary.accounts.total}`}
-          subtitle="aktif / toplam"
+          subtitle={t('activeTotal')}
           icon={<Users className="h-4 w-4" />}
         />
         <StatCard
-          title="API Anahtarları"
-          value={data.activeKeys}
-          subtitle="aktif"
+          title={t('apiKeys')}
+          value={activeKeys.length}
+          subtitle={t('active')}
           icon={<KeyRound className="h-4 w-4" />}
         />
         <StatCard
-          title="Bekleyen Aksiyon"
+          title={t('pendingActions')}
           value={data.summary.queue.totalPending}
-          subtitle={data.summary.queue.totalDead > 0 ? `${data.summary.queue.totalDead} dead` : 'sıra temiz'}
+          subtitle={data.summary.queue.totalDead > 0 ? `${data.summary.queue.totalDead} dead` : t('queueClean')}
           icon={<Clock className="h-4 w-4" />}
         />
         <StatCard
-          title="24 Saatlik Başarılı"
+          title={t('successLast24h')}
           value={data.summary.activity.succeededLast24h}
-          subtitle="aksiyon tamamlandı"
+          subtitle={t('actionsCompleted')}
           icon={<Activity className="h-4 w-4" />}
         />
       </div>
@@ -89,15 +89,15 @@ export default function DashboardPage() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <span className="h-1 w-3 rounded-full bg-primary" />
-              Kuyruk Durumu
+              {t('queueStatus')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
               <div className="grid grid-cols-5 gap-2 pb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                <span className="col-span-2">Tip</span>
-                <span className="text-right">Bekleyen</span>
-                <span className="text-right">Çalışıyor</span>
+                <span className="col-span-2">{t('typeCol')}</span>
+                <span className="text-right">{t('pendingCol')}</span>
+                <span className="text-right">{t('workingCol')}</span>
                 <span className="text-right text-destructive/80">Dead</span>
               </div>
               {data.summary.queue.byType
@@ -129,32 +129,32 @@ export default function DashboardPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <span className="h-1 w-3 rounded-full bg-primary" />
-            Başlangıç
+            {t('gettingStarted')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <ol className="space-y-3 text-sm">
             <Step
               done={data.summary.accounts.total > 0}
-              text="X hesabını bağla (auth_token + ct0 + twid)"
+              text={t('step1')}
               href="/accounts"
-              cta="Hesaplar"
+              cta={t('accountsLink')}
             />
             <Step
-              done={data.activeKeys > 0}
-              text="MCP / REST için bir API anahtarı oluştur"
+              done={activeKeys.length > 0}
+              text={t('step2')}
               href="/api-keys"
-              cta="API Anahtarları"
+              cta={t('apiKeysLink')}
             />
             <Step
               done={data.summary.activity.succeededLast24h > 0}
-              text="Claude Code (veya Codex) ile bağlan ve aksiyonları çalıştır"
+              text={t('step3')}
             />
           </ol>
           <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">
 {`claude mcp add tweetly \\
-  --url <backend>/mcp/sse \\
-  --header "Authorization: Bearer tk_..."`}
+  --url ${apiUrl('/mcp/sse')} \\
+  --header "Authorization: Bearer ${firstActiveKey ? firstActiveKey.prefix + '...' : 'tk_...'}"`}
           </pre>
         </CardContent>
       </Card>
@@ -190,7 +190,7 @@ function Step({
       </span>
       {href && cta && !done && (
         <Link
-          href={href}
+          href={href as '/'}
           className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
         >
           {cta}

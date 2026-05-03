@@ -20,7 +20,9 @@ export function apiUrl(path: string): string {
 
 function loginUrl(): string {
   if (typeof window === 'undefined') return '/login';
-  const next = `${window.location.pathname}${window.location.search}`;
+  // Strip locale prefix so next-intl router doesn't double-add it after login
+  const pathname = window.location.pathname.replace(/^\/(tr|en)/, '') || '/';
+  const next = `${pathname}${window.location.search}`;
   return `/login?next=${encodeURIComponent(next)}`;
 }
 

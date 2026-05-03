@@ -29,3 +29,10 @@ data/
 
 # DB schema/data dumps (migration runbook output) — may contain row data
 backups/
+
+# session analysis screenshots
+*.png
+*.jpg
+
+# playwright MCP browser state
+.playwright-mcp/

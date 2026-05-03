@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useRouter } from '@/i18n/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Bird, AlertCircle, MailCheck } from 'lucide-react';
 
 export default function LoginPage() {
+  const t = useTranslations('login');
   const { requestLink, isAuthenticated } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -18,12 +20,14 @@ export default function LoginPage() {
   const getNextPath = () => {
     if (typeof window === 'undefined') return '/';
     const next = new URLSearchParams(window.location.search).get('next');
-    return next?.startsWith('/') ? next : '/';
+    if (!next?.startsWith('/')) return '/';
+    // Strip locale prefix so next-intl router doesn't double-add it
+    return next.replace(/^\/(tr|en)/, '') || '/';
   };
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace(getNextPath());
+      router.replace(getNextPath() as '/');
     }
   }, [isAuthenticated, router]);
 
@@ -37,7 +41,7 @@ export default function LoginPage() {
     if (result.ok) {
       setSent(true);
     } else {
-      setError(result.error ?? 'Bir hata oluştu');
+      setError(result.error ?? t('genericError'));
     }
   };
 
@@ -69,7 +73,7 @@ export default function LoginPage() {
               Tweetly
             </h1>
             <p className="mt-1 text-xs tracking-widest text-muted-foreground uppercase">
-              MCP Platform
+              {t('subtitle')}
             </p>
           </div>
         </div>
@@ -87,9 +91,9 @@ export default function LoginPage() {
                 <MailCheck className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium">Bağlantı gönderildi</p>
+                <p className="text-sm font-medium">{t('sentTitle')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {email} adresine giriş bağlantısı gönderildi. 15 dakika içinde geçerli.
+                  {t('sentDesc', { email })}
                 </p>
               </div>
               <button
@@ -100,18 +104,18 @@ export default function LoginPage() {
                 }}
                 className="text-xs text-muted-foreground underline hover:text-foreground"
               >
-                Farklı bir e-posta dene
+                {t('tryDifferent')}
               </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  E-posta
+                  {t('email')}
                 </label>
                 <Input
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={t('emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
@@ -133,7 +137,7 @@ export default function LoginPage() {
                 className="h-10 w-full text-sm font-medium tracking-wide"
                 disabled={loading || !email.trim()}
               >
-                {loading ? 'Gönderiliyor...' : 'Giriş bağlantısı gönder'}
+                {loading ? t('sending') : t('submit')}
               </Button>
             </form>
           )}

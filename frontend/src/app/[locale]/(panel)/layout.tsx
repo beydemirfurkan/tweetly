@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { usePathname, useRouter } from '@/i18n/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Sidebar } from '@/components/sidebar';
 import { Bird } from 'lucide-react';
@@ -28,22 +29,23 @@ export default function PanelLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations('panel');
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?next=${encodeURIComponent(pathname)}` as '/login');
     }
   }, [isAuthenticated, isLoading, pathname, router]);
 
   if (isLoading) {
-    return <LoadingScreen message="Yükleniyor" />;
+    return <LoadingScreen message={t('loading')} />;
   }
 
   if (!isAuthenticated) {
-    return <LoadingScreen message="Yönlendiriliyor" />;
+    return <LoadingScreen message={t('redirecting')} />;
   }
 
   return (
