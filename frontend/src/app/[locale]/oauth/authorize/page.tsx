@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Bird, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { apiUrl, apiFetch, getToken } from '@/lib/api';
@@ -26,13 +27,19 @@ const REQUIRED_PARAMS = [
 
 export default function OAuthAuthorizePage() {
   return (
-    <Suspense fallback={<CenteredSpinner label="Yükleniyor…" />}>
+    <Suspense fallback={<SuspenseFallback />}>
       <OAuthAuthorizeInner />
     </Suspense>
   );
 }
 
+function SuspenseFallback() {
+  const t = useTranslations('oauth');
+  return <CenteredSpinner label={t('loading')} />;
+}
+
 function OAuthAuthorizeInner() {
+  const t = useTranslations('oauth');
   const search = useSearchParams();
   const { isAuthenticated, isLoading, user } = useAuth();
   const [client, setClient] = useState<ClientInfo | null>(null);
@@ -72,14 +79,11 @@ function OAuthAuthorizeInner() {
         if (cancelled) return;
         setClient(c);
         if (!c.redirect_uris.includes(params.redirect_uri)) {
-          setLoadError(
-            `redirect_uri "${params.redirect_uri}" bu uygulama için kayıtlı değil. ` +
-              `Bu güvenlik açısından engellendi.`,
-          );
+          setLoadError(t('errors.redirectMismatch', { uri: params.redirect_uri }));
         }
       })
       .catch((err: Error) => {
-        if (!cancelled) setLoadError(err.message || 'Uygulama bilgisi alınamadı.');
+        if (!cancelled) setLoadError(err.message || t('errors.clientFetch'));
       });
     return () => {
       cancelled = true;
@@ -92,7 +96,7 @@ function OAuthAuthorizeInner() {
       setSubmitError('');
       try {
         const token = getToken();
-        if (!token) throw new Error('Oturum bulunamadı.');
+        if (!token) throw new Error(t('errors.noSession'));
         const res = await fetch(apiUrl('/oauth/authorize/confirm'), {
           method: 'POST',
           headers: {
@@ -111,32 +115,32 @@ function OAuthAuthorizeInner() {
         });
         if (!res.ok) {
           const text = await res.text().catch(() => '');
-          throw new Error(text || `Sunucu hatası: ${res.status}`);
+          throw new Error(text || t('errors.serverWithStatus', { status: res.status }));
         }
         const data = (await res.json()) as ConfirmResponse;
         window.location.href = data.redirect_to;
       } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : 'Bilinmeyen hata.');
+        setSubmitError(err instanceof Error ? err.message : t('errors.unknown'));
         setSubmitting(null);
       }
     },
-    [params],
+    [params, t],
   );
 
   if (isLoading || !isAuthenticated) {
-    return <CenteredSpinner label="Oturum doğrulanıyor…" />;
+    return <CenteredSpinner label={t('verifyingSession')} />;
   }
 
   if (missing.length > 0 || wrongResponseType || wrongMethod) {
     return (
       <CenteredCard>
-        <h1 className="text-xl font-bold tracking-tight">Geçersiz istek</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t('invalid.title')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {missing.length > 0
-            ? `Eksik parametre: ${missing.join(', ')}`
+            ? t('invalid.missing', { keys: missing.join(', ') })
             : wrongResponseType
-              ? `response_type=code olmalı (alındı: ${params.response_type})`
-              : `code_challenge_method=S256 olmalı (alındı: ${params.code_challenge_method})`}
+              ? t('invalid.wrongResponseType', { got: params.response_type })
+              : t('invalid.wrongMethod', { got: params.code_challenge_method })}
         </p>
       </CenteredCard>
     );
@@ -145,14 +149,14 @@ function OAuthAuthorizeInner() {
   if (loadError) {
     return (
       <CenteredCard>
-        <h1 className="text-xl font-bold tracking-tight">Bağlantı reddedildi</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t('denied.title')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
       </CenteredCard>
     );
   }
 
   if (!client) {
-    return <CenteredSpinner label="Uygulama bilgisi yükleniyor…" />;
+    return <CenteredSpinner label={t('loadingClient')} />;
   }
 
   return (
@@ -164,22 +168,25 @@ function OAuthAuthorizeInner() {
           </div>
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              <span className="text-primary">●</span> Yetki isteği
+              <span className="text-primary">●</span> {t('eyebrow')}
             </p>
-            <h1 className="text-lg font-bold tracking-tight">Erişim onayı</h1>
+            <h1 className="text-lg font-bold tracking-tight">{t('cardTitle')}</h1>
           </div>
         </div>
 
         <div className="mt-6 space-y-3">
           <p className="text-sm text-muted-foreground">
-            <strong className="text-foreground">{client.client_name}</strong> xtweetly hesabına
-            erişim istiyor.
+            {t.rich('requestLine', {
+              name: client.client_name,
+              strong: (chunks) => <strong className="text-foreground">{chunks}</strong>,
+            })}
           </p>
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            Bu uygulama, hesabın <strong className="text-foreground">{user?.email}</strong>{' '}
-            altındaki tüm xtweetly araçlarını çağırabilecek (tweet atma, hesap yönetimi, monitor
-            kurma vb.). İstediğin zaman <code className="font-mono">API Keys</code> sayfasından iptal
-            edebilirsin.
+            {t.rich('scopeBlurb', {
+              email: user?.email ?? '',
+              strong: (chunks) => <strong className="text-foreground">{chunks}</strong>,
+              code: (chunks) => <code className="font-mono">{chunks}</code>,
+            })}
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background px-3 py-2 text-xs">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
@@ -202,14 +209,14 @@ function OAuthAuthorizeInner() {
             onClick={() => submit('deny')}
             disabled={submitting !== null}
           >
-            {submitting === 'deny' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reddet'}
+            {submitting === 'deny' ? <Loader2 className="h-4 w-4 animate-spin" /> : t('denyButton')}
           </Button>
           <Button
             className="flex-1"
             onClick={() => submit('allow')}
             disabled={submitting !== null}
           >
-            {submitting === 'allow' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'İzin ver'}
+            {submitting === 'allow' ? <Loader2 className="h-4 w-4 animate-spin" /> : t('allowButton')}
           </Button>
         </div>
       </div>

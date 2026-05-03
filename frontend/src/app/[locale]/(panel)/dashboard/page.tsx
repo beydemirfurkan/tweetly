@@ -141,7 +141,7 @@ export default function DashboardPage() {
               <span className="col-span-2">{t('typeCol')}</span>
               <span className="text-right">{t('pendingCol')}</span>
               <span className="text-right">{t('workingCol')}</span>
-              <span className="text-right">Dead</span>
+              <span className="text-right">{t('deadCol')}</span>
             </div>
             {data.summary.queue.byType
               .filter((q) => q.pending + q.dead + q.claimed + q.running > 0)

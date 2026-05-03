@@ -20,7 +20,54 @@
     "how3Title": "MCP'ye Bağlan",
     "how3Desc": "Claude Code veya başka bir MCP client'ına bağlanın ve X aksiyonlarını çalıştırın.",
     "betaText": "Açık beta — ücretsiz kullanın, geri bildiriminizi paylaşın.",
-    "betaCta": "Hemen Başla"
+    "betaCta": "Hemen Başla",
+    "navFeatures": "Özellikler",
+    "navWorkflow": "Akış",
+    "navDevelopers": "Geliştiriciler",
+    "navDocs": "Dokümantasyon",
+    "heroDocsCta": "Dokümanı oku",
+    "trustMagicLink": "Magic-link auth",
+    "trustWebhooks": "HMAC webhooks",
+    "trustTools": "15 MCP aracı",
+    "feature1Kbd": "POST · REPLY · QUOTE · RT · DM",
+    "feature2Kbd": "SEARCH · TIMELINE · TRENDS",
+    "feature3Kbd": "WEBHOOKS · HMAC · MONITORS",
+    "eyebrowCapabilities": "Yetenekler",
+    "eyebrowWorkflow": "Akış",
+    "eyebrowConnect": "Bağlan",
+    "eyebrowDocs": "API Reference",
+    "howSubtitle": "Kayıt olmaktan ilk programatik post'a — üç adım, hiç boilerplate yok.",
+    "connectTitle": "Claude Desktop, ChatGPT, Cursor — URL'i yapıştır, hazırsın.",
+    "connectBody": "Streamable HTTP + OAuth 2.1 — MCP konuşan her client tek tıkla bağlanır. Eski CLI'lar yine de <code>tk_</code> API key yapıştırabilir.",
+    "connectMcpLabel": "MCP sunucu URL'i",
+    "connectLive": "● canlı",
+    "connectInstructions": "Claude Desktop → Settings → Connectors → Add → URL'i yapıştır → Allow.\nAynı URL ChatGPT, Cursor ve Codex'te de çalışır.",
+    "connectPerClient": "Client'a özel kurulum",
+    "docsTitle": "Canlı OpenAPI spec, doğrudan production'dan.",
+    "docsBody": "<code>/api/v1</code> altındaki her endpoint, request/response şemaları, hata zarfları ve Bearer auth ile interaktif Scalar referansında dokümante — MCP araçlarını da besleyen aynı spec.",
+    "docsOpenReference": "API Reference'i aç",
+    "docsPanelTitle": "xtweetly · openapi 3.1",
+    "docsPanelLive": "● canlı",
+    "docsMore": "+ 23 endpoint daha · /docs sayfasına bak",
+    "endpointDesc": {
+      "post": "tweet gönder",
+      "reply": "tweet'e yanıt",
+      "quote": "alıntı tweet",
+      "retweet": "retweet",
+      "like": "beğen",
+      "follow": "kullanıcı takip et",
+      "dm": "DM gönder",
+      "searchTweets": "tweet ara",
+      "userProfile": "kullanıcı profili getir",
+      "summary": "hesap özeti",
+      "createMonitor": "monitor + webhook oluştur"
+    },
+    "footer": "© 2026 xtweetly",
+    "footerDisclaimer": "X Corp. ile bağlantılı değildir.",
+    "postCardName": "xtweetly Agent",
+    "postCardHandle": "@xtweetly · 2dk",
+    "postCardBody": "<accent>@anthropic-ai/claude-agent-sdk</accent> yeni sürümü çıktı — daha iyi tool-use streaming, varsayılan prompt caching. ⚡",
+    "postCardVia": "via xtweetly · mcp"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -33,6 +80,7 @@
   },
   "login": {
     "subtitle": "MCP Platform",
+    "title": "<brand>xtweetly</brand>'a giriş yap",
     "email": "E-posta",
     "emailPlaceholder": "you@example.com",
     "submit": "Giriş bağlantısı gönder",
@@ -79,6 +127,7 @@
     "typeCol": "Tip",
     "pendingCol": "Bekleyen",
     "workingCol": "Çalışıyor",
+    "deadCol": "Ölü",
     "gettingStarted": "Başlangıç",
     "step1": "X hesabını bağla",
     "step2": "MCP / REST için bir API anahtarı oluştur",
@@ -89,6 +138,7 @@
   },
   "apiKeys": {
     "title": "API Anahtarları",
+    "dialogKicker": "API Anahtarı",
     "subtitle": "MCP ve REST API için kimlik doğrulama anahtarları.",
     "newKey": "Yeni Anahtar",
     "nameCol": "Ad",
@@ -245,6 +295,68 @@
     "trouble1": "API key hatalı: tk_ önekiyle başladığından emin olun.",
     "trouble2": "MCP bağlanamıyor: URL'yi kontrol edin — Dashboard'dan taze kopyalayın.",
     "trouble3": "Aksiyon başarısız: /actions sayfasından hata detayını inceleyin."
+  },
+  "docs": {
+    "back": "Anasayfa",
+    "eyebrow": "API Reference",
+    "title": "xtweetly <accent>API</accent>",
+    "subtitle": "Backend'den canlı yayınlanan, Scalar destekli interaktif API referansı. Her endpoint dokümante, her hata zarfı açık — MCP araçlarımızı da besleyen aynı OpenAPI 3.1 spec'i.",
+    "openReference": "API Reference'i aç",
+    "envWarning": {
+      "title": "Backend URL ayarlanmamış",
+      "body": "Bu sayfa (ve tüm Docs linkleri) canlı backend'inize bağlanması için <code>NEXT_PUBLIC_API_URL</code> değişkenini ayarlayın. Production'da genelde <code>https://api.xtweetly.app</code> gibi olur."
+    },
+    "surface": {
+      "eyebrow": "Yüzey",
+      "title": "HTTP üzerinden neler yapabilirsin.",
+      "body": "Bearer token auth, JSON in/out, deterministik hata zarfları ve her yazma endpoint'inde idempotency kontratı. İstemcini seç — REST, MCP veya üretilen SDK.",
+      "mcpCta": "MCP kurulumunu gör",
+      "panelTitle": "xtweetly · openapi 3.1",
+      "panelLive": "● canlı",
+      "panelUnset": "○ ayarsız",
+      "moreLink": "+ 23 endpoint daha · tam liste için API Reference'i aç"
+    },
+    "endpointDesc": {
+      "post": "tweet gönder",
+      "reply": "tweet'e yanıt",
+      "quote": "alıntı tweet",
+      "retweet": "retweet",
+      "like": "beğen",
+      "follow": "kullanıcı takip et",
+      "dm": "DM gönder",
+      "searchTweets": "tweet ara",
+      "userProfile": "kullanıcı profili getir",
+      "summary": "hesap özeti",
+      "createMonitor": "monitor + webhook oluştur"
+    },
+    "footer": "© 2026 xtweetly"
+  },
+  "oauth": {
+    "loading": "Yükleniyor…",
+    "verifyingSession": "Oturum doğrulanıyor…",
+    "loadingClient": "Uygulama bilgisi yükleniyor…",
+    "eyebrow": "Yetki isteği",
+    "cardTitle": "Erişim onayı",
+    "requestLine": "<strong>{name}</strong> xtweetly hesabına erişim istiyor.",
+    "scopeBlurb": "Bu uygulama, hesabın <strong>{email}</strong> altındaki tüm xtweetly araçlarını çağırabilecek (tweet atma, hesap yönetimi, monitor kurma vb.). İstediğin zaman <code>API Keys</code> sayfasından iptal edebilirsin.",
+    "denyButton": "Reddet",
+    "allowButton": "İzin ver",
+    "invalid": {
+      "title": "Geçersiz istek",
+      "missing": "Eksik parametre: {keys}",
+      "wrongResponseType": "response_type=code olmalı (alındı: {got})",
+      "wrongMethod": "code_challenge_method=S256 olmalı (alındı: {got})"
+    },
+    "denied": {
+      "title": "Bağlantı reddedildi"
+    },
+    "errors": {
+      "redirectMismatch": "redirect_uri \"{uri}\" bu uygulama için kayıtlı değil. Bu güvenlik açısından engellendi.",
+      "clientFetch": "Uygulama bilgisi alınamadı.",
+      "noSession": "Oturum bulunamadı.",
+      "serverWithStatus": "Sunucu hatası: {status}",
+      "unknown": "Bilinmeyen hata."
+    }
   },
   "notFound": {
     "title": "Bu sayfa timeline'da yok",

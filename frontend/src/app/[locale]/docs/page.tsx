@@ -1,4 +1,4 @@
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import {
   ArrowUpRight,
@@ -21,6 +21,7 @@ export default async function DocsPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations('docs');
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
@@ -38,7 +39,7 @@ export default async function DocsPage({
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
-            Back home
+            {t('back')}
           </Link>
         </div>
       </header>
@@ -54,15 +55,15 @@ export default async function DocsPage({
         />
         <div className="mx-auto max-w-[1100px] px-5 py-20 lg:py-24">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            <span className="text-primary">●</span> API Reference
+            <span className="text-primary">●</span> {t('eyebrow')}
           </p>
           <h1 className="mt-3 max-w-[18ch] text-[48px] font-black leading-[1.05] tracking-[-0.035em] sm:text-[64px]">
-            xtweetly <span className="text-primary">API</span>
+            {t.rich('title', {
+              accent: (chunks) => <span className="text-primary">{chunks}</span>,
+            })}
           </h1>
           <p className="mt-5 max-w-[52ch] text-[17px] leading-[1.55] text-muted-foreground">
-            Interactive API reference powered by Scalar, served live from the
-            backend. Every route documented, every error envelope spelled out —
-            the same OpenAPI 3.1 spec our MCP tools are generated from.
+            {t('subtitle')}
           </p>
 
           {apiBase ? (
@@ -74,7 +75,7 @@ export default async function DocsPage({
                 className="pill group inline-flex items-center gap-2 bg-foreground px-7 py-3.5 text-[15px] font-bold text-background transition-transform hover:scale-[1.02]"
               >
                 <BookOpen className="h-4 w-4" strokeWidth={2.75} />
-                Open API Reference
+                {t('openReference')}
                 <ArrowUpRight
                   className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                   strokeWidth={2.75}
@@ -98,13 +99,14 @@ export default async function DocsPage({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-bold tracking-tight text-foreground">
-                    Backend URL not configured
+                    {t('envWarning.title')}
                   </p>
                   <p className="mt-1 text-[13px] leading-[1.55] text-muted-foreground">
-                    Set <span className="font-mono text-foreground">NEXT_PUBLIC_API_URL</span> in your
-                    environment to point this page (and every Docs link) at your live
-                    backend. In production it&apos;s usually
-                    something like <span className="font-mono text-foreground">https://api.xtweetly.app</span>.
+                    {t.rich('envWarning.body', {
+                      code: (chunks) => (
+                        <span className="font-mono text-foreground">{chunks}</span>
+                      ),
+                    })}
                   </p>
                   <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-popover px-4 py-3 font-mono text-[12px] leading-[1.65] text-muted-foreground">
 <span className="text-muted-foreground"># frontend/.env.local</span>{'\n'}
@@ -122,15 +124,13 @@ export default async function DocsPage({
         <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-10 px-5 py-20 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              <span className="text-primary">●</span> Surface
+              <span className="text-primary">●</span> {t('surface.eyebrow')}
             </p>
             <h2 className="mt-3 max-w-[20ch] text-[34px] font-black leading-[1.05] tracking-[-0.03em]">
-              What you can do over HTTP.
+              {t('surface.title')}
             </h2>
             <p className="mt-5 max-w-[44ch] text-[14px] leading-[1.65] text-muted-foreground">
-              Bearer-token auth, JSON in/out, deterministic error envelopes, and an
-              idempotency contract on every write endpoint. Pick your client — REST,
-              MCP, or the generated SDK.
+              {t('surface.body')}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -138,7 +138,7 @@ export default async function DocsPage({
                 className="pill inline-flex items-center gap-2 border border-border px-5 py-3 text-[13px] font-semibold transition-colors hover:bg-accent"
               >
                 <Code2 className="h-4 w-4" />
-                See MCP setup
+                {t('surface.mcpCta')}
               </Link>
             </div>
           </div>
@@ -151,27 +151,27 @@ export default async function DocsPage({
                 <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
               </div>
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                xtweetly · openapi 3.1
+                {t('surface.panelTitle')}
               </span>
               <span className="font-mono text-[11px] text-success">
-                {apiBase ? '● live' : '○ unset'}
+                {apiBase ? t('surface.panelLive') : t('surface.panelUnset')}
               </span>
             </div>
             <ul className="divide-y divide-border font-mono text-[12px]">
-              <Endpoint method="POST" path="/api/v1/actions/post" desc="post a tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/reply" desc="reply to tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/quote" desc="quote tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/retweet" desc="retweet" />
-              <Endpoint method="POST" path="/api/v1/actions/like" desc="like tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/follow" desc="follow user" />
-              <Endpoint method="POST" path="/api/v1/actions/dm" desc="send direct message" />
-              <Endpoint method="GET" path="/api/v1/search/tweets" desc="search tweets" />
-              <Endpoint method="GET" path="/api/v1/users/:handle" desc="fetch user profile" />
-              <Endpoint method="GET" path="/api/v1/me/summary" desc="account summary" />
-              <Endpoint method="POST" path="/api/v1/monitors" desc="create monitor + webhook" />
+              <Endpoint method="POST" path="/api/v1/actions/post" desc={t('endpointDesc.post')} />
+              <Endpoint method="POST" path="/api/v1/actions/reply" desc={t('endpointDesc.reply')} />
+              <Endpoint method="POST" path="/api/v1/actions/quote" desc={t('endpointDesc.quote')} />
+              <Endpoint method="POST" path="/api/v1/actions/retweet" desc={t('endpointDesc.retweet')} />
+              <Endpoint method="POST" path="/api/v1/actions/like" desc={t('endpointDesc.like')} />
+              <Endpoint method="POST" path="/api/v1/actions/follow" desc={t('endpointDesc.follow')} />
+              <Endpoint method="POST" path="/api/v1/actions/dm" desc={t('endpointDesc.dm')} />
+              <Endpoint method="GET" path="/api/v1/search/tweets" desc={t('endpointDesc.searchTweets')} />
+              <Endpoint method="GET" path="/api/v1/users/:handle" desc={t('endpointDesc.userProfile')} />
+              <Endpoint method="GET" path="/api/v1/me/summary" desc={t('endpointDesc.summary')} />
+              <Endpoint method="POST" path="/api/v1/monitors" desc={t('endpointDesc.createMonitor')} />
             </ul>
             <div className="border-t border-border px-4 py-2.5 text-right font-mono text-[11px] text-muted-foreground">
-              + 23 more · open API Reference for the full list
+              {t('surface.moreLink')}
             </div>
           </div>
         </div>
@@ -179,7 +179,7 @@ export default async function DocsPage({
 
       <footer>
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-5 py-7 text-[12px] text-muted-foreground">
-          <span>© 2026 xtweetly</span>
+          <span>{t('footer')}</span>
           <span className="inline-flex items-center gap-1.5">
             <ScrollText className="h-3.5 w-3.5" />
             OpenAPI 3.1

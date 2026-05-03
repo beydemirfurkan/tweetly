@@ -66,7 +66,9 @@ export default function LoginPage() {
             <span className="text-primary">●</span> {t('subtitle')}
           </p>
           <h1 className="text-[32px] font-black leading-[1] tracking-[-0.03em]">
-            Sign in to <span className="text-primary">xtweetly</span>
+            {t.rich('title', {
+              brand: (chunks) => <span className="text-primary">{chunks}</span>,
+            })}
           </h1>
         </div>
 

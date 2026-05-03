@@ -35,16 +35,16 @@ export default async function LandingPage({
             <span className="text-[17px] font-extrabold tracking-tight">xtweetly</span>
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-medium text-muted-foreground sm:flex">
-            <a href="#features" className="hover:text-foreground transition-colors">Features</a>
-            <a href="#how" className="hover:text-foreground transition-colors">Workflow</a>
-            <a href="#dx" className="hover:text-foreground transition-colors">Developers</a>
+            <a href="#features" className="hover:text-foreground transition-colors">{t('navFeatures')}</a>
+            <a href="#how" className="hover:text-foreground transition-colors">{t('navWorkflow')}</a>
+            <a href="#dx" className="hover:text-foreground transition-colors">{t('navDevelopers')}</a>
             <a
               href="/docs"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
             >
-              Docs
+              {t('navDocs')}
               <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} />
             </a>
           </nav>
@@ -97,21 +97,28 @@ export default async function LandingPage({
                 className="pill inline-flex items-center gap-2 border border-border bg-transparent px-5 py-3 text-[14px] font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 <Code2 className="h-4 w-4" />
-                Read the docs
+                {t('heroDocsCta')}
               </a>
               <span className="ml-1 text-[12px] font-medium text-muted-foreground">{t('heroStats')}</span>
             </div>
 
             <div className="mt-10 flex items-center gap-6 border-t border-border pt-6 text-[12px] text-muted-foreground">
-              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Magic-link auth</span>
-              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> HMAC webhooks</span>
-              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> 15 MCP tools</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> {t('trustMagicLink')}</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> {t('trustWebhooks')}</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> {t('trustTools')}</span>
             </div>
           </div>
 
           {/* Post-card preview — visually quotes the X UI */}
           <div className="animate-fade-up [animation-delay:120ms]">
-            <PostCard />
+            <PostCard
+              name={t('postCardName')}
+              handle={t('postCardHandle')}
+              body={t.rich('postCardBody', {
+                accent: (chunks) => <span className="text-primary">{chunks}</span>,
+              })}
+              via={t('postCardVia')}
+            />
           </div>
         </div>
 
@@ -122,7 +129,7 @@ export default async function LandingPage({
       {/* FEATURES — three full-bleed columns with hairline rules between, no card chrome */}
       <section id="features" className="border-b border-border">
         <div className="mx-auto max-w-[1100px] px-5 py-20">
-          <SectionEyebrow num="01" label="Capabilities" />
+          <SectionEyebrow num="01" label={t('eyebrowCapabilities')} />
           <h2 className="mt-3 max-w-3xl text-[36px] font-black leading-[1.1] tracking-[-0.03em]">
             {t('featuresTitle')}
           </h2>
@@ -131,19 +138,19 @@ export default async function LandingPage({
               icon={<Zap className="h-5 w-5" />}
               title={t('feature1Title')}
               desc={t('feature1Desc')}
-              kbd="POST · REPLY · QUOTE · RT · DM"
+              kbd={t('feature1Kbd')}
             />
             <FeatureColumn
               icon={<Search className="h-5 w-5" />}
               title={t('feature2Title')}
               desc={t('feature2Desc')}
-              kbd="SEARCH · TIMELINE · TRENDS"
+              kbd={t('feature2Kbd')}
             />
             <FeatureColumn
               icon={<Globe2 className="h-5 w-5" />}
               title={t('feature3Title')}
               desc={t('feature3Desc')}
-              kbd="WEBHOOKS · HMAC · MONITORS"
+              kbd={t('feature3Kbd')}
             />
           </div>
         </div>
@@ -153,12 +160,12 @@ export default async function LandingPage({
       <section id="how" className="border-b border-border">
         <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-10 px-5 py-20 lg:grid-cols-[280px_1fr] lg:gap-20">
           <div>
-            <SectionEyebrow num="02" label="Workflow" />
+            <SectionEyebrow num="02" label={t('eyebrowWorkflow')} />
             <h2 className="mt-3 text-[36px] font-black leading-[1.05] tracking-[-0.03em]">
               {t('howTitle')}
             </h2>
             <p className="mt-4 text-[14px] leading-[1.6] text-muted-foreground">
-              From signup to your first programmatic post — three steps, no scaffolding.
+              {t('howSubtitle')}
             </p>
           </div>
           <ol className="space-y-0">
@@ -172,14 +179,14 @@ export default async function LandingPage({
       {/* DEV-EX BLOCK — terminal-styled command card */}
       <section id="dx" className="border-b border-border">
         <div className="mx-auto max-w-[1100px] px-5 py-20">
-          <SectionEyebrow num="03" label="Connect" />
+          <SectionEyebrow num="03" label={t('eyebrowConnect')} />
           <h2 className="mt-3 max-w-2xl text-[36px] font-black leading-[1.05] tracking-[-0.03em]">
-            Claude Desktop, ChatGPT, Cursor — paste the URL, done.
+            {t('connectTitle')}
           </h2>
           <p className="mt-5 max-w-[58ch] text-[15px] leading-[1.6] text-muted-foreground">
-            Streamable HTTP + OAuth 2.1 — every MCP-aware client connects in one click.
-            Legacy CLIs can still paste a <code className="font-mono text-foreground">tk_</code>{' '}
-            API key.
+            {t.rich('connectBody', {
+              code: (chunks) => <code className="font-mono text-foreground">{chunks}</code>,
+            })}
           </p>
           <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-popover">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
@@ -188,15 +195,14 @@ export default async function LandingPage({
                 <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.78_0.155_80)]/80" />
                 <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
               </div>
-              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">MCP server URL</span>
-              <span className="font-mono text-[11px] text-success">● live</span>
+              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{t('connectMcpLabel')}</span>
+              <span className="font-mono text-[11px] text-success">{t('connectLive')}</span>
             </div>
             <pre className="overflow-x-auto px-5 py-5 font-mono text-[15px] leading-[1.6] text-foreground">
               https://api.your-domain.com/mcp
             </pre>
-            <div className="border-t border-border px-5 py-4 font-mono text-[12px] leading-[1.65] text-muted-foreground">
-              Claude Desktop → Settings → Connectors → Add → paste URL → Allow.
-              {'\n'}Same URL works in ChatGPT, Cursor, and Codex.
+            <div className="border-t border-border px-5 py-4 font-mono text-[12px] leading-[1.65] text-muted-foreground whitespace-pre-line">
+              {t('connectInstructions')}
             </div>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -205,7 +211,7 @@ export default async function LandingPage({
               className="pill group inline-flex items-center gap-2 bg-foreground px-6 py-3 text-[14px] font-bold text-background transition-transform hover:scale-[1.02]"
             >
               <Sparkles className="h-4 w-4" strokeWidth={2.75} />
-              Per-client setup
+              {t('connectPerClient')}
               <ArrowUpRight
                 className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                 strokeWidth={2.75}
@@ -219,14 +225,14 @@ export default async function LandingPage({
       <section id="docs" className="border-b border-border">
         <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-10 px-5 py-20 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
           <div>
-            <SectionEyebrow num="04" label="API Reference" />
+            <SectionEyebrow num="04" label={t('eyebrowDocs')} />
             <h2 className="mt-3 max-w-[18ch] text-[36px] font-black leading-[1.05] tracking-[-0.03em]">
-              Live OpenAPI spec, served straight from production.
+              {t('docsTitle')}
             </h2>
             <p className="mt-5 max-w-[44ch] text-[14px] leading-[1.65] text-muted-foreground">
-              Every route in <span className="font-mono text-foreground">/api/v1</span> is documented in an
-              interactive Scalar reference with request/response shapes, error envelopes and Bearer auth — the
-              same spec MCP tools are generated from.
+              {t.rich('docsBody', {
+                code: (chunks) => <span className="font-mono text-foreground">{chunks}</span>,
+              })}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
@@ -236,7 +242,7 @@ export default async function LandingPage({
                 className="pill group inline-flex items-center gap-2 bg-foreground px-6 py-3 text-[14px] font-bold text-background transition-transform hover:scale-[1.02]"
               >
                 <BookOpen className="h-4 w-4" strokeWidth={2.75} />
-                Open API Reference
+                {t('docsOpenReference')}
                 <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={2.75} />
               </a>
               <a
@@ -258,25 +264,25 @@ export default async function LandingPage({
                 <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
               </div>
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                xtweetly · openapi 3.1
+                {t('docsPanelTitle')}
               </span>
-              <span className="font-mono text-[11px] text-success">● live</span>
+              <span className="font-mono text-[11px] text-success">{t('docsPanelLive')}</span>
             </div>
             <ul className="divide-y divide-border font-mono text-[12px]">
-              <Endpoint method="POST" path="/api/v1/actions/post" desc="post a tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/reply" desc="reply to tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/quote" desc="quote tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/retweet" desc="retweet" />
-              <Endpoint method="POST" path="/api/v1/actions/like" desc="like tweet" />
-              <Endpoint method="POST" path="/api/v1/actions/follow" desc="follow user" />
-              <Endpoint method="POST" path="/api/v1/actions/dm" desc="send direct message" />
-              <Endpoint method="GET" path="/api/v1/search/tweets" desc="search tweets" />
-              <Endpoint method="GET" path="/api/v1/users/:handle" desc="fetch user profile" />
-              <Endpoint method="GET" path="/api/v1/me/summary" desc="account summary" />
-              <Endpoint method="POST" path="/api/v1/monitors" desc="create monitor + webhook" />
+              <Endpoint method="POST" path="/api/v1/actions/post" desc={t('endpointDesc.post')} />
+              <Endpoint method="POST" path="/api/v1/actions/reply" desc={t('endpointDesc.reply')} />
+              <Endpoint method="POST" path="/api/v1/actions/quote" desc={t('endpointDesc.quote')} />
+              <Endpoint method="POST" path="/api/v1/actions/retweet" desc={t('endpointDesc.retweet')} />
+              <Endpoint method="POST" path="/api/v1/actions/like" desc={t('endpointDesc.like')} />
+              <Endpoint method="POST" path="/api/v1/actions/follow" desc={t('endpointDesc.follow')} />
+              <Endpoint method="POST" path="/api/v1/actions/dm" desc={t('endpointDesc.dm')} />
+              <Endpoint method="GET" path="/api/v1/search/tweets" desc={t('endpointDesc.searchTweets')} />
+              <Endpoint method="GET" path="/api/v1/users/:handle" desc={t('endpointDesc.userProfile')} />
+              <Endpoint method="GET" path="/api/v1/me/summary" desc={t('endpointDesc.summary')} />
+              <Endpoint method="POST" path="/api/v1/monitors" desc={t('endpointDesc.createMonitor')} />
             </ul>
             <div className="border-t border-border px-4 py-2.5 text-right font-mono text-[11px] text-muted-foreground">
-              + 23 more · see /docs
+              {t('docsMore')}
             </div>
           </div>
         </div>
@@ -301,8 +307,8 @@ export default async function LandingPage({
 
       <footer>
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-5 py-7 text-[12px] text-muted-foreground">
-          <span>© 2026 xtweetly</span>
-          <span>Not affiliated with X Corp.</span>
+          <span>{t('footer')}</span>
+          <span>{t('footerDisclaimer')}</span>
         </div>
       </footer>
     </div>
@@ -368,7 +374,17 @@ function Step({
   );
 }
 
-function PostCard() {
+function PostCard({
+  name,
+  handle,
+  body,
+  via,
+}: {
+  name: string;
+  handle: string;
+  body: React.ReactNode;
+  via: string;
+}) {
   return (
     <article className="relative rounded-2xl border border-border bg-popover/60 p-5 backdrop-blur-sm">
       <div
@@ -385,13 +401,11 @@ function PostCard() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1 text-[15px] font-bold">
-            xtweetly Agent
+            {name}
             <svg viewBox="0 0 22 22" className="h-[18px] w-[18px] text-primary"><path fill="currentColor" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>
-            <span className="text-[14px] font-normal text-muted-foreground">@xtweetly · 2m</span>
+            <span className="text-[14px] font-normal text-muted-foreground">{handle}</span>
           </div>
-          <p className="mt-1 text-[15px] leading-[1.45]">
-            New release of <span className="text-primary">@anthropic-ai/claude-agent-sdk</span> is out — better tool-use streaming, prompt caching by default. ⚡
-          </p>
+          <p className="mt-1 text-[15px] leading-[1.45]">{body}</p>
           <div className="mt-3 overflow-hidden rounded-xl border border-border">
             <div className="flex items-center gap-3 border-b border-border bg-accent/40 px-4 py-2.5">
               <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-success" />
@@ -409,7 +423,7 @@ function PostCard() {
           <div className="mt-3 flex items-center gap-7 text-[13px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><Repeat2 className="h-4 w-4" /> 1.2K</span>
             <span className="inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4" /> 8.4K</span>
-            <span className="ml-auto font-mono text-[11px]">via xtweetly · mcp</span>
+            <span className="ml-auto font-mono text-[11px]">{via}</span>
           </div>
         </div>
       </div>

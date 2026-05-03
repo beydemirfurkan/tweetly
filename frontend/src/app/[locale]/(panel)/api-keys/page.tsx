@@ -242,7 +242,7 @@ export default function ApiKeysPage() {
       <Dialog open={createOpen} onOpenChange={(open) => !open && closeCreated()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogKicker>API Key</DialogKicker>
+            <DialogKicker>{t('dialogKicker')}</DialogKicker>
             <DialogTitle>
               {createdKey ? t('keyCreatedTitle') : t('createTitle')}
             </DialogTitle>

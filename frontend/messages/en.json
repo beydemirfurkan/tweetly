@@ -20,7 +20,54 @@
     "how3Title": "Connect via MCP",
     "how3Desc": "Connect Claude Code or any MCP client and start running X actions.",
     "betaText": "Open beta — use it for free, share your feedback.",
-    "betaCta": "Get Started"
+    "betaCta": "Get Started",
+    "navFeatures": "Features",
+    "navWorkflow": "Workflow",
+    "navDevelopers": "Developers",
+    "navDocs": "Docs",
+    "heroDocsCta": "Read the docs",
+    "trustMagicLink": "Magic-link auth",
+    "trustWebhooks": "HMAC webhooks",
+    "trustTools": "15 MCP tools",
+    "feature1Kbd": "POST · REPLY · QUOTE · RT · DM",
+    "feature2Kbd": "SEARCH · TIMELINE · TRENDS",
+    "feature3Kbd": "WEBHOOKS · HMAC · MONITORS",
+    "eyebrowCapabilities": "Capabilities",
+    "eyebrowWorkflow": "Workflow",
+    "eyebrowConnect": "Connect",
+    "eyebrowDocs": "API Reference",
+    "howSubtitle": "From signup to your first programmatic post — three steps, no scaffolding.",
+    "connectTitle": "Claude Desktop, ChatGPT, Cursor — paste the URL, done.",
+    "connectBody": "Streamable HTTP + OAuth 2.1 — every MCP-aware client connects in one click. Legacy CLIs can still paste a <code>tk_</code> API key.",
+    "connectMcpLabel": "MCP server URL",
+    "connectLive": "● live",
+    "connectInstructions": "Claude Desktop → Settings → Connectors → Add → paste URL → Allow.\nSame URL works in ChatGPT, Cursor, and Codex.",
+    "connectPerClient": "Per-client setup",
+    "docsTitle": "Live OpenAPI spec, served straight from production.",
+    "docsBody": "Every route in <code>/api/v1</code> is documented in an interactive Scalar reference with request/response shapes, error envelopes and Bearer auth — the same spec MCP tools are generated from.",
+    "docsOpenReference": "Open API Reference",
+    "docsPanelTitle": "xtweetly · openapi 3.1",
+    "docsPanelLive": "● live",
+    "docsMore": "+ 23 more · see /docs",
+    "endpointDesc": {
+      "post": "post a tweet",
+      "reply": "reply to tweet",
+      "quote": "quote tweet",
+      "retweet": "retweet",
+      "like": "like tweet",
+      "follow": "follow user",
+      "dm": "send direct message",
+      "searchTweets": "search tweets",
+      "userProfile": "fetch user profile",
+      "summary": "account summary",
+      "createMonitor": "create monitor + webhook"
+    },
+    "footer": "© 2026 xtweetly",
+    "footerDisclaimer": "Not affiliated with X Corp.",
+    "postCardName": "xtweetly Agent",
+    "postCardHandle": "@xtweetly · 2m",
+    "postCardBody": "New release of <accent>@anthropic-ai/claude-agent-sdk</accent> is out — better tool-use streaming, prompt caching by default. ⚡",
+    "postCardVia": "via xtweetly · mcp"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -33,6 +80,7 @@
   },
   "login": {
     "subtitle": "MCP Platform",
+    "title": "Sign in to <brand>xtweetly</brand>",
     "email": "Email",
     "emailPlaceholder": "you@example.com",
     "submit": "Send login link",
@@ -79,6 +127,7 @@
     "typeCol": "Type",
     "pendingCol": "Pending",
     "workingCol": "Working",
+    "deadCol": "Dead",
     "gettingStarted": "Getting Started",
     "step1": "Connect your X account",
     "step2": "Create an API key for MCP / REST",
@@ -89,6 +138,7 @@
   },
   "apiKeys": {
     "title": "API Keys",
+    "dialogKicker": "API Key",
     "subtitle": "Authentication keys for MCP and REST API.",
     "newKey": "New Key",
     "nameCol": "Name",
@@ -245,6 +295,68 @@
     "trouble1": "Invalid API key: make sure it starts with tk_.",
     "trouble2": "MCP not connecting: verify the URL — copy it fresh from the Dashboard.",
     "trouble3": "Action failed: check error details on the /actions page."
+  },
+  "docs": {
+    "back": "Back home",
+    "eyebrow": "API Reference",
+    "title": "xtweetly <accent>API</accent>",
+    "subtitle": "Interactive API reference powered by Scalar, served live from the backend. Every route documented, every error envelope spelled out — the same OpenAPI 3.1 spec our MCP tools are generated from.",
+    "openReference": "Open API Reference",
+    "envWarning": {
+      "title": "Backend URL not configured",
+      "body": "Set <code>NEXT_PUBLIC_API_URL</code> in your environment to point this page (and every Docs link) at your live backend. In production it's usually something like <code>https://api.xtweetly.app</code>."
+    },
+    "surface": {
+      "eyebrow": "Surface",
+      "title": "What you can do over HTTP.",
+      "body": "Bearer-token auth, JSON in/out, deterministic error envelopes, and an idempotency contract on every write endpoint. Pick your client — REST, MCP, or the generated SDK.",
+      "mcpCta": "See MCP setup",
+      "panelTitle": "xtweetly · openapi 3.1",
+      "panelLive": "● live",
+      "panelUnset": "○ unset",
+      "moreLink": "+ 23 more · open API Reference for the full list"
+    },
+    "endpointDesc": {
+      "post": "post a tweet",
+      "reply": "reply to tweet",
+      "quote": "quote tweet",
+      "retweet": "retweet",
+      "like": "like tweet",
+      "follow": "follow user",
+      "dm": "send direct message",
+      "searchTweets": "search tweets",
+      "userProfile": "fetch user profile",
+      "summary": "account summary",
+      "createMonitor": "create monitor + webhook"
+    },
+    "footer": "© 2026 xtweetly"
+  },
+  "oauth": {
+    "loading": "Loading…",
+    "verifyingSession": "Verifying session…",
+    "loadingClient": "Loading app info…",
+    "eyebrow": "Authorization request",
+    "cardTitle": "Access approval",
+    "requestLine": "<strong>{name}</strong> is requesting access to your xtweetly account.",
+    "scopeBlurb": "This app will be able to call any xtweetly tool on your <strong>{email}</strong> account (post tweets, manage accounts, set up monitors, etc.). You can revoke it any time from the <code>API Keys</code> page.",
+    "denyButton": "Deny",
+    "allowButton": "Allow",
+    "invalid": {
+      "title": "Invalid request",
+      "missing": "Missing parameter: {keys}",
+      "wrongResponseType": "response_type=code required (got: {got})",
+      "wrongMethod": "code_challenge_method=S256 required (got: {got})"
+    },
+    "denied": {
+      "title": "Connection denied"
+    },
+    "errors": {
+      "redirectMismatch": "redirect_uri \"{uri}\" is not registered for this application. Blocked for security.",
+      "clientFetch": "Couldn't load app info.",
+      "noSession": "No session found.",
+      "serverWithStatus": "Server error: {status}",
+      "unknown": "Unknown error."
+    }
   },
   "notFound": {
     "title": "This page is not in the timeline",
