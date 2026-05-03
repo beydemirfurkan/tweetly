@@ -130,6 +130,88 @@ export class XController {
     return this.x.getXTrending(getAuthContext(req).userId, account);
   }
 
+  @Get('x/users/:handle/likes')
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({ summary: "Get tweets a user has liked" })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'account', required: false })
+  async getUserLikes(
+    @Req() req: Request,
+    @Param('handle') handle: string,
+    @Query('limit') limit: string,
+    @Query('account') account: string,
+  ) {
+    return this.x.getUserLikes(getAuthContext(req).userId, handle, limit, account);
+  }
+
+  @Get('x/me/bookmarks')
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({ summary: "Get the calling account's own bookmarks" })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'account', required: false })
+  async getMyBookmarks(
+    @Req() req: Request,
+    @Query('limit') limit: string,
+    @Query('account') account: string,
+  ) {
+    return this.x.getMyBookmarks(getAuthContext(req).userId, limit, account);
+  }
+
+  @Get('x/lists/:listId/members')
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({ summary: 'Get members of a public X list by numeric ID' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'account', required: false })
+  async getListMembers(
+    @Req() req: Request,
+    @Param('listId') listId: string,
+    @Query('limit') limit: string,
+    @Query('account') account: string,
+  ) {
+    return this.x.getListMembers(getAuthContext(req).userId, listId, limit, account);
+  }
+
+  @Get('x/users/:handle/mutual-followers')
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({
+    summary: "Followers-you-know: accounts the calling user follows that also follow :handle",
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'account', required: false })
+  async getMutualFollowers(
+    @Req() req: Request,
+    @Param('handle') handle: string,
+    @Query('limit') limit: string,
+    @Query('account') account: string,
+  ) {
+    return this.x.getMutualFollowers(getAuthContext(req).userId, handle, limit, account);
+  }
+
+  @Post('x/tweets/thread')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({
+    summary: 'Get the same-author thread chain rooted at a tweet (root tweet first)',
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getThread(
+    @Req() req: Request,
+    @Body() body: GetTweetBody,
+    @Query('limit') limit: string,
+  ) {
+    return this.x.getThread(getAuthContext(req).userId, body, limit);
+  }
+
   @Post('x/tweets/unlike')
   @HttpCode(HttpStatus.OK)
   @ApiTags('x')

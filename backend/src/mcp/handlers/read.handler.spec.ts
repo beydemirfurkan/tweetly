@@ -16,6 +16,11 @@ function mockXDirect(): jest.Mocked<XDirectReadService> {
     getTweetReplies: jest.fn().mockResolvedValue([]),
     getUserMentions: jest.fn().mockResolvedValue([]),
     getXTrending: jest.fn().mockResolvedValue([]),
+    getUserLikes: jest.fn().mockResolvedValue([]),
+    getMyBookmarks: jest.fn().mockResolvedValue([]),
+    getListMembers: jest.fn().mockResolvedValue([]),
+    getMutualFollowers: jest.fn().mockResolvedValue([]),
+    getThread: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<XDirectReadService>;
 }
 
@@ -127,6 +132,50 @@ describe('ReadHandler', () => {
       const h = new ReadHandler(x, mockXBrowser());
       await h.getXTrending({}, fakeContext());
       expect(x.getXTrending).toHaveBeenCalledWith('acc-1');
+    });
+  });
+
+  describe('getUserLikes / getMyBookmarks / getThread', () => {
+    it('getUserLikes requires handle and clamps at 50', async () => {
+      const x = mockXDirect();
+      const h = new ReadHandler(x, mockXBrowser());
+      await expect(h.getUserLikes({}, fakeContext())).rejects.toThrow(/handle/);
+      await h.getUserLikes({ handle: 'u', limit: 999 }, fakeContext());
+      expect(x.getUserLikes).toHaveBeenCalledWith('u', 50, 'acc-1');
+    });
+
+    it('getMyBookmarks needs an account (uses resolveAccountId, not optional)', async () => {
+      const x = mockXDirect();
+      const h = new ReadHandler(x, mockXBrowser());
+      await h.getMyBookmarks({ limit: 10 }, fakeContext());
+      expect(x.getMyBookmarks).toHaveBeenCalledWith(10, 'acc-1');
+    });
+
+    it('getThread requires /status/ tweet URL', async () => {
+      const h = new ReadHandler(mockXDirect(), mockXBrowser());
+      await expect(h.getThread({ tweet_url: 'invalid' }, fakeContext())).rejects.toThrow(/\/status\//);
+    });
+  });
+
+  describe('getListMembers / getMutualFollowers', () => {
+    it('getListMembers rejects non-numeric list_id', async () => {
+      const h = new ReadHandler(mockXDirect(), mockXBrowser());
+      await expect(h.getListMembers({ list_id: 'abc' }, fakeContext())).rejects.toThrow(/numeric/);
+    });
+
+    it('getListMembers passes verifiedOnly + clamps limit at 200', async () => {
+      const x = mockXDirect();
+      const h = new ReadHandler(x, mockXBrowser());
+      await h.getListMembers({ list_id: '12345', limit: 9999, verified_only: true }, fakeContext());
+      expect(x.getListMembers).toHaveBeenCalledWith('12345', 200, 'acc-1', { verifiedOnly: true });
+    });
+
+    it('getMutualFollowers requires handle and an authed account', async () => {
+      const x = mockXDirect();
+      const h = new ReadHandler(x, mockXBrowser());
+      await expect(h.getMutualFollowers({}, fakeContext())).rejects.toThrow(/handle/);
+      await h.getMutualFollowers({ handle: 'u' }, fakeContext());
+      expect(x.getMutualFollowers).toHaveBeenCalledWith('u', 50, 'acc-1', { verifiedOnly: false });
     });
   });
 });

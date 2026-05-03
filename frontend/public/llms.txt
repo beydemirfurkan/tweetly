@@ -48,6 +48,11 @@ The MCP server is mounted at `https://api.xtweetly.app/mcp`. It exposes 43 tools
 - `get_tweet_retweeters` / `get_tweet_quotes` / `get_tweet_replies`: Engagement on a tweet.
 - `get_user_mentions`: Recent tweets mentioning a handle.
 - `get_x_trending`: Current X trending topics for the active session region.
+- `get_user_likes`: Tweets a user has publicly liked.
+- `get_my_bookmarks`: The calling account's own bookmarks.
+- `get_list_members`: Members of a public X list (numeric ID).
+- `get_mutual_followers`: Followers-you-know — accounts the caller follows that also follow the target.
+- `get_thread`: Same-author thread chain rooted at a tweet.
 
 ### Monitors
 - `create_monitor`: Webhook monitor for a target handle.

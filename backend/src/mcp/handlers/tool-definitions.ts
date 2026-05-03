@@ -46,6 +46,11 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   get_tweet_replies: 'List replies to a tweet',
   get_user_mentions: 'Search recent tweets mentioning a handle',
   get_x_trending: 'Get current X trending topics for the active session region',
+  get_user_likes: 'List tweets a user has publicly liked',
+  get_my_bookmarks: "List the calling account's own bookmarks",
+  get_list_members: 'List members of a public X list (by numeric list ID)',
+  get_mutual_followers: "Followers-you-know: accounts the caller follows that also follow the target handle",
+  get_thread: 'Get the same-author thread chain rooted at a tweet (root tweet first)',
 
   // Monitors
   create_monitor: 'Create a webhook monitor for a target handle',

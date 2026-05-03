@@ -199,6 +199,36 @@ const getUserMentions = z.object({
 });
 const getXTrending = z.object({ account_id: accountId });
 
+const getUserLikes = z.object({
+  handle: xHandle.describe('Handle whose liked tweets to fetch'),
+  limit: limit(50),
+  account_id: accountId,
+});
+const getMyBookmarks = z.object({
+  limit: limit(50),
+  account_id: accountId,
+});
+const getListMembers = z.object({
+  list_id: z
+    .string()
+    .regex(/^\d+$/, 'list_id must be numeric')
+    .describe('Numeric X list ID'),
+  limit: limit(200),
+  account_id: accountId,
+  verified_only: verifiedOnly,
+});
+const getMutualFollowers = z.object({
+  handle: xHandle.describe('Handle whose mutual followers to compute'),
+  limit: limit(200),
+  account_id: accountId,
+  verified_only: verifiedOnly,
+});
+const getThread = z.object({
+  tweet_url: tweetUrl.describe('URL of the root tweet of the thread'),
+  limit: limit(50),
+  account_id: accountId,
+});
+
 // ── Monitor tools ───────────────────────────────────────────────────────
 
 const createMonitor = z.object({
@@ -320,6 +350,11 @@ export const TOOL_SCHEMAS = {
   get_tweet_replies: getTweetReplies,
   get_user_mentions: getUserMentions,
   get_x_trending: getXTrending,
+  get_user_likes: getUserLikes,
+  get_my_bookmarks: getMyBookmarks,
+  get_list_members: getListMembers,
+  get_mutual_followers: getMutualFollowers,
+  get_thread: getThread,
 
   create_monitor: createMonitor,
   list_monitors: listMonitors,

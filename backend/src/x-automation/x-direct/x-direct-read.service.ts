@@ -244,6 +244,97 @@ export class XDirectReadService extends XDirectBaseService {
     return this.searchTweets(`@${cleanHandle}`, limit, accountId);
   }
 
+  async getUserLikes(handle: string, limit = 20, accountId?: string): Promise<TweetResult[]> {
+    const cleanHandle = handle.replace(/^@/, '');
+    return this.withSession('getUserLikes', accountId, async (page, acctId) => {
+      await page.goto(`https://x.com/${cleanHandle}/likes`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, acctId);
+      try {
+        await page.waitForSelector(this.sel.tweetArticle, { timeout: 12_000 });
+      } catch {
+        return [];
+      }
+      await page.waitForTimeout(1_500);
+      if (limit > 20) {
+        await page.evaluate(() => window.scrollBy(0, 3000));
+        await page.waitForTimeout(1_500);
+      }
+      return this.extractTweets(page, limit);
+    });
+  }
+
+  async getMyBookmarks(limit = 20, accountId?: string): Promise<TweetResult[]> {
+    return this.withSession('getMyBookmarks', accountId, async (page, acctId) => {
+      await page.goto('https://x.com/i/bookmarks', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, acctId);
+      try {
+        await page.waitForSelector(this.sel.tweetArticle, { timeout: 12_000 });
+      } catch {
+        return [];
+      }
+      await page.waitForTimeout(1_500);
+      if (limit > 20) {
+        await page.evaluate(() => window.scrollBy(0, 3000));
+        await page.waitForTimeout(1_500);
+      }
+      return this.extractTweets(page, limit);
+    });
+  }
+
+  async getListMembers(
+    listId: string,
+    limit = 50,
+    accountId?: string,
+    options: { verifiedOnly?: boolean } = {},
+  ): Promise<UserListItem[]> {
+    return this.scrapeUserList(`https://x.com/i/lists/${listId}/members`, limit, accountId, options);
+  }
+
+  async getMutualFollowers(
+    handle: string,
+    limit = 50,
+    accountId?: string,
+    options: { verifiedOnly?: boolean } = {},
+  ): Promise<UserListItem[]> {
+    const cleanHandle = handle.replace(/^@/, '');
+    return this.scrapeUserList(
+      `https://x.com/${cleanHandle}/followers_you_follow`,
+      limit,
+      accountId,
+      options,
+    );
+  }
+
+  async getThread(rootTweetUrl: string, limit = 20, accountId?: string): Promise<TweetResult[]> {
+    return this.withSession('getThread', accountId, async (page, acctId) => {
+      await page.goto(rootTweetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.browser.assertSessionHealthy(page, acctId);
+      try {
+        await page.waitForSelector(this.sel.tweetArticle, { timeout: 12_000 });
+      } catch {
+        return [];
+      }
+      await page.waitForTimeout(2_000);
+
+      // Pull a generous buffer; we filter to same-author chain below.
+      const cap = Math.min(Math.max(limit, 1), 50);
+      const all = await this.extractTweets(page, cap * 2);
+      if (all.length === 0) return [];
+
+      // Root handle = path segment of the root URL (avoids relying on
+      // which article appears first in DOM after redirects).
+      const rootPath = new URL(rootTweetUrl).pathname.split('/').filter(Boolean);
+      const rootHandle = rootPath[0]?.toLowerCase() ?? '';
+
+      const chain: TweetResult[] = [];
+      for (const tweet of all) {
+        if (tweet.handle.toLowerCase() === rootHandle) chain.push(tweet);
+        if (chain.length >= cap) break;
+      }
+      return chain;
+    });
+  }
+
   async getXTrending(accountId?: string): Promise<Array<{ rank: number; topic: string; tweetCount: string }>> {
     return this.withSession('getXTrending', accountId, async (page, acctId) => {
       await page.goto('https://x.com/explore/tabs/trending', { waitUntil: 'domcontentloaded', timeout: 30_000 });

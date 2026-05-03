@@ -148,6 +148,11 @@ export class McpService {
       case 'get_tweet_replies': return r.getTweetReplies(args, ctx);
       case 'get_user_mentions': return r.getUserMentions(args, ctx);
       case 'get_x_trending': return r.getXTrending(args, ctx);
+      case 'get_user_likes': return r.getUserLikes(args, ctx);
+      case 'get_my_bookmarks': return r.getMyBookmarks(args, ctx);
+      case 'get_list_members': return r.getListMembers(args, ctx);
+      case 'get_mutual_followers': return r.getMutualFollowers(args, ctx);
+      case 'get_thread': return r.getThread(args, ctx);
 
       // Monitors
       case 'create_monitor': return m.createMonitor(args, ctx);

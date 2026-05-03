@@ -74,6 +74,40 @@ export class XFacade {
     return this.reads.getXTrending(acct);
   }
 
+  async getUserLikes(userId: string, handle: string, limitStr?: string, account?: string) {
+    const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
+    const acct = await this.accounts.resolveAccountIdOptional(userId, account);
+    return this.reads.getUserLikes(handle, limit, acct);
+  }
+
+  async getMyBookmarks(userId: string, limitStr?: string, account?: string) {
+    const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
+    const acct = await this.accounts.resolveAccountId(userId, account);
+    return this.reads.getMyBookmarks(limit, acct);
+  }
+
+  async getListMembers(userId: string, listId: string, limitStr?: string, account?: string) {
+    if (!/^\d+$/.test(listId)) throw new BadRequestException('listId must be numeric');
+    const limit = Math.min(parseInt(limitStr ?? '50', 10), 200);
+    const acct = await this.accounts.resolveAccountIdOptional(userId, account);
+    return this.reads.getListMembers(listId, limit, acct);
+  }
+
+  async getMutualFollowers(userId: string, handle: string, limitStr?: string, account?: string) {
+    const limit = Math.min(parseInt(limitStr ?? '50', 10), 200);
+    const acct = await this.accounts.resolveAccountId(userId, account);
+    return this.reads.getMutualFollowers(handle, limit, acct);
+  }
+
+  async getThread(userId: string, body: GetTweetBody, limitStr?: string) {
+    if (!body.tweetUrl?.includes('/status/')) {
+      throw new BadRequestException('tweetUrl must contain /status/');
+    }
+    const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
+    const acct = await this.accounts.resolveAccountIdOptional(userId, body.account);
+    return this.reads.getThread(body.tweetUrl, limit, acct);
+  }
+
   async unlikeTweet(userId: string, body: InteractionBody) {
     const acct = await this.requireUrlAndAccount(userId, body);
     return this.writes.unlikeTweet(body.targetTweetUrl, acct);

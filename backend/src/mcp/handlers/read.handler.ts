@@ -113,4 +113,44 @@ export class ReadHandler extends BaseMcpHandler {
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
     return this.xDirect.getXTrending(accountId);
   }
+
+  async getUserLikes(args: McpToolArgs, ctx: McpToolContext) {
+    const handle = args.handle as string;
+    if (!handle) throw new Error('handle is required');
+    const limit = Math.min(Number(args.limit ?? 20), 50);
+    const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
+    return this.xDirect.getUserLikes(handle, limit, accountId);
+  }
+
+  async getMyBookmarks(args: McpToolArgs, ctx: McpToolContext) {
+    const limit = Math.min(Number(args.limit ?? 20), 50);
+    const accountId = await ctx.resolveAccountId(args.account_id as string | undefined);
+    return this.xDirect.getMyBookmarks(limit, accountId);
+  }
+
+  async getListMembers(args: McpToolArgs, ctx: McpToolContext) {
+    const listId = args.list_id as string;
+    if (!listId || !/^\d+$/.test(listId)) throw new Error('list_id must be numeric');
+    const limit = Math.min(Number(args.limit ?? 50), 200);
+    const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
+    const verifiedOnly = Boolean(args.verified_only);
+    return this.xDirect.getListMembers(listId, limit, accountId, { verifiedOnly });
+  }
+
+  async getMutualFollowers(args: McpToolArgs, ctx: McpToolContext) {
+    const handle = args.handle as string;
+    if (!handle) throw new Error('handle is required');
+    const limit = Math.min(Number(args.limit ?? 50), 200);
+    const accountId = await ctx.resolveAccountId(args.account_id as string | undefined);
+    const verifiedOnly = Boolean(args.verified_only);
+    return this.xDirect.getMutualFollowers(handle, limit, accountId, { verifiedOnly });
+  }
+
+  async getThread(args: McpToolArgs, ctx: McpToolContext) {
+    const tweetUrl = args.tweet_url as string;
+    if (!tweetUrl?.includes('/status/')) throw new Error('tweet_url must contain /status/');
+    const limit = Math.min(Number(args.limit ?? 20), 50);
+    const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
+    return this.xDirect.getThread(tweetUrl, limit, accountId);
+  }
 }
