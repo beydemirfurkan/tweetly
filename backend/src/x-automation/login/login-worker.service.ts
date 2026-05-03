@@ -112,6 +112,10 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
         password: this.cipher.decrypt(job.encryptedPassword),
         totpSecret: job.encryptedTotpSecret ? this.cipher.decrypt(job.encryptedTotpSecret) : null,
         proxyCountry: job.proxyCountry,
+        // Reauth keeps the same account's user-data-dir so X sees a stable
+        // browser across login + tool calls. Connect leaves it null and the
+        // service falls back to a username-keyed staging dir.
+        targetAccountId: job.kind === 'reauth' ? job.targetAccountId : null,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

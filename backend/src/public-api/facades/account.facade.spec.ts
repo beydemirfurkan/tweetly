@@ -29,12 +29,16 @@ function makeFacade(overrides: {
   const cipher = {
     encrypt: jest.fn((v: string) => `enc:${v}`),
   } as unknown as CredentialCipherService;
+  const cookieHealth = {
+    check: jest.fn().mockResolvedValue({ ok: false, reason: 'missing_fields' }),
+  } as unknown as import('@/x-automation/login/cookie-health-check.service').CookieHealthCheckService;
   const facade = new AccountFacade(
     accounts,
     {} as unknown as ProfileCacheService,
     {} as unknown as AdminApiService,
     loginJobs,
     cipher,
+    cookieHealth,
   );
   return { facade, loginJobs, accounts };
 }

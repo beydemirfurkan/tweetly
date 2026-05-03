@@ -9,6 +9,11 @@ import { AccountsService } from '@/accounts/accounts.service';
 import { ProfileCacheService } from '@/accounts/profile-cache.service';
 import { AdminApiService } from '@/admin-api/admin-api.service';
 import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
+import {
+  CookieHealthCheckService,
+  type CookieHealthInput,
+  type CookieHealthResult,
+} from '@/x-automation/login/cookie-health-check.service';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import {
   assertBase32Secret,
@@ -46,7 +51,12 @@ export class AccountFacade {
     private readonly admin: AdminApiService,
     private readonly loginJobs: LoginJobsRepository,
     private readonly cipher: CredentialCipherService,
+    private readonly cookieHealth: CookieHealthCheckService,
   ) {}
+
+  validateCookies(input: CookieHealthInput): Promise<CookieHealthResult> {
+    return this.cookieHealth.check(input);
+  }
 
   // ── Resolution / ownership ────────────────────────────────────────────
 

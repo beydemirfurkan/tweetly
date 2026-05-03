@@ -8,6 +8,13 @@ export interface XLoginInput {
   password: string;
   totpSecret?: string | null;
   proxyCountry?: string | null;
+  /**
+   * For `reauth` jobs the existing accountId is passed through so the login
+   * session reuses the same per-account user-data-dir as XBrowserService —
+   * keeps fingerprints, cookies and storage in sync and avoids X seeing two
+   * different "browsers" for the same account.
+   */
+  targetAccountId?: string | null;
 }
 
 export interface XLoginCookies {

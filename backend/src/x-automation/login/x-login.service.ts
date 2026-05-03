@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Injectable, Logger } from '@nestjs/common';
 import { chromium, type BrowserContext, type Page } from 'patchright';
 import { LoginFlowError } from './login-error';
@@ -5,6 +7,7 @@ import { redactLoginDebugText, writeLoginDebugArtifact } from './login-debug-art
 import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
 import type { XLoginCookies, XLoginInput, XLoginResult } from './login.types';
 import { optionalBrowserChannel } from '@/x-automation/browser/browser-channel';
+import { LOGIN_INIT_SCRIPT } from './login-stealth';
 import { resolveProxy } from './proxy-resolver';
 import { generateTotp } from './totp';
 import {
@@ -25,13 +28,23 @@ const STEP_TIMEOUT_MS = parseInt(process.env.LOGIN_STEP_TIMEOUT_MS ?? '20000', 1
 const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10);
 const HEADFUL = (process.env.LOGIN_DEBUG_HEADFUL ?? 'false').toLowerCase() === 'true';
 const SLOWMO_MS = parseInt(process.env.LOGIN_DEBUG_SLOWMO_MS ?? '0', 10);
+const DATA_ROOT = process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data');
 
 @Injectable()
 export class XLoginService {
   private readonly log = new Logger(XLoginService.name);
 
   /**
-   * Perform an end-to-end X login in a fresh ephemeral browser context.
+   * Perform an end-to-end X login in a per-account persistent context.
+   *
+   * Reauth jobs reuse the existing account's user-data-dir so the login
+   * session shares fingerprint, storage and IndexedDB with later tool calls
+   * driven by XBrowserService — X otherwise sees two different "browsers"
+   * for one account and is more likely to flag the session.
+   *
+   * Connect jobs (no targetAccountId yet) get a username-keyed staging dir
+   * so consecutive retries for the same handle keep their warm-up state.
+   *
    * Returns a discriminated-union result; never throws on user-input errors
    * (wrong password, captcha, …) — those are mapped to `XLoginFailure`. Only
    * unexpected infrastructure errors propagate.
@@ -39,30 +52,37 @@ export class XLoginService {
   async run(input: XLoginInput): Promise<XLoginResult> {
     const t0 = Date.now();
     const username = stripAt(input.username);
-    this.log.log(`login start username=${username} headful=${HEADFUL} proxy=${input.proxyCountry ?? 'none'}`);
+    const profileDir = resolveLoginProfileDir(input.targetAccountId, username);
+    clearStaleLocks(profileDir);
+    this.log.log(
+      `login start username=${username} profile=${path.basename(profileDir)} ` +
+        `headful=${HEADFUL} proxy=${input.proxyCountry ?? 'none'}`,
+    );
 
     const proxy = resolveProxy(input.proxyCountry);
-    const browser = await chromium.launch({
-      headless: !HEADFUL,
-      ...optionalBrowserChannel(),
-      slowMo: SLOWMO_MS || undefined,
-      proxy: proxy ?? undefined,
-      args: ['--disable-blink-features=AutomationControlled'],
-    });
-
     let context: BrowserContext | null = null;
     let page: Page | null = null;
     try {
-      context = await browser.newContext({
+      context = await chromium.launchPersistentContext(profileDir, {
+        headless: !HEADFUL,
+        ...optionalBrowserChannel(),
+        slowMo: SLOWMO_MS || undefined,
+        proxy: proxy ?? undefined,
         ...(USER_AGENT ? { userAgent: USER_AGENT } : {}),
         locale: 'tr-TR',
         timezoneId: 'Europe/Istanbul',
         viewport: { width: 1280, height: 800 },
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--no-sandbox',
+          '--disable-dev-shm-usage',
+        ],
       });
       context.setDefaultTimeout(STEP_TIMEOUT_MS);
       context.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
+      await context.addInitScript(LOGIN_INIT_SCRIPT);
 
-      page = await context.newPage();
+      page = context.pages()[0] ?? (await context.newPage());
       await this.runFlow(page, { ...input, username });
       const cookies = await extractCookies(context);
       const screenName = await this.verifyAuthenticatedSession(context, page, username, cookies);
@@ -85,14 +105,21 @@ export class XLoginService {
       try {
         if (context) await context.close();
       } catch {}
-      try {
-        await browser.close();
-      } catch {}
     }
   }
 
   private async runFlow(page: Page, input: XLoginInput & { username: string }): Promise<void> {
+    // Warm-up: visit x.com root before the login flow so X sees the same
+    // pattern a real user does (homepage → click "Sign in"). Skipped if the
+    // persistent profile already has cookies for the target account
+    // (reauth-on-warm-profile shouldn't double-fetch).
     await this.step('navigate', async () => {
+      try {
+        await page.goto('https://x.com/', { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+        await page.waitForTimeout(1_500);
+      } catch {
+        // Best-effort warm-up; proceed to login URL even if root failed.
+      }
       await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
     }, page);
 
@@ -181,6 +208,11 @@ export class XLoginService {
           throw new LoginFlowError('suspicious_login_blocked', 'X blocked this login as suspicious');
         }
         await checkForCaptcha(page);
+        // URL-based classification — X parks blocked sessions at distinctive
+        // paths well before the on-page text loads. Catches cases where the
+        // page is visually empty but the URL alone tells the story.
+        const urlReason = classifyByUrl(page.url());
+        if (urlReason) throw new LoginFlowError(urlReason.reason, urlReason.detail);
         throw new LoginFlowError('home_not_reached', `did not reach /home (current=${page.url()})`);
       }
     });
@@ -313,4 +345,60 @@ function parseUserIdFromTwid(twid: string | null): string | null {
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
+
+/**
+ * Classify a stuck-not-on-home URL into a specific failure_reason.
+ * X parks blocked sessions at /account/access (locked), /account/access/
+ * identity (phone challenge), and /login/error (bad creds) — all detectable
+ * before any on-page text loads, which is faster + more reliable than
+ * scraping the body.
+ */
+function classifyByUrl(rawUrl: string): { reason: import('./login.types').LoginJobFailureReason; detail: string } | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  const p = parsed.pathname.toLowerCase();
+  if (p.startsWith('/account/access/identity') || p.startsWith('/i/flow/login/identity')) {
+    return { reason: 'phone_verification_required', detail: `X requires phone verification (url=${p})` };
+  }
+  if (p.startsWith('/account/access')) {
+    return { reason: 'account_locked', detail: `X locked the account (url=${p})` };
+  }
+  if (p.startsWith('/login/error') || parsed.searchParams.has('error')) {
+    return { reason: 'invalid_credentials', detail: `X redirected to login error (url=${p})` };
+  }
+  if (p.startsWith('/i/flow/login') && parsed.searchParams.get('redirect_after_login_url')) {
+    return { reason: 'login_cooldown', detail: 'X bounced back to login URL with redirect_after_login_url' };
+  }
+  return null;
+}
+
+/**
+ * Pick the user-data-dir for a login session. Reauth uses the existing
+ * account's dir (same path XBrowserService.resolveProfileDir uses) so the
+ * fingerprint stays consistent. Connect uses a username-keyed staging dir.
+ */
+function resolveLoginProfileDir(targetAccountId: string | null | undefined, username: string): string {
+  const safe = (targetAccountId ?? `login-${username.toLowerCase()}`).replace(
+    /[^A-Za-z0-9._-]/g,
+    '_',
+  );
+  return path.join(DATA_ROOT, 'user-data', safe);
+}
+
+/**
+ * Persistent contexts leave SingletonLock files behind when crashed; clear
+ * them before the next launch or chromium will refuse to bind.
+ */
+function clearStaleLocks(profileDir: string): void {
+  fs.mkdirSync(profileDir, { recursive: true });
+  for (const name of ['SingletonCookie', 'SingletonLock', 'SingletonSocket']) {
+    try {
+      fs.rmSync(path.join(profileDir, name), { force: true, recursive: true });
+    } catch {}
+  }
 }

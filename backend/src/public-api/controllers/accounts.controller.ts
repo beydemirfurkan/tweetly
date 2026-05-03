@@ -61,6 +61,32 @@ export class AccountsController {
     return this.accounts.listForUser(getAuthContext(req).userId);
   }
 
+  @Post('accounts/cookie-validate')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('accounts')
+  @RateLimitWrite()
+  @ApiOperation({
+    summary: 'Pre-flight cookie health-check before manual paste',
+    description:
+      'Probes X with the candidate auth_token + ct0 (and optional twid) cookies to verify the ' +
+      'session is alive and resolves the screen_name. Use this before POST /accounts/:id ' +
+      'so the panel can warn instead of saving stale credentials. Stateless — nothing is persisted.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Probe result. ok=true means cookies authenticate; ok=false includes a reason.',
+  })
+  async validateCookies(
+    @Req() _req: Request,
+    @Body() body: { authToken?: string; ct0?: string; twid?: string },
+  ) {
+    return this.accounts.validateCookies({
+      authToken: body.authToken ?? '',
+      ct0: body.ct0 ?? '',
+      twid: body.twid ?? null,
+    });
+  }
+
   @Post('accounts/:id/refresh-profile')
   @HttpCode(HttpStatus.OK)
   @ApiTags('accounts')

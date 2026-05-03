@@ -32,6 +32,7 @@ import { XDirectProfileFetcherAdapter } from './x-direct/x-direct-profile-fetche
 import { XLoginService } from './login/x-login.service';
 import { LoginJobsRepository } from './login/login-jobs.repository';
 import { LoginWorker } from './login/login-worker.service';
+import { CookieHealthCheckService } from './login/cookie-health-check.service';
 
 /**
  * X otomasyon adapter modülü.
@@ -91,6 +92,7 @@ import { LoginWorker } from './login/login-worker.service';
     XLoginService,
     LoginJobsRepository,
     LoginWorker,
+    CookieHealthCheckService,
   ],
   exports: [
     XDirectReadService,
@@ -99,6 +101,7 @@ import { LoginWorker } from './login/login-worker.service';
     XBrowserService,
     XLoginService,
     LoginJobsRepository,
+    CookieHealthCheckService,
     PROFILE_FETCHER,
   ],
 })

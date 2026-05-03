@@ -11,6 +11,8 @@ export type LoginJobFailureReason =
   | 'login_cooldown'
   | 'cookies_missing'
   | 'home_not_reached'
+  | 'account_locked'
+  | 'phone_verification_required'
   | 'unknown';
 
 @Entity('account_login_jobs')
