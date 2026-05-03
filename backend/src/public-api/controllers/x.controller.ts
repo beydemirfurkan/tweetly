@@ -211,6 +211,52 @@ export class XController {
     return this.x.getMutualFollowers(getAuthContext(req).userId, handle, limit, account, cursor);
   }
 
+  @Get('x/users/:handle/lists')
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({ summary: "Get the lists a user owns" })
+  @ApiQuery({ name: 'account', required: false })
+  async getUserLists(
+    @Req() req: Request,
+    @Param('handle') handle: string,
+    @Query('account') account: string,
+  ) {
+    return this.x.getUserLists(getAuthContext(req).userId, handle, account);
+  }
+
+  @Get('x/lists/:listId')
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({ summary: 'Get list metadata (name, description, member + subscriber counts, owner)' })
+  @ApiQuery({ name: 'account', required: false })
+  async getList(
+    @Req() req: Request,
+    @Param('listId') listId: string,
+    @Query('account') account: string,
+  ) {
+    return this.x.getList(getAuthContext(req).userId, listId, account);
+  }
+
+  @Get('x/lists/:listId/subscribers')
+  @ApiTags('x')
+  @RequiresScope('read')
+  @RateLimitRead()
+  @ApiOperation({ summary: 'Get subscribers of a public X list (paginated)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'account', required: false })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from a previous nextCursor' })
+  async getListSubscribers(
+    @Req() req: Request,
+    @Param('listId') listId: string,
+    @Query('limit') limit: string,
+    @Query('account') account: string,
+    @Query('cursor') cursor: string,
+  ) {
+    return this.x.getListSubscribers(getAuthContext(req).userId, listId, limit, account, cursor);
+  }
+
   @Post('x/tweets/thread')
   @HttpCode(HttpStatus.OK)
   @ApiTags('x')

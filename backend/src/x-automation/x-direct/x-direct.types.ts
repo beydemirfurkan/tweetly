@@ -31,3 +31,23 @@ export interface UserListItem {
 export interface DryRunFlag {
   dryRun?: boolean;
 }
+
+export interface ListMetaItem {
+  listId: string;
+  name: string;
+  description: string;
+  memberCount: string;
+  ownerHandle: string;
+  url: string;
+}
+
+export interface ListDetailItem {
+  listId: string;
+  name: string;
+  description: string;
+  memberCount: string;
+  subscriberCount: string;
+  ownerHandle: string;
+  ownerDisplayName: string;
+  url: string;
+}

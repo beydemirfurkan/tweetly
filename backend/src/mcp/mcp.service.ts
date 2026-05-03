@@ -156,6 +156,9 @@ export class McpService {
       case 'get_list_members': return r.getListMembers(args, ctx);
       case 'get_mutual_followers': return r.getMutualFollowers(args, ctx);
       case 'get_thread': return r.getThread(args, ctx);
+      case 'get_user_lists': return r.getUserLists(args, ctx);
+      case 'get_list': return r.getList(args, ctx);
+      case 'get_list_subscribers': return r.getListSubscribers(args, ctx);
 
       // Monitors
       case 'create_monitor': return m.createMonitor(args, ctx);

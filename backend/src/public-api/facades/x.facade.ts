@@ -141,6 +141,30 @@ export class XFacade {
     return this.reads.getMutualFollowers(handle, limit, acct, cursor);
   }
 
+  async getListSubscribers(
+    userId: string,
+    listId: string,
+    limitStr?: string,
+    account?: string,
+    cursor?: string,
+  ) {
+    if (!/^\d+$/.test(listId)) throw new BadRequestException('listId must be numeric');
+    const limit = Math.min(parseInt(limitStr ?? '50', 10), 200);
+    const acct = await this.accounts.resolveAccountIdOptional(userId, account);
+    return this.reads.getListSubscribers(listId, limit, acct, cursor);
+  }
+
+  async getUserLists(userId: string, handle: string, account?: string) {
+    const acct = await this.accounts.resolveAccountIdOptional(userId, account);
+    return this.reads.getUserLists(handle, acct);
+  }
+
+  async getList(userId: string, listId: string, account?: string) {
+    if (!/^\d+$/.test(listId)) throw new BadRequestException('listId must be numeric');
+    const acct = await this.accounts.resolveAccountIdOptional(userId, account);
+    return this.reads.getList(listId, acct);
+  }
+
   async getThread(userId: string, body: GetTweetBody, limitStr?: string) {
     if (!body.tweetUrl?.includes('/status/')) {
       throw new BadRequestException('tweetUrl must contain /status/');

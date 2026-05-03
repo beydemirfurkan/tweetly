@@ -56,6 +56,9 @@ List-style reads return `{ items, nextCursor }`. Pass `nextCursor` back as the `
 - `get_list_members`: Members of a public X list (numeric ID).
 - `get_mutual_followers`: Followers-you-know — accounts the caller follows that also follow the target.
 - `get_thread`: Same-author thread chain rooted at a tweet.
+- `get_user_lists`: Lists owned by a user (with name, description, member count).
+- `get_list`: List metadata (member + subscriber counts, owner).
+- `get_list_subscribers`: Paginated subscribers of a public X list.
 
 ### Monitors
 - `create_monitor`: Webhook monitor for a target handle.

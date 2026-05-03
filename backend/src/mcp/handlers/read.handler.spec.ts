@@ -24,6 +24,9 @@ function mockXDirect(): jest.Mocked<XDirectReadService> {
     getListMembers: jest.fn().mockResolvedValue(emptyPage),
     getMutualFollowers: jest.fn().mockResolvedValue(emptyPage),
     getThread: jest.fn().mockResolvedValue([]),
+    getUserLists: jest.fn().mockResolvedValue([]),
+    getList: jest.fn().mockResolvedValue({}),
+    getListSubscribers: jest.fn().mockResolvedValue(emptyPage),
   } as unknown as jest.Mocked<XDirectReadService>;
 }
 

@@ -170,4 +170,28 @@ export class ReadHandler extends BaseMcpHandler {
     const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
     return this.xDirect.getThread(tweetUrl, limit, accountId);
   }
+
+  async getUserLists(args: McpToolArgs, ctx: McpToolContext) {
+    const handle = args.handle as string;
+    if (!handle) throw new Error('handle is required');
+    const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
+    return this.xDirect.getUserLists(handle, accountId);
+  }
+
+  async getList(args: McpToolArgs, ctx: McpToolContext) {
+    const listId = args.list_id as string;
+    if (!listId || !/^\d+$/.test(listId)) throw new Error('list_id must be numeric');
+    const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
+    return this.xDirect.getList(listId, accountId);
+  }
+
+  async getListSubscribers(args: McpToolArgs, ctx: McpToolContext) {
+    const listId = args.list_id as string;
+    if (!listId || !/^\d+$/.test(listId)) throw new Error('list_id must be numeric');
+    const limit = Math.min(Number(args.limit ?? 50), 200);
+    const accountId = await ctx.resolveAccountIdOptional(args.account_id as string | undefined);
+    const verifiedOnly = Boolean(args.verified_only);
+    const cursor = args.cursor as string | undefined;
+    return this.xDirect.getListSubscribers(listId, limit, accountId, cursor, { verifiedOnly });
+  }
 }

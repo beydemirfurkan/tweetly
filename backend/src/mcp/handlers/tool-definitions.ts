@@ -51,6 +51,9 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   get_list_members: 'List members of a public X list (by numeric list ID)',
   get_mutual_followers: "Followers-you-know: accounts the caller follows that also follow the target handle",
   get_thread: 'Get the same-author thread chain rooted at a tweet (root tweet first)',
+  get_user_lists: 'Lists owned by a user (name, description, member count, owner)',
+  get_list: 'Get list metadata (name, description, member + subscriber counts, owner)',
+  get_list_subscribers: 'Get subscribers of a public X list (paginated)',
 
   // Monitors
   create_monitor: 'Create a webhook monitor for a target handle',

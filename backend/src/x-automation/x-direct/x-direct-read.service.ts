@@ -11,7 +11,13 @@ import {
   type TweetSelectors,
   type UserCellSelectors,
 } from './read-page.utils';
-import type { TweetResult, UserResult, UserListItem } from './x-direct.types';
+import type {
+  ListDetailItem,
+  ListMetaItem,
+  TweetResult,
+  UserResult,
+  UserListItem,
+} from './x-direct.types';
 
 /**
  * Read-only operations: search, profile lookup, tweet lookup, user lists,
@@ -261,6 +267,157 @@ export class XDirectReadService extends XDirectBaseService {
       cursor,
       options,
     );
+  }
+
+  async getListSubscribers(
+    listId: string,
+    limit = 50,
+    accountId?: string,
+    cursor?: string,
+    options: { verifiedOnly?: boolean } = {},
+  ): Promise<PaginatedResult<UserListItem>> {
+    return this.scrapeUserList(
+      `https://x.com/i/lists/${listId}/subscribers`,
+      limit,
+      accountId,
+      cursor,
+      options,
+    );
+  }
+
+  async getUserLists(handle: string, accountId?: string): Promise<ListMetaItem[]> {
+    const cleanHandle = handle.replace(/^@/, '');
+    return this.withSession('getUserLists', accountId, async (page, acctId) => {
+      await page.goto(`https://x.com/${cleanHandle}/lists`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+      await this.browser.assertSessionHealthy(page, acctId);
+      // X's lists page renders each list as a link to /i/lists/<id>; if
+      // the user has none, there's nothing to wait for and we return empty.
+      try {
+        await page.waitForSelector('a[href*="/i/lists/"]', { timeout: 8_000 });
+      } catch {
+        return [];
+      }
+      await page.waitForTimeout(1_500);
+
+      const raw = await page.evaluate(() => {
+        const seen = new Set<string>();
+        const items: Array<{
+          listId: string;
+          name: string;
+          description: string;
+          memberCount: string;
+          ownerHandle: string;
+          url: string;
+        }> = [];
+        const links = Array.from(
+          document.querySelectorAll('a[href*="/i/lists/"]'),
+        ) as HTMLAnchorElement[];
+        for (const link of links) {
+          const m = link.pathname.match(/\/i\/lists\/(\d+)(?:$|\/)/);
+          if (!m) continue;
+          const listId = m[1];
+          if (seen.has(listId)) continue;
+          seen.add(listId);
+          // Find the enclosing card. The list card on X usually wraps
+          // multiple spans for name + member count; we grab the
+          // closest container with > 1 line of text.
+          let card: Element = link;
+          for (let i = 0; i < 5 && card.parentElement; i++) {
+            card = card.parentElement;
+            if ((card.textContent ?? '').trim().split('\n').filter(Boolean).length >= 2) break;
+          }
+          const spans = Array.from(card.querySelectorAll('span'))
+            .map((s) => s.textContent?.trim() ?? '')
+            .filter(Boolean);
+          // Heuristic: first non-numeric, non-"@handle" span = name; the
+          // span containing "member"/"üye" = memberCount; the @-prefixed
+          // span = ownerHandle; the last long span = description.
+          const name = spans.find((s) => !/^@/.test(s) && !/member|üye/i.test(s)) ?? '';
+          const memberCount =
+            spans.find((s) => /^[\d.,]+\s*(member|üye)/i.test(s))?.match(/[\d.,]+/)?.[0] ?? '';
+          const ownerHandle = (spans.find((s) => /^@/.test(s)) ?? '').replace(/^@/, '');
+          const description =
+            spans.filter((s) => s !== name && !/^@/.test(s) && !/member|üye/i.test(s)).join(' ');
+          items.push({
+            listId,
+            name,
+            description,
+            memberCount,
+            ownerHandle,
+            url: `https://x.com/i/lists/${listId}`,
+          });
+        }
+        return items;
+      });
+
+      return raw.map((item) => ({
+        ...item,
+        name: this.sanitizeText(item.name),
+        description: this.sanitizeText(item.description),
+      }));
+    });
+  }
+
+  async getList(listId: string, accountId?: string): Promise<ListDetailItem> {
+    return this.withSession('getList', accountId, async (page, acctId) => {
+      await page.goto(`https://x.com/i/lists/${listId}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+      await this.browser.assertSessionHealthy(page, acctId);
+      // Header content lives inside primaryColumn before the timeline loads.
+      await page.waitForSelector('[data-testid="primaryColumn"]', { timeout: 15_000 });
+      await page.waitForTimeout(2_000);
+
+      const raw = await page.evaluate(() => {
+        const col = document.querySelector('[data-testid="primaryColumn"]');
+        if (!col) return null;
+        // List header h2 typically holds the name. Description is the
+        // following paragraph-ish span. Member/Subscriber counts are
+        // labelled links under the header.
+        const nameEl = col.querySelector('h2');
+        const name = nameEl?.textContent?.trim() ?? '';
+        const spans = Array.from(col.querySelectorAll('span'))
+          .map((s) => s.textContent?.trim() ?? '')
+          .filter(Boolean);
+        const memberCount =
+          spans.find((s) => /^[\d.,]+\s*(member|üye)/i.test(s))?.match(/[\d.,]+/)?.[0] ?? '';
+        const subscriberCount =
+          spans.find((s) => /^[\d.,]+\s*(subscriber|abone)/i.test(s))?.match(/[\d.,]+/)?.[0] ?? '';
+        // Owner is rendered as an avatar link to /<handle> — pick the first.
+        const ownerLink = Array.from(
+          col.querySelectorAll('a[href^="/"]'),
+        ).find((a) => {
+          const path = (a as HTMLAnchorElement).pathname.split('/').filter(Boolean);
+          return (
+            path.length === 1 &&
+            !['i', 'home', 'explore', 'notifications', 'messages'].includes(path[0])
+          );
+        }) as HTMLAnchorElement | undefined;
+        const ownerHandle = ownerLink?.pathname.replace('/', '') ?? '';
+        const ownerDisplayName = ownerLink?.querySelector('span')?.textContent?.trim() ?? '';
+        const description =
+          spans.find((s) => s !== name && s.length > 8 && !/member|subscriber|üye|abone/i.test(s)) ??
+          '';
+        return { name, description, memberCount, subscriberCount, ownerHandle, ownerDisplayName };
+      });
+
+      if (!raw) throw new Error(`list ${listId} not found or could not be parsed`);
+
+      return {
+        listId,
+        name: this.sanitizeText(raw.name),
+        description: this.sanitizeText(raw.description),
+        memberCount: raw.memberCount,
+        subscriberCount: raw.subscriberCount,
+        ownerHandle: raw.ownerHandle,
+        ownerDisplayName: this.sanitizeText(raw.ownerDisplayName),
+        url: `https://x.com/i/lists/${listId}`,
+      };
+    });
   }
 
   // ── Single-resource and small-fixed-list reads (no pagination) ────────

@@ -242,6 +242,27 @@ const getMutualFollowers = z.object({
   verified_only: verifiedOnly,
   cursor,
 });
+const getUserLists = z.object({
+  handle: xHandle.describe('Handle whose owned lists to fetch'),
+  account_id: accountId,
+});
+const getList = z.object({
+  list_id: z
+    .string()
+    .regex(/^\d+$/, 'list_id must be numeric')
+    .describe('Numeric X list ID'),
+  account_id: accountId,
+});
+const getListSubscribers = z.object({
+  list_id: z
+    .string()
+    .regex(/^\d+$/, 'list_id must be numeric')
+    .describe('Numeric X list ID'),
+  limit: limit(200),
+  account_id: accountId,
+  verified_only: verifiedOnly,
+  cursor,
+});
 const getThread = z.object({
   tweet_url: tweetUrl.describe('URL of the root tweet of the thread'),
   limit: limit(50),
@@ -424,6 +445,9 @@ export const TOOL_SCHEMAS = {
   get_list_members: getListMembers,
   get_mutual_followers: getMutualFollowers,
   get_thread: getThread,
+  get_user_lists: getUserLists,
+  get_list: getList,
+  get_list_subscribers: getListSubscribers,
 
   create_monitor: createMonitor,
   list_monitors: listMonitors,
