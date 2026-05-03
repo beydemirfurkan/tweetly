@@ -25,13 +25,18 @@ const mcpSseUrl = `${apiBase}/mcp/sse`;
 type ClientKind = 'oauth' | 'apikey';
 type ClientId = 'claudeDesktop' | 'claudeWeb' | 'chatgpt' | 'cursor' | 'codex' | 'claudeCode';
 
+interface ClientStep {
+  // Translation key segment under `connect.<id>` (e.g. 'step1').
+  textKey: string;
+  // Optional code block rendered immediately under the step text.
+  code?: string;
+}
+
 interface ClientConfig {
   id: ClientId;
   kind: ClientKind;
   icon: React.ReactNode;
-  // Each step is either a translation key segment under `connect.<id>.*`
-  // (e.g. 'step1') or an inline code block to render verbatim.
-  steps: Array<string | { code: string }>;
+  steps: ClientStep[];
   docUrl?: string;
 }
 
@@ -236,28 +241,44 @@ const clientConfigs: ClientConfig[] = [
     kind: 'oauth',
     icon: <AnthropicLogo className="h-4 w-4" title="Anthropic" />,
     docUrl: 'https://support.anthropic.com/en/articles/10168395-setting-up-custom-connectors',
-    steps: ['step1', 'step2', { code: mcpUrl }, 'step3', 'step4'],
+    steps: [
+      { textKey: 'step1' },
+      { textKey: 'step2', code: mcpUrl },
+      { textKey: 'step3' },
+    ],
   },
   {
     id: 'claudeWeb',
     kind: 'oauth',
     icon: <AnthropicLogo className="h-4 w-4" title="Anthropic" />,
     docUrl: 'https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp',
-    steps: ['step1', 'step2', { code: mcpUrl }, 'step3'],
+    steps: [
+      { textKey: 'step1' },
+      { textKey: 'step2', code: mcpUrl },
+      { textKey: 'step3' },
+    ],
   },
   {
     id: 'chatgpt',
     kind: 'oauth',
     icon: <OpenAILogo className="h-4 w-4" title="OpenAI" />,
     docUrl: 'https://help.openai.com/en/articles/11487775-connectors-in-chatgpt',
-    steps: ['step1', 'step2', { code: mcpUrl }, 'step3'],
+    steps: [
+      { textKey: 'step1' },
+      { textKey: 'step2', code: mcpUrl },
+      { textKey: 'step3' },
+    ],
   },
   {
     id: 'cursor',
     kind: 'oauth',
     icon: <CursorLogo className="h-4 w-4" title="Cursor" />,
     docUrl: 'https://docs.cursor.com/en/context/mcp',
-    steps: ['step1', 'step2', { code: mcpUrl }, 'step3'],
+    steps: [
+      { textKey: 'step1' },
+      { textKey: 'step2', code: mcpUrl },
+      { textKey: 'step3' },
+    ],
   },
   {
     id: 'codex',
@@ -265,9 +286,11 @@ const clientConfigs: ClientConfig[] = [
     icon: <OpenAILogo className="h-4 w-4" title="OpenAI" />,
     docUrl: 'https://github.com/openai/codex',
     steps: [
-      'step1',
-      { code: `[mcp_servers.xtweetly]\nurl = "${mcpUrl}"` },
-      'step2',
+      {
+        textKey: 'step1',
+        code: `[mcp_servers.xtweetly]\nurl = "${mcpUrl}"`,
+      },
+      { textKey: 'step2' },
     ],
   },
   {
@@ -275,12 +298,12 @@ const clientConfigs: ClientConfig[] = [
     kind: 'apikey',
     icon: <Terminal className="h-4 w-4" />,
     steps: [
-      'step1',
-      'step2',
+      { textKey: 'step1' },
       {
+        textKey: 'step2',
         code: `claude mcp add xtweetly \\\n  --transport sse \\\n  --url ${mcpSseUrl} \\\n  --header "Authorization: Bearer tk_***"`,
       },
-      'step3',
+      { textKey: 'step3' },
     ],
   },
 ];
@@ -288,17 +311,18 @@ const clientConfigs: ClientConfig[] = [
 function ClientCard({ config }: { config: ClientConfig }) {
   const t = useTranslations(`connect.${config.id}`);
   const tShared = useTranslations('connect.clients');
+  const lastIndex = config.steps.length - 1;
 
   return (
     <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-      <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/5 text-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/5 text-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
             {config.icon}
           </div>
           <div>
-            <h3 className="text-[14px] font-bold tracking-tight">{t('name')}</h3>
-            <p className="text-[11px] text-muted-foreground">{t('blurb')}</p>
+            <h3 className="text-[15px] font-bold tracking-tight">{t('name')}</h3>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">{t('blurb')}</p>
           </div>
         </div>
         <span
@@ -313,25 +337,40 @@ function ClientCard({ config }: { config: ClientConfig }) {
             : tShared('apikeyBadge')}
         </span>
       </div>
-      <ol className="space-y-2.5 px-5 py-4 text-[13px] leading-[1.55]">
-        {config.steps.map((step, i) => {
-          if (typeof step === 'string') {
-            return (
-              <li key={i} className="flex gap-2.5">
-                <span className="font-mono text-[10px] text-muted-foreground/60">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="flex-1 text-muted-foreground">{t(step)}</span>
-              </li>
-            );
-          }
-          return (
-            <li key={i} className="ml-6">
-              <CopyBox value={step.code} small />
-            </li>
-          );
-        })}
+
+      <ol className="px-5 py-5">
+        {config.steps.map((step, i) => (
+          <li key={i} className="relative flex gap-3.5 pb-5 last:pb-0">
+            {/* Vertical connector — dimmed line under each marker except the last */}
+            {i < lastIndex && (
+              <span
+                aria-hidden
+                className="absolute left-[13px] top-7 h-[calc(100%-1rem)] w-px bg-border"
+              />
+            )}
+
+            {/* Circle marker */}
+            <span
+              className="z-10 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 font-mono text-[11px] font-bold text-primary transition-colors group-hover:border-primary/50 group-hover:bg-primary/15"
+            >
+              {i + 1}
+            </span>
+
+            {/* Step text + optional code */}
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="text-[13.5px] leading-[1.55] text-foreground/90">
+                {t(step.textKey)}
+              </p>
+              {step.code && (
+                <div className="mt-2.5">
+                  <CopyBox value={step.code} small />
+                </div>
+              )}
+            </div>
+          </li>
+        ))}
       </ol>
+
       {config.docUrl && (
         <div className="border-t border-border px-5 py-2.5">
           <a

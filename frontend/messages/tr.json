@@ -289,44 +289,43 @@
     "claudeDesktop": {
       "name": "Claude Desktop",
       "blurb": "Custom Connectors UI. OAuth otomatik.",
-      "step1": "Settings → Connectors → \"Add custom connector\" düğmesine bas.",
-      "step2": "Remote MCP server URL alanına yapıştır:",
-      "step3": "OAuth Client ID/Secret alanlarını boş bırak (DCR otomatik halleder).",
-      "step4": "\"Add\" → tarayıcı açılır → xtweetly'ye giriş yap → \"İzin ver\" → \"Connected\"."
+      "step1": "Settings → Connectors → Add custom connector",
+      "step2": "URL'i yapıştır; OAuth alanlarını boş bırak (DCR otomatik)",
+      "step3": "Add → tarayıcıda xtweetly'ye giriş yap → İzin ver"
     },
     "claudeWeb": {
       "name": "Claude.ai (web)",
       "blurb": "Connectors paneli, aynı OAuth flow.",
-      "step1": "Sol menü → Settings → Connectors → \"Add custom connector\".",
-      "step2": "Server URL:",
-      "step3": "Tarayıcıda consent → Allow → tools listesi yüklendiğinde hazır."
+      "step1": "Settings → Connectors → Add custom connector",
+      "step2": "URL'i yapıştır → Connect",
+      "step3": "Tarayıcıda Allow → tools listesi yüklenince hazır"
     },
     "chatgpt": {
       "name": "ChatGPT (Connectors)",
       "blurb": "Plus / Team / Enterprise — Connectors özelliği.",
-      "step1": "Settings → Connectors → \"Add\" → \"Custom MCP server\".",
-      "step2": "URL:",
-      "step3": "Authorize → ChatGPT yeni chat'inde \"@xtweetly\" ile araçları çağır."
+      "step1": "Settings → Connectors → Add → Custom MCP server",
+      "step2": "URL'i yapıştır → Authorize",
+      "step3": "Yeni chat'te @xtweetly ile araçları çağır"
     },
     "cursor": {
       "name": "Cursor",
       "blurb": "Settings → MCP. OAuth otomatik tetiklenir.",
-      "step1": "Settings (Cmd/Ctrl+,) → MCP & Integrations → \"+ Add custom MCP\" → \"HTTP\".",
-      "step2": "Name: xtweetly, URL:",
-      "step3": "Save → Cursor tarayıcıda OAuth'u açar → izin → araçlar Composer'da görünür."
+      "step1": "Settings (⌘,) → MCP & Integrations → + Add custom MCP → HTTP",
+      "step2": "Name: xtweetly, URL'i yapıştır → Save",
+      "step3": "Cursor tarayıcıda OAuth açar → izin → araçlar Composer'da"
     },
     "codex": {
       "name": "OpenAI Codex CLI",
       "blurb": "Remote HTTP MCP desteği. Config dosyası.",
       "step1": "~/.codex/config.toml dosyana ekle:",
-      "step2": "codex çalıştırınca terminal OAuth flow'unu başlatır."
+      "step2": "codex çalıştır — terminal OAuth flow'unu başlatır"
     },
     "claudeCode": {
       "name": "Claude Code (CLI)",
       "blurb": "Eski SSE transport + tk_* API key.",
-      "step1": "Panel → API Keys → \"+ Yeni Key\" → \"Full access\" → secret'ı kopyala.",
+      "step1": "Panel → API Keys → + Yeni Key (Full access) → secret'ı kopyala",
       "step2": "Terminal'da:",
-      "step3": "claude başlat — \"/mcp\" komutuyla araçların listelendiğini gör."
+      "step3": "claude başlat — /mcp komutuyla tools listesini doğrula"
     }
   }
 }

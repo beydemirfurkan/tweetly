@@ -289,44 +289,43 @@
     "claudeDesktop": {
       "name": "Claude Desktop",
       "blurb": "Custom Connectors UI. OAuth automatic.",
-      "step1": "Settings → Connectors → click \"Add custom connector\".",
-      "step2": "Paste into the Remote MCP server URL field:",
-      "step3": "Leave OAuth Client ID/Secret blank (DCR handles it).",
-      "step4": "\"Add\" → browser opens → sign in to xtweetly → \"Allow\" → \"Connected\"."
+      "step1": "Settings → Connectors → Add custom connector",
+      "step2": "Paste the URL; leave OAuth fields blank (DCR is automatic)",
+      "step3": "Add → sign in to xtweetly in the browser → Allow"
     },
     "claudeWeb": {
       "name": "Claude.ai (web)",
       "blurb": "Connectors panel, same OAuth flow.",
-      "step1": "Left menu → Settings → Connectors → \"Add custom connector\".",
-      "step2": "Server URL:",
-      "step3": "Browser consent → Allow → ready when tools list loads."
+      "step1": "Settings → Connectors → Add custom connector",
+      "step2": "Paste the URL → Connect",
+      "step3": "Approve in browser → ready when the tools list loads"
     },
     "chatgpt": {
       "name": "ChatGPT (Connectors)",
       "blurb": "Plus / Team / Enterprise — Connectors feature.",
-      "step1": "Settings → Connectors → \"Add\" → \"Custom MCP server\".",
-      "step2": "URL:",
-      "step3": "Authorize → call tools in any new chat with \"@xtweetly\"."
+      "step1": "Settings → Connectors → Add → Custom MCP server",
+      "step2": "Paste the URL → Authorize",
+      "step3": "In any chat: type @xtweetly to call tools"
     },
     "cursor": {
       "name": "Cursor",
       "blurb": "Settings → MCP. OAuth fires automatically.",
-      "step1": "Settings (Cmd/Ctrl+,) → MCP & Integrations → \"+ Add custom MCP\" → \"HTTP\".",
-      "step2": "Name: xtweetly, URL:",
-      "step3": "Save → Cursor opens OAuth in browser → allow → tools appear in Composer."
+      "step1": "Settings (⌘,) → MCP & Integrations → + Add custom MCP → HTTP",
+      "step2": "Name: xtweetly, paste the URL → Save",
+      "step3": "Cursor opens OAuth in browser → allow → tools appear in Composer"
     },
     "codex": {
       "name": "OpenAI Codex CLI",
       "blurb": "Remote HTTP MCP support. Config file.",
       "step1": "Add to ~/.codex/config.toml:",
-      "step2": "Run codex — the terminal starts the OAuth flow."
+      "step2": "Run codex — the terminal starts the OAuth flow"
     },
     "claudeCode": {
       "name": "Claude Code (CLI)",
       "blurb": "Legacy SSE transport + tk_* API key.",
-      "step1": "Panel → API Keys → \"+ New Key\" → \"Full access\" → copy the secret.",
+      "step1": "Panel → API Keys → + New Key (Full access) → copy the secret",
       "step2": "In your terminal:",
-      "step3": "Run claude — type \"/mcp\" to confirm the tools loaded."
+      "step3": "Run claude — type /mcp to confirm the tools loaded"
     }
   }
 }
