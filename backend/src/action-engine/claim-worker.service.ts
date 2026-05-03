@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { ExecutorRegistry } from './executor-registry.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { RetryPolicy } from '@domain/services/retry-policy';
-import { ACTION_TABLE_CONFIG, ClaimedActionRow, GenericActionRepository } from './repositories/action-repository';
+import { ACTION_TABLE_CONFIG, ClaimedActionRow, GenericActionRepository } from '@persistence/repositories/action-repository';
 import type { ActionType } from '@domain/types/action.types';
 import type { ActionContext, ExecutionResult } from '@domain/ports/x-action-executor.port';
 import { AccountsService } from '@/accounts/accounts.service';

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { ACTION_TABLE_CONFIG, GenericActionRepository } from './repositories/action-repository';
+import { ACTION_TABLE_CONFIG, GenericActionRepository } from '@persistence/repositories/action-repository';
 import { IdempotencyKeyService } from '@domain/services/idempotency-key';
 
 export interface EnqueuePostInput {

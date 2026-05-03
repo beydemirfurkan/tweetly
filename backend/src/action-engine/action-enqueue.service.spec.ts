@@ -2,7 +2,7 @@ import { ActionEnqueueService } from './action-enqueue.service';
 
 const mockInsertIfAbsent = jest.fn().mockResolvedValue('uuid-test');
 
-jest.mock('./repositories/action-repository', () => ({
+jest.mock('@persistence/repositories/action-repository', () => ({
   GenericActionRepository: jest.fn().mockImplementation(() => ({
     insertIfAbsent: mockInsertIfAbsent,
   })),

@@ -1,6 +1,6 @@
 import { AdminApiService } from './admin-api.service';
 
-jest.mock('../action-engine/repositories/action-repository', () => ({
+jest.mock('@persistence/repositories/action-repository', () => ({
   ACTION_TABLE_CONFIG: {
     post: { table: 'post_actions' },
     reply: { table: 'reply_actions' },
