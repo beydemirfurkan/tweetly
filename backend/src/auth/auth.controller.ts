@@ -138,6 +138,8 @@ export class AuthController {
       expiresAt: k.expiresAt ? k.expiresAt.toISOString() : null,
       createdAt: k.createdAt.toISOString(),
       revokedAt: k.revokedAt ? k.revokedAt.toISOString() : null,
+      issuedVia: k.issuedVia,
+      oauthClientId: k.oauthClientId,
     }));
   }
 

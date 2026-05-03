@@ -1,4 +1,5 @@
 import {
+  All,
   BadGatewayException,
   Controller,
   Get,
@@ -12,13 +13,34 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ApiKeyGuard, getAuthContext } from '@/auth/api-key.guard';
+import { OAuthChallenge } from '@/oauth/oauth-challenge.decorator';
 import { McpService } from './mcp.service';
 
 @Controller('mcp')
 @UseGuards(ApiKeyGuard)
 export class McpController {
   constructor(private readonly mcpService: McpService) {}
+
+  // Streamable HTTP transport (MCP 2025-06-18). Stateless: each request
+  // gets a fresh transport + server, no session state. Handles GET, POST,
+  // and DELETE per the spec — the SDK does method routing internally.
+  @All()
+  @OAuthChallenge()
+  async streamable(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const ctx = getAuthContext(req);
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const server = this.mcpService.createServer(ctx.userId);
+
+    res.on('close', () => {
+      transport.close().catch(() => undefined);
+      server.close().catch(() => undefined);
+    });
+
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  }
 
   @Get('sse')
   async sse(@Req() req: Request, @Res() res: Response): Promise<void> {

@@ -186,7 +186,16 @@ export default function ApiKeysPage() {
                           revoked ? 'opacity-50' : 'hover:bg-accent/30',
                         )}
                       >
-                        <td className="py-3 pr-4 text-xs font-medium">{k.name}</td>
+                        <td className="py-3 pr-4 text-xs font-medium">
+                          <span className="flex items-center gap-1.5">
+                            {k.name}
+                            {k.issuedVia === 'oauth' && (
+                              <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
+                                OAuth
+                              </span>
+                            )}
+                          </span>
+                        </td>
                         <td className="py-3 pr-4 font-mono text-xs text-muted-foreground">
                           {k.prefix}…
                         </td>

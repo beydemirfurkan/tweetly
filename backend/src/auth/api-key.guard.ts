@@ -1,8 +1,10 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { ApiKeyService } from './api-key.service';
 import { REQUIRES_SCOPE_KEY, type ApiScope } from './requires-scope.decorator';
+import { OAUTH_CHALLENGE_KEY } from '@/oauth/oauth-challenge.decorator';
+import { backendBaseUrl } from '@/oauth/oauth-urls';
 import { RequestContext } from '@common/context';
 
 export interface AuthContext {
@@ -23,11 +25,34 @@ export class ApiKeyGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
+    const res = context.switchToHttp().getResponse<Response>();
+
+    const oauthChallenge = this.reflector.getAllAndOverride<boolean | undefined>(
+      OAUTH_CHALLENGE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
     const token = extractToken(req);
-    if (!token) throw new UnauthorizedException('API key missing');
+    if (!token) {
+      if (oauthChallenge) {
+        res.setHeader(
+          'WWW-Authenticate',
+          `Bearer resource_metadata="${backendBaseUrl()}/.well-known/oauth-protected-resource"`,
+        );
+      }
+      throw new UnauthorizedException('API key missing');
+    }
 
     const row = await this.apiKeys.verify(token);
-    if (!row) throw new UnauthorizedException('Invalid API key');
+    if (!row) {
+      if (oauthChallenge) {
+        res.setHeader(
+          'WWW-Authenticate',
+          `Bearer resource_metadata="${backendBaseUrl()}/.well-known/oauth-protected-resource", error="invalid_token"`,
+        );
+      }
+      throw new UnauthorizedException('Invalid API key');
+    }
 
     const required = this.reflector.getAllAndOverride<ApiScope | undefined>(REQUIRES_SCOPE_KEY, [
       context.getHandler(),

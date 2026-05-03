@@ -16,6 +16,7 @@ import { AdminApiModule } from './admin-api/admin-api.module';
 import { McpModule } from './mcp/mcp.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { AuthModule } from './auth/auth.module';
+import { OAuthModule } from './oauth/oauth.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ContextModule } from './common/context';
@@ -61,6 +62,7 @@ import { ContextModule } from './common/context';
     SettingsModule,
     ContentMemoryModule,
     AuthModule,
+    OAuthModule,
     AdminApiModule,
     PublicApiModule,
     McpModule,

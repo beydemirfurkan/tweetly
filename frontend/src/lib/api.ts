@@ -163,6 +163,8 @@ export interface ApiKey {
   expiresAt: string | null;
   createdAt: string;
   revokedAt: string | null;
+  issuedVia: 'manual' | 'oauth';
+  oauthClientId: string | null;
 }
 
 export interface CreatedApiKey {

@@ -25,6 +25,8 @@ export class ApiKeyService {
     name: string;
     scopes?: string[];
     expiresAt?: Date | null;
+    issuedVia?: 'manual' | 'oauth';
+    oauthClientId?: string | null;
   }): Promise<CreatedApiKey> {
     const random = randomBytes(32).toString('hex');
     const plainKey = `${KEY_PREFIX}${random}`;
@@ -38,10 +40,43 @@ export class ApiKeyService {
       keyPrefix,
       scopes: input.scopes ?? ['*'],
       expiresAt: input.expiresAt ?? null,
+      issuedVia: input.issuedVia ?? 'manual',
+      oauthClientId: input.oauthClientId ?? null,
     });
     const saved = await this.repo.save(entity);
 
     return { id: saved.id, plainKey, prefix: keyPrefix, name: saved.name };
+  }
+
+  // OAuth authorization_code grant issuance. Revokes any existing active
+  // key for the same (userId, oauthClientId) first so the partial unique
+  // index doesn't trip — disconnect/reconnect cycles don't accumulate
+  // dangling keys.
+  async issueOAuthKey(input: {
+    userId: string;
+    oauthClientId: string;
+    clientName: string;
+  }): Promise<CreatedApiKey> {
+    await this.repo.update(
+      { userId: input.userId, oauthClientId: input.oauthClientId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+    return this.create({
+      userId: input.userId,
+      name: input.clientName,
+      scopes: ['*'],
+      issuedVia: 'oauth',
+      oauthClientId: input.oauthClientId,
+    });
+  }
+
+  async revokeByPlainKey(plainKey: string): Promise<boolean> {
+    if (!plainKey?.startsWith(KEY_PREFIX)) return false;
+    const result = await this.repo.update(
+      { keyHash: sha256(plainKey), revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+    return (result.affected ?? 0) > 0;
   }
 
   async verify(plainKey: string): Promise<ApiKeyEntity | null> {

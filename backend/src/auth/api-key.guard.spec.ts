@@ -10,10 +10,12 @@ function makeRequestContext(): RequestContext {
 
 function makeContext(headers: Record<string, string | undefined>) {
   const req: { headers: Record<string, string | undefined>; tweetlyAuth?: unknown } = { headers };
+  const res = { setHeader: jest.fn() };
   return {
     req,
+    res,
     ctx: {
-      switchToHttp: () => ({ getRequest: () => req }),
+      switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
       getHandler: () => () => undefined,
       getClass: () => class C {},
     } as any,

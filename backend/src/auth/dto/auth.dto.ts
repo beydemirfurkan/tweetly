@@ -74,6 +74,12 @@ export class ApiKeySummaryDto {
 
   @ApiProperty({ type: String, nullable: true })
   revokedAt!: string | null;
+
+  @ApiProperty({ enum: ['manual', 'oauth'] })
+  issuedVia!: 'manual' | 'oauth';
+
+  @ApiProperty({ type: String, nullable: true, description: 'Set when issuedVia is "oauth"' })
+  oauthClientId!: string | null;
 }
 
 export class CreatedApiKeyDto {

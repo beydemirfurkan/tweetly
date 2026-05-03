@@ -69,3 +69,7 @@ export const RateLimitFollow = () =>
 /** Magic-link request override: 5 / 60s per IP (anti-mail-bombing) */
 export const RateLimitMagicLink = () =>
   applyDecorators(Throttle({ default: { ttl: 60_000, limit: 5 } }));
+
+/** OAuth Dynamic Client Registration: 10 / hour per IP (anti-spam) */
+export const RateLimitOAuthRegister = () =>
+  applyDecorators(Throttle({ default: { ttl: 3_600_000, limit: 10 } }));

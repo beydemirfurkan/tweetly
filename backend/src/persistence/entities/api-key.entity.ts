@@ -33,4 +33,14 @@ export class ApiKeyEntity {
 
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true })
   revokedAt!: Date | null;
+
+  // 'manual' = created via panel /api-keys flow (default).
+  // 'oauth' = issued by the OAuth authorization_code grant; oauthClientId
+  // points at the OAuthClient that requested it.
+  @Column({ name: 'issued_via', type: 'text', default: () => `'manual'` })
+  issuedVia!: 'manual' | 'oauth';
+
+  @Index()
+  @Column({ name: 'oauth_client_id', type: 'text', nullable: true })
+  oauthClientId!: string | null;
 }

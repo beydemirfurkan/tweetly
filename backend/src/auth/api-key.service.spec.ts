@@ -84,6 +84,50 @@ describe('ApiKeyService', () => {
     });
   });
 
+  describe('issueOAuthKey()', () => {
+    it('revokes existing active key for (userId, oauthClientId) before issuing', async () => {
+      const { service, repo } = createService();
+      const updateSpy = jest.fn().mockResolvedValue({ affected: 1 });
+      repo.update = updateSpy;
+      (repo.create as jest.Mock).mockImplementation((input: any) => input);
+      repo.save = jest.fn().mockImplementation(async (e: any) => ({ ...e, id: 'k-new' }));
+
+      await service.issueOAuthKey({
+        userId: 'u-1',
+        oauthClientId: 'oauth_xyz',
+        clientName: 'Claude Desktop',
+      });
+
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      const [whereArg, setArg] = updateSpy.mock.calls[0];
+      expect(whereArg.userId).toBe('u-1');
+      expect(whereArg.oauthClientId).toBe('oauth_xyz');
+      expect(setArg.revokedAt).toBeInstanceOf(Date);
+
+      const saved = (repo.save as jest.Mock).mock.calls[0][0];
+      expect(saved.issuedVia).toBe('oauth');
+      expect(saved.oauthClientId).toBe('oauth_xyz');
+      expect(saved.scopes).toEqual(['*']);
+      expect(saved.name).toBe('Claude Desktop');
+    });
+  });
+
+  describe('revokeByPlainKey()', () => {
+    it('returns false for tokens missing prefix', async () => {
+      const { service } = createService();
+      expect(await service.revokeByPlainKey('not-a-key')).toBe(false);
+    });
+
+    it('updates with hashed key when prefix valid', async () => {
+      const { service, repo } = createService();
+      repo.update = jest.fn().mockResolvedValue({ affected: 1 });
+      const ok = await service.revokeByPlainKey('tk_abc123');
+      expect(ok).toBe(true);
+      const [whereArg] = (repo.update as jest.Mock).mock.calls[0];
+      expect(whereArg.keyHash).toMatch(/^[a-f0-9]{64}$/);
+    });
+  });
+
   describe('revoke()', () => {
     it('returns true when row updated', async () => {
       const { service, repo } = createService();
