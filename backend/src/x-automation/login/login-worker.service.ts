@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { AccountsService } from '@/accounts/accounts.service';
@@ -28,7 +28,6 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly login: XLoginService,
     private readonly cipher: CredentialCipherService,
     private readonly accounts: AccountsService,
-    @Inject(forwardRef(() => ProfileCacheService))
     private readonly profileCache: ProfileCacheService,
   ) {
     this.options = {
