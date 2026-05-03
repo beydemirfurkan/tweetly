@@ -2,7 +2,12 @@ import { SignIn } from '@clerk/nextjs';
 import { Bird } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const t = await getTranslations('login');
 
   return (
@@ -31,8 +36,8 @@ export default async function LoginPage() {
 
         <SignIn
           routing="hash"
-          signUpUrl="/sign-up"
-          forceRedirectUrl="/dashboard"
+          signUpUrl={`/${locale}/sign-up`}
+          forceRedirectUrl={`/${locale}/dashboard`}
         />
       </div>
     </div>

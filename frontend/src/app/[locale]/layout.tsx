@@ -6,7 +6,6 @@ import { getMessages, setRequestLocale } from 'next-intl/server';
 import { ClerkProvider } from '@clerk/nextjs';
 import { enUS, trTR } from '@clerk/localizations';
 import { routing } from '@/i18n/routing';
-import { clerkAppearance } from '@/lib/clerk-appearance';
 import '../globals.css';
 
 const geist = Geist({
@@ -54,7 +53,7 @@ export default async function LocaleLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ClerkProvider localization={clerkLocalization} appearance={clerkAppearance}>{children}</ClerkProvider>
+          <ClerkProvider localization={clerkLocalization}>{children}</ClerkProvider>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -1,5 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
-import { redirect } from '@/i18n/navigation';
+import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 
 export default async function PanelLayout({
@@ -12,7 +12,7 @@ export default async function PanelLayout({
   const { locale } = await params;
   const { userId } = await auth();
   if (!userId) {
-    redirect({ href: '/login', locale });
+    redirect(`/${locale}/login`);
   }
 
   return (
