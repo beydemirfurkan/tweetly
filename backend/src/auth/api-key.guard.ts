@@ -37,7 +37,7 @@ export class ApiKeyGuard implements CanActivate {
       if (oauthChallenge) {
         res.setHeader(
           'WWW-Authenticate',
-          `Bearer resource_metadata="${backendBaseUrl()}/.well-known/oauth-protected-resource"`,
+          `Bearer resource_metadata="${backendBaseUrl(req)}/.well-known/oauth-protected-resource"`,
         );
       }
       throw new UnauthorizedException('API key missing');
@@ -48,7 +48,7 @@ export class ApiKeyGuard implements CanActivate {
       if (oauthChallenge) {
         res.setHeader(
           'WWW-Authenticate',
-          `Bearer resource_metadata="${backendBaseUrl()}/.well-known/oauth-protected-resource", error="invalid_token"`,
+          `Bearer resource_metadata="${backendBaseUrl(req)}/.well-known/oauth-protected-resource", error="invalid_token"`,
         );
       }
       throw new UnauthorizedException('Invalid API key');

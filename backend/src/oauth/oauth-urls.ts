@@ -1,13 +1,38 @@
-// Public-facing URLs for OAuth metadata. These must be stable and match
-// what clients (Claude Desktop, ChatGPT Connectors, etc.) cache; do not
-// derive from request host headers.
+// Public-facing URLs for OAuth metadata. Prefers PUBLIC_BACKEND_URL when
+// set; otherwise derives from the inbound request's forwarded headers
+// (Coolify / nginx / Cloudflare set X-Forwarded-Host + X-Forwarded-Proto)
+// so deploys without explicit env config still produce the right URLs.
+import type { Request } from 'express';
 
-export function backendBaseUrl(): string {
-  return (process.env.PUBLIC_BACKEND_URL ?? 'http://localhost:3001').replace(/\/$/, '');
+export function backendBaseUrl(req?: Request): string {
+  const env = process.env.PUBLIC_BACKEND_URL?.trim();
+  if (env) return env.replace(/\/$/, '');
+
+  if (req) {
+    const fromHeaders = deriveFromRequest(req);
+    if (fromHeaders) return fromHeaders;
+  }
+
+  return 'http://localhost:3001';
 }
 
 export function appBaseUrl(): string {
   return (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+}
+
+function deriveFromRequest(req: Request): string | null {
+  const xfh = firstHeaderValue(req.headers['x-forwarded-host']);
+  const xfp = firstHeaderValue(req.headers['x-forwarded-proto']);
+  const host = xfh ?? req.get('host');
+  if (!host) return null;
+  const proto = xfp ?? req.protocol ?? 'https';
+  return `${proto}://${host}`;
+}
+
+function firstHeaderValue(value: string | string[] | undefined): string | undefined {
+  if (!value) return undefined;
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw?.split(',')[0]?.trim() || undefined;
 }
 
 export const MCP_RESOURCE_PATH = '/mcp';

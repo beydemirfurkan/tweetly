@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { appBaseUrl, backendBaseUrl, MCP_RESOURCE_PATH } from './oauth-urls';
 
 // Public discovery endpoints per MCP 2025-06-18 + RFC 9728 (Protected
@@ -6,8 +7,8 @@ import { appBaseUrl, backendBaseUrl, MCP_RESOURCE_PATH } from './oauth-urls';
 @Controller('.well-known')
 export class WellKnownController {
   @Get('oauth-protected-resource')
-  protectedResource() {
-    const backend = backendBaseUrl();
+  protectedResource(@Req() req: Request) {
+    const backend = backendBaseUrl(req);
     return {
       resource: `${backend}${MCP_RESOURCE_PATH}`,
       authorization_servers: [backend],
@@ -17,8 +18,8 @@ export class WellKnownController {
   }
 
   @Get('oauth-authorization-server')
-  authorizationServer() {
-    const backend = backendBaseUrl();
+  authorizationServer(@Req() req: Request) {
+    const backend = backendBaseUrl(req);
     const app = appBaseUrl();
     return {
       issuer: backend,
