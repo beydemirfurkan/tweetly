@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PostActionEntity } from '@persistence/entities/post-action.entity';
 import { ReplyActionEntity } from '@persistence/entities/reply-action.entity';
@@ -15,10 +15,7 @@ import { ActionEnqueueService } from './action-enqueue.service';
 
 @Module({
   imports: [
-    // ActionEngine -> Accounts -> XAutomation -> ActionEngine cycle
-    // (introduced when ProfileCacheService started depending on XDirectService).
-    // forwardRef to break the circular evaluation.
-    forwardRef(() => AccountsModule),
+    AccountsModule,
     TypeOrmModule.forFeature([
       PostActionEntity,
       ReplyActionEntity,

@@ -40,7 +40,9 @@ export default tseslint.config(
         'warn',
         { max: 80, skipBlankLines: true, skipComments: true, IIFEs: false },
       ],
-      'import/no-cycle': ['warn', { maxDepth: 10, ignoreExternal: true }],
+      // Now an error: the accounts ↔ x-automation cycle was killed by the
+      // PROFILE_FETCHER port. Any new circular import is structural drift.
+      'import/no-cycle': ['error', { maxDepth: 10, ignoreExternal: true }],
 
       // Recommended-but-noisy rules: relaxed during refactor; revisit after.
       '@typescript-eslint/no-explicit-any': 'off',

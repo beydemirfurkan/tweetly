@@ -1,6 +1,7 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ActionEngineModule } from '@/action-engine/action-engine.module';
 import { AccountsModule } from '@/accounts/accounts.module';
+import { PROFILE_FETCHER } from '@domain/ports/profile-fetcher.port';
 import { NoOpPostExecutor } from './executors/noop-post.executor';
 import { NoOpReplyExecutor } from './executors/noop-reply.executor';
 import { NoOpLikeExecutor } from './executors/noop-like.executor';
@@ -27,6 +28,7 @@ import { XBrowserService } from './browser/x-browser.service';
 import { XPostFlowService } from './browser/x-post-flow.service';
 import { SelectorRegistry } from './browser/selector-registry';
 import { XDirectReadService, XDirectWriteService, XDirectProfileService } from './x-direct';
+import { XDirectProfileFetcherAdapter } from './x-direct/x-direct-profile-fetcher.adapter';
 import { XLoginService } from './login/x-login.service';
 import { LoginJobsRepository } from './login/login-jobs.repository';
 import { LoginWorker } from './login/login-worker.service';
@@ -34,16 +36,18 @@ import { LoginWorker } from './login/login-worker.service';
 /**
  * X otomasyon adapter modülü.
  *
+ * `@Global()` so the PROFILE_FETCHER port binding is visible to
+ * AccountsModule.ProfileCacheService without AccountsModule importing this
+ * module — that's what kills the previous accounts ↔ x-automation cycle.
+ *
  * Domain `IXActionExecutor` portu Domain'de tanımlı; Patchright bu modülde izole.
  * Hangi executor'ların register edileceği `X_EXECUTOR_MODE` env değişkeniyle kontrol edilir:
  *   - `noop` (varsayılan): NoOp executor'lar (test/dev)
  *   - `patchright`: Gerçek Patchright tabanlı executor'lar (prod)
  */
+@Global()
 @Module({
-  // ActionEngineModule -> AccountsModule -> XAutomationModule cycle (introduced
-  // when ProfileCacheService started depending on XDirectService). forwardRef
-  // both ends so Nest can resolve providers across the cycle.
-  imports: [forwardRef(() => ActionEngineModule), forwardRef(() => AccountsModule)],
+  imports: [ActionEngineModule, AccountsModule],
   providers: [
     SelectorRegistry,
     XBrowserService,
@@ -79,6 +83,10 @@ import { LoginWorker } from './login/login-worker.service';
     XDirectReadService,
     XDirectWriteService,
     XDirectProfileService,
+    // PROFILE_FETCHER port binding — adapter wraps XDirectReadService.getUser
+    // so accounts can refresh profiles without importing this module.
+    { provide: PROFILE_FETCHER, useClass: XDirectProfileFetcherAdapter },
+    XDirectProfileFetcherAdapter,
     // login flow (server-side headless X login)
     XLoginService,
     LoginJobsRepository,
@@ -91,6 +99,7 @@ import { LoginWorker } from './login/login-worker.service';
     XBrowserService,
     XLoginService,
     LoginJobsRepository,
+    PROFILE_FETCHER,
   ],
 })
 export class XAutomationModule {}

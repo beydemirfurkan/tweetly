@@ -1,4 +1,1 @@
-[
-  "accounts/accounts.module.ts -> x-automation/x-automation.module.ts",
-  "accounts/accounts.module.ts -> x-automation/x-automation.module.ts -> action-engine/action-engine.module.ts"
-]
+[]

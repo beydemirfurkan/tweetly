@@ -1,8 +1,8 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccountProfileEntity } from '@persistence/entities/account-profile.entity';
-import { XDirectReadService } from '@/x-automation/x-direct';
+import { type IProfileFetcher, PROFILE_FETCHER } from '@domain/ports/profile-fetcher.port';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -13,8 +13,8 @@ export class ProfileCacheService {
   constructor(
     @InjectRepository(AccountProfileEntity)
     private readonly repo: Repository<AccountProfileEntity>,
-    @Inject(forwardRef(() => XDirectReadService))
-    private readonly xDirect: XDirectReadService,
+    @Inject(PROFILE_FETCHER)
+    private readonly fetcher: IProfileFetcher,
   ) {}
 
   async get(accountId: string): Promise<AccountProfileEntity | null> {
@@ -33,17 +33,17 @@ export class ProfileCacheService {
 
   async refresh(accountId: string): Promise<AccountProfileEntity> {
     this.log.log(`Refreshing profile cache for @${accountId}`);
-    const result = await this.xDirect.getUser(accountId, accountId);
+    const snapshot = await this.fetcher.fetchByAccount(accountId);
 
     const entity = this.repo.create({
       accountId,
-      displayName: result.displayName ?? '',
-      bio: result.bio ?? '',
-      followersCount: result.followersCount ?? '0',
-      followingCount: result.followingCount ?? '0',
-      tweetsCount: result.tweetsCount ?? '0',
-      profileImageUrl: result.profileImageUrl ?? '',
-      verified: result.verified ?? false,
+      displayName: snapshot.displayName,
+      bio: snapshot.bio,
+      followersCount: snapshot.followersCount,
+      followingCount: snapshot.followingCount,
+      tweetsCount: snapshot.tweetsCount,
+      profileImageUrl: snapshot.profileImageUrl,
+      verified: snapshot.verified,
       fetchedAt: new Date(),
     });
 
