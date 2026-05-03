@@ -3,7 +3,6 @@ export { AccountProfileEntity } from './account-profile.entity';
 export { AccountLoginJobEntity } from './account-login-job.entity';
 export { UserEntity } from './user.entity';
 export { ApiKeyEntity } from './api-key.entity';
-export { MagicLinkEntity } from './magic-link.entity';
 export { SettingEntity } from './setting.entity';
 export { ContentMemoryEntity } from './content-memory.entity';
 export { AnalyticsEventEntity } from './analytics-event.entity';

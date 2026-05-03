@@ -1,18 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class RequestLinkDto {
-  @ApiProperty({ example: 'you@example.com', description: 'Account email address' })
-  email!: string;
-}
-
-export class ConsumeLinkDto {
-  @ApiProperty({
-    example: 'a3e4f385cc761137690bb42f4c0e34e9f6eaad9c082037ea172d190cb8fbc718',
-    description: 'Magic-link token sent to the user email',
-  })
-  token!: string;
-}
-
 export class CreateApiKeyDto {
   @ApiProperty({ example: 'Claude Code', description: 'Human-readable label for the key' })
   name!: string;
@@ -24,19 +11,6 @@ export class CreateApiKeyDto {
     description: 'Reserved for future scope enforcement (default: ["*"])',
   })
   scopes?: string[];
-}
-
-export class ConsumeResponseDto {
-  @ApiProperty()
-  ok!: boolean;
-
-  @ApiProperty({ example: 'tk_xxx...', description: 'Session API key — store and use as Bearer token' })
-  sessionKey!: string;
-
-  @ApiProperty({
-    example: { id: 'a8765905-...', email: 'you@example.com' },
-  })
-  user!: { id: string; email: string };
 }
 
 export class MeDto {

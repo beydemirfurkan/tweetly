@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { apiFetch, type ActionRow } from '@/lib/api';
+import { useApiFetch, type ActionRow } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -67,6 +67,7 @@ const STATUS_STYLES: Record<
 };
 
 export default function ActionsPage() {
+  const apiFetch = useApiFetch();
   const [type, setType] = useState('post');
   const [status, setStatus] = useState<string>('');
   const [rows, setRows] = useState<ActionRow[]>([]);
@@ -86,7 +87,7 @@ export default function ActionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [type, status]);
+  }, [type, status, apiFetch]);
 
   useEffect(() => {
     load();
@@ -113,17 +114,17 @@ export default function ActionsPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <div>
-        <h1
-          className="text-2xl font-bold tracking-tight text-foreground"
-          style={{ fontFamily: 'var(--font-syne)' }}
-        >
+      <header className="border-b border-border pb-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="text-primary">●</span> Queue
+        </p>
+        <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
           Aksiyonlar
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-[14px] text-muted-foreground">
           Kuyruklanmış görevleri izleyin ve yönetin
         </p>
-      </div>
+      </header>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">

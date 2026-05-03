@@ -1,27 +1,23 @@
 import type { Metadata } from 'next';
-import { Outfit, Syne, JetBrains_Mono } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
-import { AuthProvider } from '@/lib/auth-context';
+import { ClerkProvider } from '@clerk/nextjs';
+import { enUS, trTR } from '@clerk/localizations';
 import { routing } from '@/i18n/routing';
 import '../globals.css';
 
-const outfit = Outfit({
-  variable: '--font-outfit',
+const geist = Geist({
+  variable: '--font-geist',
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
 });
 
-const syne = Syne({
-  variable: '--font-syne',
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
   subsets: ['latin'],
-  weight: ['400', '600', '700', '800'],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: '--font-jetbrains',
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: ['400', '500', '600'],
 });
 
 export const metadata: Metadata = {
@@ -48,15 +44,16 @@ export default async function LocaleLayout({
 
   setRequestLocale(locale);
   const messages = await getMessages();
+  const clerkLocalization = locale === 'tr' ? trTR : enUS;
 
   return (
     <html
       lang={locale}
-      className={`${outfit.variable} ${syne.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
+      className={`${geist.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <AuthProvider>{children}</AuthProvider>
+          <ClerkProvider localization={clerkLocalization}>{children}</ClerkProvider>
         </NextIntlClientProvider>
       </body>
     </html>

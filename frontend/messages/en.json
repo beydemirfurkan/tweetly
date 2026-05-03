@@ -14,7 +14,7 @@
     "feature3Desc": "Monitor accounts and topics in real time, trigger your systems with HMAC-signed webhook delivery.",
     "howTitle": "How it works",
     "how1Title": "Sign Up",
-    "how1Desc": "Sign up with your email using a magic link — no password required.",
+    "how1Desc": "Sign up with your email or social account in seconds.",
     "how2Title": "Get an API Key",
     "how2Desc": "Create your API key from the panel and connect your X account.",
     "how3Title": "Connect via MCP",
@@ -29,28 +29,10 @@
     "monitors": "Monitors",
     "apiKeys": "API Keys",
     "guide": "Guide",
-    "logout": "Log Out"
+    "account": "Account"
   },
   "login": {
-    "subtitle": "MCP Platform",
-    "email": "Email",
-    "emailPlaceholder": "you@example.com",
-    "submit": "Send login link",
-    "sending": "Sending...",
-    "sentTitle": "Link sent",
-    "sentDesc": "A login link was sent to {email}. Valid for 15 minutes.",
-    "tryDifferent": "Try a different email",
-    "genericError": "An error occurred"
-  },
-  "verify": {
-    "verifying": "Verifying link...",
-    "tokenMissing": "Token missing.",
-    "invalid": "Link could not be verified.",
-    "retry": "Try again"
-  },
-  "panel": {
-    "loading": "Loading",
-    "redirecting": "Redirecting"
+    "subtitle": "MCP Platform"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -129,5 +111,11 @@
     "trouble1": "Invalid API key: make sure it starts with tk_.",
     "trouble2": "MCP not connecting: verify the URL — copy it fresh from the Dashboard.",
     "trouble3": "Action failed: check error details on the /actions page."
+  },
+  "notFound": {
+    "title": "This page is not in the timeline",
+    "subtitle": "The route you tried to reach doesn't exist — either it never did, or it moved.",
+    "home": "Take me home",
+    "docs": "API Reference"
   }
 }

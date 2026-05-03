@@ -11,6 +11,9 @@ export class UserEntity {
   @Column({ type: 'text' })
   email!: string;
 
+  @Column({ name: 'clerk_user_id', type: 'text', nullable: true })
+  clerkUserId!: string | null;
+
   @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
   emailVerifiedAt!: Date | null;
 

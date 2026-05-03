@@ -65,6 +65,7 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
 
   // Route every Nest log call (including `new Logger(Name)` constructors that
@@ -88,12 +89,14 @@ async function bootstrap(): Promise<void> {
       {
         type: 'http',
         scheme: 'bearer',
-        bearerFormat: 'tk_*',
-        description: 'Tweetly API key issued from /auth/api-keys',
+        bearerFormat: 'tk_* or Clerk JWT',
+        description:
+          'Either a tk_* API key issued from /auth/api-keys (long-lived, for MCP/CLI), ' +
+          'or a Clerk session JWT (for the web panel).',
       },
       'apiKey',
     )
-    .addTag('auth', 'Magic-link login and API key management')
+    .addTag('auth', 'Clerk-backed sessions and tk_* API key management')
     .addTag('accounts', 'Connected X accounts')
     .addTag('actions', 'Asynchronous X actions (post, reply, like, ...)')
     .addTag('x', 'Direct X read/undo operations (synchronous via Patchright)')

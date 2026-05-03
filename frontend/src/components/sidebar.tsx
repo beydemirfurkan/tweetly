@@ -2,16 +2,17 @@
 
 import { useTranslations } from 'next-intl';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
-import { useAuth } from '@/lib/auth-context';
+import { useUser, UserButton } from '@clerk/nextjs';
 import {
-  LayoutDashboard,
-  Users,
-  Zap,
-  KeyRound,
-  Radio,
-  LogOut,
+  ArrowUpRight,
   Bird,
   BookOpen,
+  KeyRound,
+  LayoutDashboard,
+  Radio,
+  ScrollText,
+  Users,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,20 +20,14 @@ export function Sidebar() {
   const t = useTranslations('nav');
   const pathname = usePathname();
   const router = useRouter();
-  const { logout, user } = useAuth();
+  const { user } = useUser();
 
   const NAV_ITEMS: Array<{
-    href: '/';
+    href: '/dashboard' | '/accounts' | '/actions' | '/monitoring' | '/api-keys' | '/guide';
     label: string;
     icon: React.ElementType;
-    exact?: boolean;
-  } | {
-    href: '/accounts' | '/actions' | '/monitoring' | '/api-keys' | '/guide';
-    label: string;
-    icon: React.ElementType;
-    exact?: never;
   }> = [
-    { href: '/', label: t('dashboard'), icon: LayoutDashboard, exact: true },
+    { href: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
     { href: '/accounts', label: t('accounts'), icon: Users },
     { href: '/actions', label: t('actions'), icon: Zap },
     { href: '/monitoring', label: t('monitors'), icon: Radio },
@@ -41,87 +36,98 @@ export function Sidebar() {
   ];
 
   const switchLocale = (locale: string) => {
-    router.replace(pathname as '/', { locale });
+    router.replace(pathname as '/dashboard', { locale });
   };
 
+  const email = user?.primaryEmailAddress?.emailAddress ?? null;
+
   return (
-    <aside className="flex h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar">
-      <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10">
-          <Bird className="h-4 w-4 text-primary" />
+    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+      <div className="flex items-center gap-3 border-b border-sidebar-border px-5 py-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+          <Bird className="h-[18px] w-[18px]" strokeWidth={2.5} />
         </div>
-        <div className="min-w-0">
-          <span
-            className="block truncate text-sm font-bold tracking-widest text-foreground uppercase"
-            style={{ fontFamily: 'var(--font-syne)' }}
-          >
+        <div className="min-w-0 leading-tight">
+          <span className="block truncate text-[15px] font-extrabold tracking-tight text-foreground">
             Tweetly
           </span>
-          <span className="block truncate text-[10px] tracking-wider text-muted-foreground">
-            {user?.email ?? 'MCP Platform'}
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {email ?? 'MCP Platform'}
           </span>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 py-3">
+      <nav className="flex-1 space-y-0.5 px-2 py-3">
         {NAV_ITEMS.map((item, i) => {
-          const isActive = item.exact
-            ? pathname === item.href || pathname === '/'
-            : pathname.startsWith(item.href);
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}
               href={item.href}
               style={{ animationDelay: `${i * 35}ms` }}
               className={cn(
-                'group animate-fade-up flex items-center gap-2.5 rounded-md border-l-2 py-2 pl-2.5 pr-3 text-sm transition-all duration-150',
+                'group animate-fade-up flex items-center gap-3 rounded-full px-3 py-2 text-[14px] font-medium transition-colors',
                 isActive
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground',
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >
               <item.icon
                 className={cn(
-                  'h-4 w-4 shrink-0 transition-colors',
-                  isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground group-hover:text-foreground',
+                  'h-[18px] w-[18px] shrink-0',
+                  isActive ? '' : 'text-muted-foreground group-hover:text-foreground',
                 )}
+                strokeWidth={isActive ? 2.5 : 2}
               />
               <span className="truncate">{item.label}</span>
               {isActive && (
-                <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-background/70" />
               )}
             </Link>
           );
         })}
+
+        <div className="my-3 h-px bg-sidebar-border" />
+
+        <a
+          href="/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="group flex items-center gap-3 rounded-full px-3 py-2 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ScrollText className="h-[18px] w-[18px] shrink-0" />
+          <span className="truncate">API Docs</span>
+          <ArrowUpRight
+            className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground"
+            strokeWidth={2.5}
+          />
+        </a>
       </nav>
 
-      <div className="border-t border-sidebar-border p-3 space-y-1">
-        {/* Language toggle */}
-        <div className="flex items-center gap-1 px-2.5 py-1.5">
+      <div className="border-t border-sidebar-border px-3 py-3">
+        <div className="mb-2 flex items-center gap-1 px-2">
           <button
             onClick={() => switchLocale('tr')}
-            className="text-[10px] font-medium tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            className="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           >
             TR
           </button>
-          <span className="text-[10px] text-muted-foreground/40">/</span>
+          <span className="font-mono text-[10px] text-muted-foreground/40">·</span>
           <button
             onClick={() => switchLocale('en')}
-            className="text-[10px] font-medium tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            className="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           >
             EN
           </button>
         </div>
-        {/* Logout */}
-        <button
-          onClick={logout}
-          className="flex w-full items-center gap-2.5 rounded-md border-l-2 border-transparent py-2 pl-2.5 pr-3 text-sm text-muted-foreground transition-all duration-150 hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          <span>{t('logout')}</span>
-        </button>
+        <div className="flex items-center justify-between rounded-full bg-accent/50 px-3 py-2">
+          <span className="truncate text-[12px] text-muted-foreground">{t('account')}</span>
+          <UserButton
+            appearance={{
+              elements: { userButtonAvatarBox: 'h-7 w-7' },
+            }}
+          />
+        </div>
       </div>
     </aside>
   );

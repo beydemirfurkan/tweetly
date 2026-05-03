@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { apiFetch, type ApiKey, type CreatedApiKey } from '@/lib/api';
+import { useApiFetch, type ApiKey, type CreatedApiKey } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 
 export default function ApiKeysPage() {
   const t = useTranslations('apiKeys');
+  const apiFetch = useApiFetch();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,7 +40,7 @@ export default function ApiKeysPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiFetch]);
 
   useEffect(() => {
     loadKeys();
@@ -90,15 +91,15 @@ export default function ApiKeysPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <div className="flex items-center justify-between">
+      <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h1
-            className="text-2xl font-bold tracking-tight text-foreground"
-            style={{ fontFamily: 'var(--font-syne)' }}
-          >
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="text-primary">●</span> Auth
+          </p>
+          <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-[14px] text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -123,7 +124,7 @@ export default function ApiKeysPage() {
             {t('newKey')}
           </Button>
         </div>
-      </div>
+      </header>
 
       {error && (
         <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">

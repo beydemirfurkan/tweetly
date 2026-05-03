@@ -14,7 +14,7 @@
     "feature3Desc": "Hesapları ve konuları anlık izleyin, HMAC-signed webhook delivery ile sisteminizi tetikleyin.",
     "howTitle": "Nasıl çalışır?",
     "how1Title": "Kayıt Ol",
-    "how1Desc": "Email adresinizle magic link ile kayıt olun, şifre gerektirmez.",
+    "how1Desc": "E-posta veya sosyal hesabınızla saniyeler içinde kayıt olun.",
     "how2Title": "API Key Al",
     "how2Desc": "Panelden API anahtarınızı oluşturun ve X hesabınızı bağlayın.",
     "how3Title": "MCP'ye Bağlan",
@@ -29,28 +29,10 @@
     "monitors": "Monitörler",
     "apiKeys": "API Anahtarları",
     "guide": "Kılavuz",
-    "logout": "Çıkış Yap"
+    "account": "Hesap"
   },
   "login": {
-    "subtitle": "MCP Platform",
-    "email": "E-posta",
-    "emailPlaceholder": "you@example.com",
-    "submit": "Giriş bağlantısı gönder",
-    "sending": "Gönderiliyor...",
-    "sentTitle": "Bağlantı gönderildi",
-    "sentDesc": "{email} adresine giriş bağlantısı gönderildi. 15 dakika içinde geçerli.",
-    "tryDifferent": "Farklı bir e-posta dene",
-    "genericError": "Bir hata oluştu"
-  },
-  "verify": {
-    "verifying": "Bağlantı doğrulanıyor...",
-    "tokenMissing": "Token eksik.",
-    "invalid": "Bağlantı doğrulanamadı.",
-    "retry": "Tekrar dene"
-  },
-  "panel": {
-    "loading": "Yükleniyor",
-    "redirecting": "Yönlendiriliyor"
+    "subtitle": "MCP Platform"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -129,5 +111,11 @@
     "trouble1": "API key hatalı: tk_ önekiyle başladığından emin olun.",
     "trouble2": "MCP bağlanamıyor: URL'yi kontrol edin — Dashboard'dan taze kopyalayın.",
     "trouble3": "Aksiyon başarısız: /actions sayfasından hata detayını inceleyin."
+  },
+  "notFound": {
+    "title": "Bu sayfa timeline'da yok",
+    "subtitle": "Aradığın yol ya hiç var olmadı ya da taşındı. URL'i kontrol et veya panele dön.",
+    "home": "Ana sayfaya dön",
+    "docs": "API Reference"
   }
 }

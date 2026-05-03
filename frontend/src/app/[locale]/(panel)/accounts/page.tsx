@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  apiFetch,
+  useApiFetch,
   type AccountsResponse,
   type RedactedAccount,
   type AccountUpdateBody,
@@ -263,6 +263,7 @@ function ProfileCard({
 }
 
 export default function AccountsPage() {
+  const apiFetch = useApiFetch();
   const [accounts, setAccounts] = useState<RedactedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -289,7 +290,7 @@ export default function AccountsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiFetch]);
 
   useEffect(() => {
     loadAccounts();
@@ -352,15 +353,15 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <div className="flex items-center justify-between">
+      <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h1
-            className="text-2xl font-bold tracking-tight text-foreground"
-            style={{ fontFamily: 'var(--font-syne)' }}
-          >
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="text-primary">●</span> Identity
+          </p>
+          <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
             Hesaplar
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-[14px] text-muted-foreground">
             Kayıtlı Twitter hesaplarını yönetin
           </p>
         </div>
@@ -380,7 +381,7 @@ export default function AccountsPage() {
             Hesap Ekle
           </Button>
         </div>
-      </div>
+      </header>
 
       {loading ? (
         <div className="space-y-4">

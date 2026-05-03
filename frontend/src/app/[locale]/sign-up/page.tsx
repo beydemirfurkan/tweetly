@@ -1,8 +1,8 @@
-import { SignIn } from '@clerk/nextjs';
+import { SignUp } from '@clerk/nextjs';
 import { Bird } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
-export default async function LoginPage() {
+export default async function SignUpPage() {
   const t = await getTranslations('login');
 
   return (
@@ -25,14 +25,14 @@ export default async function LoginPage() {
             <span className="text-primary">●</span> {t('subtitle')}
           </p>
           <h1 className="text-[32px] font-black leading-[1] tracking-[-0.03em]">
-            Sign in to <span className="text-primary">Tweetly</span>
+            Join <span className="text-primary">Tweetly</span>
           </h1>
         </div>
 
-        <SignIn
+        <SignUp
           appearance={{ variables: { colorPrimary: 'oklch(0.74 0.18 142)' } }}
           routing="hash"
-          signUpUrl="/sign-up"
+          signInUrl="/login"
           forceRedirectUrl="/dashboard"
         />
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { apiFetch, type Monitor, type MonitorsResponse, type MonitorDetailResponse } from '@/lib/api';
+import { useApiFetch, type Monitor, type MonitorsResponse, type MonitorDetailResponse } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +47,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
   onExpand: (id: string) => void;
   expanded: boolean;
 }) {
+  const apiFetch = useApiFetch();
   const [detail, setDetail] = useState<MonitorDetailResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
@@ -170,6 +171,7 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
 }
 
 export default function MonitoringPage() {
+  const apiFetch = useApiFetch();
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -192,7 +194,7 @@ export default function MonitoringPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiFetch]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -269,15 +271,15 @@ export default function MonitoringPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <div className="flex items-start justify-between gap-4">
+      <header className="flex items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h1
-            className="text-2xl font-bold tracking-tight text-foreground"
-            style={{ fontFamily: 'var(--font-syne)' }}
-          >
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="text-primary">●</span> Realtime
+          </p>
+          <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
             Monitoring
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-[14px] text-muted-foreground">
             Hesap izleme ve webhook bildirimleri
           </p>
         </div>
@@ -301,7 +303,7 @@ export default function MonitoringPage() {
             Yeni Monitor
           </Button>
         </div>
-      </div>
+      </header>
 
       {showForm && (
         <Card className="border-primary/25 bg-primary/5">

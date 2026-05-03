@@ -69,6 +69,3 @@ export const RateLimitFollow = () =>
     }),
   );
 
-/** Magic-link request override: 5 / 60s per IP (anti-mail-bombing) */
-export const RateLimitMagicLink = () =>
-  applyDecorators(Throttle({ default: { ttl: 60_000, limit: 5 } }));

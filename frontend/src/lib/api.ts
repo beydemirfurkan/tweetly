@@ -1,3 +1,8 @@
+'use client';
+
+import { useCallback } from 'react';
+import { useAuth, useClerk } from '@clerk/nextjs';
+
 function resolveApiOrigin(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (configured) return configured.replace(/\/$/, '');
@@ -18,29 +23,6 @@ export function apiUrl(path: string): string {
   return `${origin}${normalized}`;
 }
 
-function loginUrl(): string {
-  if (typeof window === 'undefined') return '/login';
-  // Strip locale prefix so next-intl router doesn't double-add it after login
-  const pathname = window.location.pathname.replace(/^\/(tr|en)/, '') || '/';
-  const next = `${pathname}${window.location.search}`;
-  return `/login?next=${encodeURIComponent(next)}`;
-}
-
-const TOKEN_KEY = 'tweetly_session_key';
-
-export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -51,39 +33,49 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(
+export type ApiFetch = <T>(
   path: string,
   options?: RequestInit & { skipAuthRedirect?: boolean },
-): Promise<T> {
-  const token = getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options?.headers as Record<string, string> | undefined),
-  };
-  const { skipAuthRedirect, ...rest } = options ?? {};
+) => Promise<T>;
 
-  const res = await fetch(apiUrl(path), {
-    ...rest,
-    headers,
-  });
+/**
+ * Returns a stable apiFetch function that attaches the current Clerk session JWT
+ * as a Bearer token. On 401, signs the user out and redirects to /login unless
+ * skipAuthRedirect is set.
+ */
+export function useApiFetch(): ApiFetch {
+  const { getToken } = useAuth();
+  const { signOut } = useClerk();
 
-  if (res.status === 401 && !skipAuthRedirect) {
-    clearToken();
-    if (typeof window !== 'undefined') {
-      window.location.href = loginUrl();
-    }
-    throw new ApiError(401, 'Unauthorized');
-  }
+  return useCallback<ApiFetch>(
+    async <T>(path: string, options?: RequestInit & { skipAuthRedirect?: boolean }): Promise<T> => {
+      const token = await getToken();
+      const { skipAuthRedirect, headers: extraHeaders, ...rest } = options ?? {};
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new ApiError(res.status, body || `API error: ${res.status}`);
-  }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(extraHeaders as Record<string, string> | undefined),
+      };
 
-  const text = await res.text();
-  if (!text) return {} as T;
-  return JSON.parse(text) as T;
+      const res = await fetch(apiUrl(path), { ...rest, headers });
+
+      if (res.status === 401 && !skipAuthRedirect) {
+        await signOut({ redirectUrl: '/login' });
+        throw new ApiError(401, 'Unauthorized');
+      }
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new ApiError(res.status, body || `API error: ${res.status}`);
+      }
+
+      const text = await res.text();
+      if (!text) return {} as T;
+      return JSON.parse(text) as T;
+    },
+    [getToken, signOut],
+  );
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -92,12 +84,6 @@ export interface CurrentUser {
   id: string;
   email: string;
   status: 'active' | 'suspended';
-}
-
-export interface ConsumeResponse {
-  ok: boolean;
-  sessionKey: string;
-  user: { id: string; email: string };
 }
 
 export interface ApiKey {

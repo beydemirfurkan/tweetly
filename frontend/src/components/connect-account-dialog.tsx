@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  apiFetch,
+  useApiFetch,
   ApiError,
   FAILURE_REASON_TR,
+  type ApiFetch,
   type AccountConnectBody,
   type AccountReauthBody,
   type LoginJobAccepted,
@@ -60,6 +61,7 @@ type Phase =
   | { kind: 'failed'; reason: NonNullable<LoginJobResponse['failureReason']>; detail: string | null };
 
 export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId, onSuccess }: Props) {
+  const apiFetch = useApiFetch();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [submitError, setSubmitError] = useState('');
@@ -91,7 +93,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
     setPhase({ kind: 'submitting' });
 
     try {
-      const accepted = await sendRequest({ form, mode, targetAccountId });
+      const accepted = await sendRequest({ form, mode, targetAccountId, apiFetch });
       if (cancelledRef.current) return;
       setPhase({ kind: 'polling', jobId: accepted.jobId, status: 'queued' });
       pollLoop(accepted.jobId);
@@ -182,6 +184,7 @@ async function sendRequest(args: {
   form: FormState;
   mode: Mode;
   targetAccountId?: string;
+  apiFetch: ApiFetch;
 }): Promise<LoginJobAccepted> {
   const payload =
     args.mode === 'connect'
@@ -205,7 +208,7 @@ async function sendRequest(args: {
       : `/api/v1/accounts/${encodeURIComponent(args.targetAccountId ?? '')}/reauth`;
 
   try {
-    return await apiFetch<LoginJobAccepted>(path, {
+    return await args.apiFetch<LoginJobAccepted>(path, {
       method: 'POST',
       body: JSON.stringify(payload),
     });

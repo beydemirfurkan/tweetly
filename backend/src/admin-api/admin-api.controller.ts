@@ -19,7 +19,6 @@ import { AdminTokenGuard } from './admin-token.guard';
 import { AdminApiService } from './admin-api.service';
 import { SettingsService } from '@/settings/settings.service';
 import { UsersService } from '@/auth/users.service';
-import { MagicLinkService } from '@/auth/magic-link.service';
 import { CircuitBreakerService } from '@/action-engine/circuit-breaker.service';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
 import { XDirectReadService } from '@/x-automation/x-direct';
@@ -65,7 +64,6 @@ export class AdminApiController {
     private readonly service: AdminApiService,
     private readonly settings: SettingsService,
     private readonly users: UsersService,
-    private readonly magicLinks: MagicLinkService,
     private readonly circuitBreaker: CircuitBreakerService,
     private readonly browser: XBrowserService,
     private readonly xDirect: XDirectReadService,
@@ -255,8 +253,7 @@ export class AdminApiController {
     summary: 'Update admin token and / or SMTP credentials',
     description:
       'All fields optional; only the provided ones are written. SMTP credentials live in DB ' +
-      'so they can be rotated without redeploying. After updating SMTP fields, the mailer ' +
-      'transport is invalidated and rebuilt on the next magic-link send.',
+      'so they can be rotated without redeploying.',
   })
   async updateSecrets(@Body() body: SecretUpdateBody) {
     const writes: Array<[string, unknown]> = [];
@@ -286,12 +283,6 @@ export class AdminApiController {
       await this.settings.set(key, value);
     }
 
-    // If anything mail-related changed, drop the cached transporter so the
-    // next /auth/request-link rebuilds it from the new DB values.
-    if (writes.some(([k]) => k.startsWith('secrets.mail_') || k.startsWith('secrets.smtp_'))) {
-      this.magicLinks.invalidateTransport();
-    }
-
     return { ok: true, updated: writes.length };
   }
 
@@ -300,8 +291,8 @@ export class AdminApiController {
   @ApiOperation({
     summary: 'Bootstrap-create a user',
     description:
-      'Creates a user record so they can request a magic link. Use this only for the first ' +
-      'user; afterwards users self-onboard via /auth/request-link.',
+      'Creates a user record by email. Normally users self-onboard via Clerk sign-up, ' +
+      'which lazily creates the local user on first authenticated request.',
   })
   async createUser(@Body() body: CreateUserBody) {
     const email = body.email?.trim();
