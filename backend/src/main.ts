@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
@@ -64,8 +65,12 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    logger: isProd ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+
+  // Route every Nest log call (including `new Logger(Name)` constructors that
+  // pre-date this faz) through pino. Buffer above ensures bootstrap-time logs
+  // emitted before this line are flushed via the structured logger.
+  app.useLogger(app.get(PinoLogger));
 
   app.enableShutdownHooks();
   app.enableCors(buildCorsOptions(isProd));

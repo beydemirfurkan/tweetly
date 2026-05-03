@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
 import { HealthModule } from './observability/health.module';
+import { LoggerModule } from './observability/logger.module';
 import { PersistenceModule } from './persistence/persistence.module';
 import { DomainModule } from './domain/domain.module';
 import { ActionEngineModule } from './action-engine/action-engine.module';
@@ -49,6 +50,7 @@ import { ContextModule } from './common/context';
         };
       },
     }),
+    LoggerModule,
     ContextModule,
     CryptoModule,
     PersistenceModule,
