@@ -1,9 +1,9 @@
 import { BannerUpdateExecutor } from './banner-update.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirect } from './__tests__/test-helpers';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from './__tests__/test-helpers';
 
 describe('BannerUpdateExecutor', () => {
   it('delegates to xDirect.updateBanner on success', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectProfile();
     const exec = new BannerUpdateExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(
@@ -16,7 +16,7 @@ describe('BannerUpdateExecutor', () => {
   });
 
   it('returns permanent error for empty file_path', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectProfile();
     const exec = new BannerUpdateExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(fakeAction({ file_path: '' }, 'banner_update'), fakeSession());
@@ -26,7 +26,7 @@ describe('BannerUpdateExecutor', () => {
   });
 
   it('classifies "file not found" as permanent', async () => {
-    const xDirect = mockXDirect({
+    const xDirect = mockXDirectProfile({
       updateBanner: jest.fn().mockRejectedValue(new Error('banner file not found: /tmp/missing.jpg')),
     });
     const exec = new BannerUpdateExecutor(fakeRegistry(), xDirect);
@@ -40,7 +40,7 @@ describe('BannerUpdateExecutor', () => {
   });
 
   it('returns errorClass=auth on AuthRequiredError', async () => {
-    const xDirect = mockXDirect({ updateBanner: jest.fn().mockRejectedValue(authError()) });
+    const xDirect = mockXDirectProfile({ updateBanner: jest.fn().mockRejectedValue(authError()) });
     const exec = new BannerUpdateExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(
@@ -53,7 +53,7 @@ describe('BannerUpdateExecutor', () => {
   });
 
   it('returns errorClass=transient on other errors', async () => {
-    const xDirect = mockXDirect({
+    const xDirect = mockXDirectProfile({
       updateBanner: jest.fn().mockRejectedValue(new Error('upload timeout')),
     });
     const exec = new BannerUpdateExecutor(fakeRegistry(), xDirect);
@@ -68,7 +68,7 @@ describe('BannerUpdateExecutor', () => {
 
   it('registers itself on bootstrap', () => {
     const registry = fakeRegistry();
-    const exec = new BannerUpdateExecutor(registry, mockXDirect());
+    const exec = new BannerUpdateExecutor(registry, mockXDirectProfile());
     exec.onApplicationBootstrap();
     expect(registry.register).toHaveBeenCalledWith(exec);
   });

@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { XDirectService } from '@/x-automation/x-direct.service';
+import { XDirectReadService } from '@/x-automation/x-direct';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
 import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
 /**
- * Read-only tools. All run synchronously through XDirectService /
+ * Read-only tools. All run synchronously through XDirectReadService /
  * XBrowserService — there is no queueing for reads since they are
  * idempotent and the result needs to flow back to the caller.
  */
 @Injectable()
 export class ReadHandler extends BaseMcpHandler {
   constructor(
-    private readonly xDirect: XDirectService,
+    private readonly xDirect: XDirectReadService,
     private readonly xBrowser: XBrowserService,
   ) {
     super();

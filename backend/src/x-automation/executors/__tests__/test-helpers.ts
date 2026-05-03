@@ -1,6 +1,9 @@
 import type { ActionContext, XSession } from '@domain/ports/x-action-executor.port';
 import type { ActionType } from '@domain/types/action.types';
-import type { XDirectService } from '@/x-automation/x-direct.service';
+import type {
+  XDirectWriteService,
+  XDirectProfileService,
+} from '@/x-automation/x-direct';
 import type { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { AuthRequiredError } from '@/x-automation/browser/auth-required-error';
 
@@ -32,23 +35,36 @@ export function fakeRegistry(): jest.Mocked<ExecutorRegistry> {
 }
 
 /**
- * Creates a mock XDirectService where every write method resolves to ok by
- * default; tests can override per-method via the `overrides` arg.
+ * XDirectWriteService mock for unlike/unretweet/unfollow/delete-tweet/dm
+ * executor specs. Every method resolves to ok by default; per-method
+ * overrides via `overrides`.
  */
-export function mockXDirect(
-  overrides: Partial<Record<keyof XDirectService, jest.Mock>> = {},
-): jest.Mocked<XDirectService> {
+export function mockXDirectWrite(
+  overrides: Partial<Record<keyof XDirectWriteService, jest.Mock>> = {},
+): jest.Mocked<XDirectWriteService> {
   return {
     unlikeTweet: jest.fn().mockResolvedValue({ ok: true }),
     unretweetTweet: jest.fn().mockResolvedValue({ ok: true }),
     unfollowAccount: jest.fn().mockResolvedValue({ ok: true }),
     deleteTweet: jest.fn().mockResolvedValue({ ok: true }),
     sendDm: jest.fn().mockResolvedValue({ ok: true }),
+    ...overrides,
+  } as unknown as jest.Mocked<XDirectWriteService>;
+}
+
+/**
+ * XDirectProfileService mock for profile-update/avatar-update/banner-update
+ * executor specs.
+ */
+export function mockXDirectProfile(
+  overrides: Partial<Record<keyof XDirectProfileService, jest.Mock>> = {},
+): jest.Mocked<XDirectProfileService> {
+  return {
     updateProfile: jest.fn().mockResolvedValue({ ok: true, updated: ['name'] }),
     updateAvatar: jest.fn().mockResolvedValue({ ok: true }),
     updateBanner: jest.fn().mockResolvedValue({ ok: true }),
     ...overrides,
-  } as unknown as jest.Mocked<XDirectService>;
+  } as unknown as jest.Mocked<XDirectProfileService>;
 }
 
 export const authError = (msg = 'session expired'): AuthRequiredError =>

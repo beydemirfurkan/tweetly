@@ -1,9 +1,9 @@
 import { ReadHandler } from './read.handler';
 import { fakeContext } from './__tests__/test-helpers';
-import type { XDirectService } from '@/x-automation/x-direct.service';
+import type { XDirectReadService } from '@/x-automation/x-direct';
 import type { XBrowserService } from '@/x-automation/browser/x-browser.service';
 
-function mockXDirect(): jest.Mocked<XDirectService> {
+function mockXDirect(): jest.Mocked<XDirectReadService> {
   return {
     searchTweets: jest.fn().mockResolvedValue([]),
     getUser: jest.fn().mockResolvedValue({}),
@@ -16,7 +16,7 @@ function mockXDirect(): jest.Mocked<XDirectService> {
     getTweetReplies: jest.fn().mockResolvedValue([]),
     getUserMentions: jest.fn().mockResolvedValue([]),
     getXTrending: jest.fn().mockResolvedValue([]),
-  } as unknown as jest.Mocked<XDirectService>;
+  } as unknown as jest.Mocked<XDirectReadService>;
 }
 
 function mockXBrowser(): jest.Mocked<XBrowserService> {

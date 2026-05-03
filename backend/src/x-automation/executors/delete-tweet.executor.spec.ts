@@ -1,11 +1,11 @@
 import { DeleteTweetExecutor } from './delete-tweet.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirect } from './__tests__/test-helpers';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from './__tests__/test-helpers';
 
 describe('DeleteTweetExecutor', () => {
   const url = 'https://x.com/u/status/1';
 
   it('delegates to xDirect.deleteTweet on success', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectWrite();
     const exec = new DeleteTweetExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(fakeAction({ target_tweet_url: url }, 'delete_tweet'), fakeSession());
@@ -15,7 +15,7 @@ describe('DeleteTweetExecutor', () => {
   });
 
   it('returns errorClass=auth on AuthRequiredError', async () => {
-    const xDirect = mockXDirect({ deleteTweet: jest.fn().mockRejectedValue(authError()) });
+    const xDirect = mockXDirectWrite({ deleteTweet: jest.fn().mockRejectedValue(authError()) });
     const exec = new DeleteTweetExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(fakeAction({ target_tweet_url: url }, 'delete_tweet'), fakeSession());
@@ -25,7 +25,7 @@ describe('DeleteTweetExecutor', () => {
   });
 
   it('returns errorClass=transient on generic errors', async () => {
-    const xDirect = mockXDirect({ deleteTweet: jest.fn().mockRejectedValue(new Error('not found')) });
+    const xDirect = mockXDirectWrite({ deleteTweet: jest.fn().mockRejectedValue(new Error('not found')) });
     const exec = new DeleteTweetExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(fakeAction({ target_tweet_url: url }, 'delete_tweet'), fakeSession());
@@ -35,7 +35,7 @@ describe('DeleteTweetExecutor', () => {
 
   it('registers itself on bootstrap', () => {
     const registry = fakeRegistry();
-    const exec = new DeleteTweetExecutor(registry, mockXDirect());
+    const exec = new DeleteTweetExecutor(registry, mockXDirectWrite());
     exec.onApplicationBootstrap();
     expect(registry.register).toHaveBeenCalledWith(exec);
   });

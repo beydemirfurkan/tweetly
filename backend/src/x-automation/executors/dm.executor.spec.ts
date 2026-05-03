@@ -1,9 +1,9 @@
 import { DmExecutor } from './dm.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirect } from './__tests__/test-helpers';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from './__tests__/test-helpers';
 
 describe('DmExecutor', () => {
   it('delegates to xDirect.sendDm on success', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectWrite();
     const exec = new DmExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(
@@ -16,7 +16,7 @@ describe('DmExecutor', () => {
   });
 
   it('returns permanent error for missing target_handle (no point retrying)', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectWrite();
     const exec = new DmExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(fakeAction({ target_handle: '', message: 'x' }, 'dm'), fakeSession());
@@ -26,7 +26,7 @@ describe('DmExecutor', () => {
   });
 
   it('returns permanent error for empty message', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectWrite();
     const exec = new DmExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(fakeAction({ target_handle: 'a', message: '   ' }, 'dm'), fakeSession());
@@ -36,7 +36,7 @@ describe('DmExecutor', () => {
   });
 
   it('returns errorClass=auth on AuthRequiredError', async () => {
-    const xDirect = mockXDirect({ sendDm: jest.fn().mockRejectedValue(authError()) });
+    const xDirect = mockXDirectWrite({ sendDm: jest.fn().mockRejectedValue(authError()) });
     const exec = new DmExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(
@@ -49,7 +49,7 @@ describe('DmExecutor', () => {
   });
 
   it('returns errorClass=transient on generic errors', async () => {
-    const xDirect = mockXDirect({ sendDm: jest.fn().mockRejectedValue(new Error('rate limit')) });
+    const xDirect = mockXDirectWrite({ sendDm: jest.fn().mockRejectedValue(new Error('rate limit')) });
     const exec = new DmExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(
@@ -62,7 +62,7 @@ describe('DmExecutor', () => {
 
   it('registers itself on bootstrap', () => {
     const registry = fakeRegistry();
-    const exec = new DmExecutor(registry, mockXDirect());
+    const exec = new DmExecutor(registry, mockXDirectWrite());
     exec.onApplicationBootstrap();
     expect(registry.register).toHaveBeenCalledWith(exec);
   });

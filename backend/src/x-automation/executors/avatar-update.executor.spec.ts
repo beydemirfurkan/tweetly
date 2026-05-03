@@ -1,9 +1,9 @@
 import { AvatarUpdateExecutor } from './avatar-update.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirect } from './__tests__/test-helpers';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from './__tests__/test-helpers';
 
 describe('AvatarUpdateExecutor', () => {
   it('delegates to xDirect.updateAvatar on success', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectProfile();
     const exec = new AvatarUpdateExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(
@@ -16,7 +16,7 @@ describe('AvatarUpdateExecutor', () => {
   });
 
   it('returns permanent error for empty file_path', async () => {
-    const xDirect = mockXDirect();
+    const xDirect = mockXDirectProfile();
     const exec = new AvatarUpdateExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(fakeAction({ file_path: '' }, 'avatar_update'), fakeSession());
@@ -26,7 +26,7 @@ describe('AvatarUpdateExecutor', () => {
   });
 
   it('classifies "file not found" as permanent (no retry on missing files)', async () => {
-    const xDirect = mockXDirect({
+    const xDirect = mockXDirectProfile({
       updateAvatar: jest.fn().mockRejectedValue(new Error('avatar file not found: /tmp/missing.jpg')),
     });
     const exec = new AvatarUpdateExecutor(fakeRegistry(), xDirect);
@@ -40,7 +40,7 @@ describe('AvatarUpdateExecutor', () => {
   });
 
   it('returns errorClass=auth on AuthRequiredError', async () => {
-    const xDirect = mockXDirect({ updateAvatar: jest.fn().mockRejectedValue(authError()) });
+    const xDirect = mockXDirectProfile({ updateAvatar: jest.fn().mockRejectedValue(authError()) });
     const exec = new AvatarUpdateExecutor(fakeRegistry(), xDirect);
 
     const result = await exec.execute(
@@ -53,7 +53,7 @@ describe('AvatarUpdateExecutor', () => {
   });
 
   it('returns errorClass=transient on other errors', async () => {
-    const xDirect = mockXDirect({
+    const xDirect = mockXDirectProfile({
       updateAvatar: jest.fn().mockRejectedValue(new Error('upload timeout')),
     });
     const exec = new AvatarUpdateExecutor(fakeRegistry(), xDirect);
@@ -68,7 +68,7 @@ describe('AvatarUpdateExecutor', () => {
 
   it('registers itself on bootstrap', () => {
     const registry = fakeRegistry();
-    const exec = new AvatarUpdateExecutor(registry, mockXDirect());
+    const exec = new AvatarUpdateExecutor(registry, mockXDirectProfile());
     exec.onApplicationBootstrap();
     expect(registry.register).toHaveBeenCalledWith(exec);
   });

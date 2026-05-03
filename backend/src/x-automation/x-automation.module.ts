@@ -26,7 +26,7 @@ import { BannerUpdateExecutor } from './executors/banner-update.executor';
 import { XBrowserService } from './browser/x-browser.service';
 import { XPostFlowService } from './browser/x-post-flow.service';
 import { SelectorRegistry } from './browser/selector-registry';
-import { XDirectService } from './x-direct.service';
+import { XDirectReadService, XDirectWriteService, XDirectProfileService } from './x-direct';
 import { XLoginService } from './login/x-login.service';
 import { LoginJobsRepository } from './login/login-jobs.repository';
 import { LoginWorker } from './login/login-worker.service';
@@ -65,7 +65,7 @@ import { LoginWorker } from './login/login-worker.service';
     PatchrightFollowExecutor,
     PatchrightQuoteExecutor,
     // queue-backed executors for previously synchronous writes (registered in
-    // both modes — they wrap XDirectService which already implements the noop
+    // both modes — they wrap the x-direct services which implement the noop
     // dry-run path, so a single executor class covers dev and prod).
     UnlikeExecutor,
     UnretweetExecutor,
@@ -75,14 +75,22 @@ import { LoginWorker } from './login/login-worker.service';
     ProfileUpdateExecutor,
     AvatarUpdateExecutor,
     BannerUpdateExecutor,
-    // direct (synchronous) service — still used internally by the queue
-    // executors above; MCP no longer calls it directly.
-    XDirectService,
+    // direct (synchronous) services — read / write / profile
+    XDirectReadService,
+    XDirectWriteService,
+    XDirectProfileService,
     // login flow (server-side headless X login)
     XLoginService,
     LoginJobsRepository,
     LoginWorker,
   ],
-  exports: [XDirectService, XBrowserService, XLoginService, LoginJobsRepository],
+  exports: [
+    XDirectReadService,
+    XDirectWriteService,
+    XDirectProfileService,
+    XBrowserService,
+    XLoginService,
+    LoginJobsRepository,
+  ],
 })
 export class XAutomationModule {}

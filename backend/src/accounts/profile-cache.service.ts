@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccountProfileEntity } from '@persistence/entities/account-profile.entity';
-import { XDirectService } from '@/x-automation/x-direct.service';
+import { XDirectReadService } from '@/x-automation/x-direct';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -13,8 +13,8 @@ export class ProfileCacheService {
   constructor(
     @InjectRepository(AccountProfileEntity)
     private readonly repo: Repository<AccountProfileEntity>,
-    @Inject(forwardRef(() => XDirectService))
-    private readonly xDirect: XDirectService,
+    @Inject(forwardRef(() => XDirectReadService))
+    private readonly xDirect: XDirectReadService,
   ) {}
 
   async get(accountId: string): Promise<AccountProfileEntity | null> {

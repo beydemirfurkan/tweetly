@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { XDirectService } from '@/x-automation/x-direct.service';
+import {
+  XDirectReadService,
+  XDirectWriteService,
+  XDirectProfileService,
+} from '@/x-automation/x-direct';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
 import { AccountFacade } from './account.facade';
 import type {
@@ -11,14 +15,16 @@ import type {
 } from '../dto/action.dto';
 
 /**
- * Synchronous X read + undo/profile operations. Wraps XDirectService and
- * XBrowserService; controllers go through here so that account resolution
- * and parameter bounds (limits, URL shape) live in one place.
+ * Synchronous X read + undo/profile operations. Wraps the three XDirect
+ * services + XBrowserService; controllers go through here so that account
+ * resolution and parameter bounds (limits, URL shape) live in one place.
  */
 @Injectable()
 export class XFacade {
   constructor(
-    private readonly xDirect: XDirectService,
+    private readonly reads: XDirectReadService,
+    private readonly writes: XDirectWriteService,
+    private readonly profile: XDirectProfileService,
     private readonly xBrowser: XBrowserService,
     private readonly accounts: AccountFacade,
   ) {}
@@ -27,19 +33,19 @@ export class XFacade {
     if (!query) throw new BadRequestException('query is required');
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.xDirect.searchTweets(query, limit, acct);
+    return this.reads.searchTweets(query, limit, acct);
   }
 
   async searchUsers(userId: string, query: string, limitStr?: string, account?: string) {
     if (!query) throw new BadRequestException('query is required');
     const limit = Math.min(parseInt(limitStr ?? '20', 10), 50);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.xDirect.searchUsers(query, limit, acct);
+    return this.reads.searchUsers(query, limit, acct);
   }
 
   async getUser(userId: string, handle: string, account?: string) {
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.xDirect.getUser(handle, acct);
+    return this.reads.getUser(handle, acct);
   }
 
   async getUserTweets(userId: string, handle: string, limitStr?: string, account?: string) {
@@ -52,7 +58,7 @@ export class XFacade {
   async getUserFollowers(userId: string, handle: string, limitStr?: string, account?: string) {
     const limit = Math.min(parseInt(limitStr ?? '50', 10), 200);
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.xDirect.getUserFollowers(handle, limit, acct);
+    return this.reads.getUserFollowers(handle, limit, acct);
   }
 
   async getTweet(userId: string, body: GetTweetBody) {
@@ -60,40 +66,40 @@ export class XFacade {
       throw new BadRequestException('tweetUrl must contain /status/');
     }
     const acct = await this.accounts.resolveAccountIdOptional(userId, body.account);
-    return this.xDirect.getTweet(body.tweetUrl, acct);
+    return this.reads.getTweet(body.tweetUrl, acct);
   }
 
   async getXTrending(userId: string, account?: string) {
     const acct = await this.accounts.resolveAccountIdOptional(userId, account);
-    return this.xDirect.getXTrending(acct);
+    return this.reads.getXTrending(acct);
   }
 
   async unlikeTweet(userId: string, body: InteractionBody) {
     const acct = await this.requireUrlAndAccount(userId, body);
-    return this.xDirect.unlikeTweet(body.targetTweetUrl, acct);
+    return this.writes.unlikeTweet(body.targetTweetUrl, acct);
   }
 
   async unretweet(userId: string, body: InteractionBody) {
     const acct = await this.requireUrlAndAccount(userId, body);
-    return this.xDirect.unretweetTweet(body.targetTweetUrl, acct);
+    return this.writes.unretweetTweet(body.targetTweetUrl, acct);
   }
 
   async deleteTweet(userId: string, body: InteractionBody) {
     const acct = await this.requireUrlAndAccount(userId, body);
-    return this.xDirect.deleteTweet(body.targetTweetUrl, acct);
+    return this.writes.deleteTweet(body.targetTweetUrl, acct);
   }
 
   async unfollow(userId: string, body: FollowBody) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     const acct = await this.accounts.resolveAccountId(userId, body.account);
-    return this.xDirect.unfollowAccount(body.targetHandle, acct);
+    return this.writes.unfollowAccount(body.targetHandle, acct);
   }
 
   async sendDm(userId: string, body: SendDmBody) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
     if (!body.message) throw new BadRequestException('message is required');
     const acct = await this.accounts.resolveAccountId(userId, body.account);
-    return this.xDirect.sendDm(body.targetHandle, body.message, acct);
+    return this.writes.sendDm(body.targetHandle, body.message, acct);
   }
 
   async updateProfile(userId: string, body: UpdateProfileBody) {
@@ -107,7 +113,7 @@ export class XFacade {
       throw new BadRequestException('at least one of name, bio, location, website is required');
     }
     const acct = await this.accounts.resolveAccountId(userId, body.account);
-    return this.xDirect.updateProfile(fields, acct);
+    return this.profile.updateProfile(fields, acct);
   }
 
   private async requireUrlAndAccount(userId: string, body: InteractionBody): Promise<string> {

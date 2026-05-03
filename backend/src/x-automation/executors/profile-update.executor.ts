@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { ActionType } from '@domain/types/action.types';
 import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
-import { XDirectService } from '@/x-automation/x-direct.service';
+import { XDirectProfileService } from '@/x-automation/x-direct';
 import { BaseDelegatingExecutor, classifyExecutionError } from './base.executor';
 
 interface ProfileUpdatePayload {
@@ -20,7 +20,7 @@ export class ProfileUpdateExecutor extends BaseDelegatingExecutor<ProfileUpdateP
 
   constructor(
     registry: ExecutorRegistry,
-    private readonly xDirect: XDirectService,
+    private readonly xDirect: XDirectProfileService,
   ) {
     super(registry);
   }

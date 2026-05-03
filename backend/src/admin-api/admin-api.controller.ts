@@ -20,7 +20,7 @@ import { UsersService } from '@/auth/users.service';
 import { MagicLinkService } from '@/auth/magic-link.service';
 import { CircuitBreakerService } from '@/action-engine/circuit-breaker.service';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
-import { XDirectService } from '@/x-automation/x-direct.service';
+import { XDirectReadService } from '@/x-automation/x-direct';
 
 class SecretUpdateBody {
   @ApiProperty({ required: false, description: 'New persistent admin token (replaces BOOTSTRAP_ADMIN_TOKEN)' })
@@ -64,7 +64,7 @@ export class AdminApiController {
     private readonly magicLinks: MagicLinkService,
     private readonly circuitBreaker: CircuitBreakerService,
     private readonly browser: XBrowserService,
-    private readonly xDirect: XDirectService,
+    private readonly xDirect: XDirectReadService,
   ) {}
 
   @Get('status')
