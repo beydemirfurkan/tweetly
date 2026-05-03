@@ -1,4 +1,5 @@
 import { AdminApiService } from './admin-api.service';
+import { ActionAdminRepository } from '@persistence/repositories/action-admin.repository';
 
 jest.mock('@persistence/repositories/action-repository', () => ({
   ACTION_TABLE_CONFIG: {
@@ -14,7 +15,8 @@ jest.mock('@persistence/repositories/action-repository', () => ({
 
 function createService() {
   const ds = { query: jest.fn() };
-  const service = new AdminApiService(ds as any);
+  const repo = new ActionAdminRepository(ds as any);
+  const service = new AdminApiService(repo);
   return { service, ds };
 }
 
