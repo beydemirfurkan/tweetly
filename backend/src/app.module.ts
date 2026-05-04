@@ -21,6 +21,7 @@ import { PublicApiModule } from './public-api/public-api.module';
 import { ExtractionsModule } from './extractions/extractions.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ContextModule } from './common/context';
+import { AiCopilotModule } from './ai-copilot/ai-copilot.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { ContextModule } from './common/context';
     McpModule,
     MonitoringModule,
     HealthModule,
+    AiCopilotModule,
   ],
 })
 export class AppModule {}

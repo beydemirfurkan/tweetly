@@ -76,6 +76,7 @@
     "monitors": "Monitörler",
     "apiKeys": "API Anahtarları",
     "guide": "Kılavuz",
+    "copilot": "AI Copilot",
     "logout": "Çıkış"
   },
   "login": {
@@ -492,5 +493,83 @@
       "step2": "Terminal'da:",
       "step3": "claude başlat — /mcp komutuyla tools listesini doğrula"
     }
+  },
+  "copilot": {
+    "title": "AI Content Copilot",
+    "subtitle": "Profilini analiz et, viral içerik üret, tek tıkla yayınla",
+    "comingSoonTitle": "Yakında",
+    "comingSoonDesc": "AI Content Copilot çok yakında burada. Profil analizi, kişiselleştirilmiş içerik önerileri ve tek tıkla tweet atma özellikleri geliyor.",
+    "profileAnalysis": {
+      "title": "Profil Analizi",
+      "handleLabel": "Kullanıcı Adı",
+      "handlePlaceholder": "@kullaniciadi",
+      "accountIdLabel": "Hesap ID (opsiyonel)",
+      "analyze": "Analiz Et",
+      "analyzing": "Analiz ediliyor...",
+      "styleProfile": "Stil Profili",
+      "tone": "Ton",
+      "avgLength": "Ort. Uzunluk",
+      "hashtagUsage": "Hashtag Kullanımı",
+      "emojiUsage": "Emoji Kullanımı",
+      "topTopics": "Top Konular",
+      "contentStyle": "İçerik Stili",
+      "postingPattern": "Gönderi Paterni",
+      "engagementStyle": "Etkileşim Stili",
+      "summary": "Özet",
+      "tweetsAnalyzed": "Tweet analiz edildi",
+      "followers": "Takipçi",
+      "following": "Takip"
+    },
+    "contentGen": {
+      "title": "İçerik Üret",
+      "formatLabel": "Format",
+      "topicLabel": "Konu (opsiyonel)",
+      "topicPlaceholder": "AI, startup, JavaScript...",
+      "sourceLabel": "Kaynak Hesaplar (opsiyonel)",
+      "sourcePlaceholder": "@user1, @user2",
+      "generate": "Oluştur",
+      "generating": "Oluşturuluyor...",
+      "charCount": "karakter",
+      "score": "skor",
+      "publish": "Yayınla",
+      "schedule": "Zamanla",
+      "edit": "Düzenle",
+      "noSuggestions": "Henüz içerik üretilmedi. Bir format seçip oluştur butonuna tıklayın."
+    },
+    "viralScore": {
+      "title": "Viral Skor Analizi",
+      "tweetLabel": "Tweet Metni",
+      "tweetPlaceholder": "Tweet metnini yapıştırın...",
+      "analyze": "Analiz Et",
+      "analyzing": "Analiz ediliyor...",
+      "score": "Skor",
+      "maxScore": "/ 10",
+      "strengths": "Guclu Yonler",
+      "weaknesses": "Zayıf Yönler",
+      "suggestions": "Öneriler",
+      "estimatedReach": "Tahmini Erişim",
+      "hookStrength": "Hook Gücü",
+      "readability": "Okunabilirlik",
+      "formatFit": "Format Uyumu"
+    },
+    "publish": {
+      "accountIdLabel": "Hesap",
+      "selectAccount": "Hesap seçin",
+      "scheduleAt": "Zamanla",
+      "now": "Şimdi yayınla",
+      "confirm": "Onayla",
+      "queued": "Kuyruğa eklendi",
+      "scheduled": "Planlandı"
+    },
+    "formats": {
+      "micro": "Micro",
+      "punch": "Punch",
+      "spark": "Spark",
+      "hook": "Hook",
+      "storm": "Storm",
+      "thunder": "Thunder"
+    },
+    "error": "Bir hata oluştu. Lütfen tekrar deneyin.",
+    "notAdmin": "Bu özellik şu anda sınırlı erişimde."
   }
 }

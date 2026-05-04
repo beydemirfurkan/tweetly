@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Bird,
   BookOpen,
+  Brain,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -30,11 +31,19 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
 
   const NAV_ITEMS: Array<{
-    href: '/dashboard' | '/accounts' | '/actions' | '/monitoring' | '/api-keys' | '/guide';
+    href:
+      | '/dashboard'
+      | '/accounts'
+      | '/actions'
+      | '/monitoring'
+      | '/api-keys'
+      | '/ai-copilot'
+      | '/guide';
     label: string;
     icon: React.ElementType;
   }> = [
     { href: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { href: '/ai-copilot', label: t('copilot'), icon: Brain },
     { href: '/accounts', label: t('accounts'), icon: Users },
     { href: '/actions', label: t('actions'), icon: Zap },
     { href: '/monitoring', label: t('monitors'), icon: Radio },

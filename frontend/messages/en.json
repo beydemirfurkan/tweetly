@@ -76,6 +76,7 @@
     "monitors": "Monitors",
     "apiKeys": "API Keys",
     "guide": "Guide",
+    "copilot": "AI Copilot",
     "logout": "Sign out"
   },
   "login": {
@@ -492,5 +493,83 @@
       "step2": "In your terminal:",
       "step3": "Run claude — type /mcp to confirm the tools loaded"
     }
+  },
+  "copilot": {
+    "title": "AI Content Copilot",
+    "subtitle": "Analyze your profile, generate viral content, publish with one click",
+    "comingSoonTitle": "Coming Soon",
+    "comingSoonDesc": "AI Content Copilot is coming soon. Profile analysis, personalized content suggestions, and one-click tweet publishing features are on the way.",
+    "profileAnalysis": {
+      "title": "Profile Analysis",
+      "handleLabel": "Handle",
+      "handlePlaceholder": "@username",
+      "accountIdLabel": "Account ID (optional)",
+      "analyze": "Analyze",
+      "analyzing": "Analyzing...",
+      "styleProfile": "Style Profile",
+      "tone": "Tone",
+      "avgLength": "Avg Length",
+      "hashtagUsage": "Hashtag Usage",
+      "emojiUsage": "Emoji Usage",
+      "topTopics": "Top Topics",
+      "contentStyle": "Content Style",
+      "postingPattern": "Posting Pattern",
+      "engagementStyle": "Engagement Style",
+      "summary": "Summary",
+      "tweetsAnalyzed": "tweets analyzed",
+      "followers": "Followers",
+      "following": "Following"
+    },
+    "contentGen": {
+      "title": "Generate Content",
+      "formatLabel": "Format",
+      "topicLabel": "Topic (optional)",
+      "topicPlaceholder": "AI, startup, JavaScript...",
+      "sourceLabel": "Source Accounts (optional)",
+      "sourcePlaceholder": "@user1, @user2",
+      "generate": "Generate",
+      "generating": "Generating...",
+      "charCount": "chars",
+      "score": "score",
+      "publish": "Publish",
+      "schedule": "Schedule",
+      "edit": "Edit",
+      "noSuggestions": "No content generated yet. Pick a format and click generate."
+    },
+    "viralScore": {
+      "title": "Viral Score Analysis",
+      "tweetLabel": "Tweet Text",
+      "tweetPlaceholder": "Paste your tweet text...",
+      "analyze": "Analyze",
+      "analyzing": "Analyzing...",
+      "score": "Score",
+      "maxScore": "/ 10",
+      "strengths": "Strengths",
+      "weaknesses": "Weaknesses",
+      "suggestions": "Suggestions",
+      "estimatedReach": "Estimated Reach",
+      "hookStrength": "Hook Strength",
+      "readability": "Readability",
+      "formatFit": "Format Fit"
+    },
+    "publish": {
+      "accountIdLabel": "Account",
+      "selectAccount": "Select account",
+      "scheduleAt": "Schedule",
+      "now": "Publish now",
+      "confirm": "Confirm",
+      "queued": "Queued",
+      "scheduled": "Scheduled"
+    },
+    "formats": {
+      "micro": "Micro",
+      "punch": "Punch",
+      "spark": "Spark",
+      "hook": "Hook",
+      "storm": "Storm",
+      "thunder": "Thunder"
+    },
+    "error": "An error occurred. Please try again.",
+    "notAdmin": "This feature is currently in limited access."
   }
 }
