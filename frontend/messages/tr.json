@@ -570,6 +570,15 @@
       "thunder": "Thunder"
     },
     "error": "Bir hata oluştu. Lütfen tekrar deneyin.",
-    "notAdmin": "Bu özellik şu anda sınırlı erişimde."
+    "notAdmin": "Bu özellik şu anda sınırlı erişimde.",
+    "history": {
+      "title": "Gecmis",
+      "empty": "Henuz analiz gecmisi yok.",
+      "profile": "Profil Analizi",
+      "content": "Icerik Oneri",
+      "viral_score": "Viral Skor",
+      "loadMore": "Daha fazla yukle",
+      "noResults": "Sonuc bulunamadi"
+    }
   }
 }

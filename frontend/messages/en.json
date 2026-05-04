@@ -570,6 +570,15 @@
       "thunder": "Thunder"
     },
     "error": "An error occurred. Please try again.",
-    "notAdmin": "This feature is currently in limited access."
+    "notAdmin": "This feature is currently in limited access.",
+    "history": {
+      "title": "History",
+      "empty": "No analysis history yet.",
+      "profile": "Profile Analysis",
+      "content": "Content Suggestion",
+      "viral_score": "Viral Score",
+      "loadMore": "Load more",
+      "noResults": "No results found"
+    }
   }
 }

@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Target,
   Clock,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -89,7 +90,7 @@ export default function AiCopilotPage() {
   const [suggestions, setSuggestions] = useState<ContentSuggestion[]>([]);
   const [viralResult, setViralResult] = useState<ViralScore | null>(null);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'profile' | 'content' | 'score'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'content' | 'score' | 'history'>('profile');
 
   const loadAccounts = async () => {
     try {
@@ -163,6 +164,9 @@ export default function AiCopilotPage() {
             setError={setError}
           />
         )}
+        {activeTab === 'history' && (
+          <HistoryTab t={t} apiFetch={apiFetch} />
+        )}
       </div>
     </div>
   );
@@ -173,14 +177,15 @@ function TabBar({
   onChange,
   t,
 }: {
-  active: 'profile' | 'content' | 'score';
-  onChange: (v: 'profile' | 'content' | 'score') => void;
+  active: 'profile' | 'content' | 'score' | 'history';
+  onChange: (v: 'profile' | 'content' | 'score' | 'history') => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const tabs: { key: 'profile' | 'content' | 'score'; icon: React.ElementType; label: string }[] = [
+  const tabs: { key: 'profile' | 'content' | 'score' | 'history'; icon: React.ElementType; label: string }[] = [
     { key: 'profile', icon: Brain, label: t('profileAnalysis.title') },
     { key: 'content', icon: Sparkles, label: t('contentGen.title') },
     { key: 'score', icon: BarChart3, label: t('viralScore.title') },
+    { key: 'history', icon: History, label: t('history.title') },
   ];
 
   return (
@@ -682,6 +687,105 @@ function ScoreTab({
       )}
     </div>
   );
+}
+
+interface HistoryItem {
+  id: string;
+  type: 'profile' | 'content' | 'viral_score';
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown>;
+  createdAt: string;
+}
+
+const TYPE_BADGE: Record<string, { label: string; color: string }> = {
+  profile: { label: 'profile', color: 'text-blue-500' },
+  content: { label: 'content', color: 'text-green-500' },
+  viral_score: { label: 'viral_score', color: 'text-amber-500' },
+};
+
+function HistoryTab({
+  t,
+  apiFetch,
+}: {
+  t: ReturnType<typeof useTranslations>;
+  apiFetch: <T>(path: string, options?: RequestInit) => Promise<T>;
+}) {
+  const [items, setItems] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadHistory = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch<HistoryItem[]>('/copilot/history?limit=20');
+      setItems(res);
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useLazyLoad(loadHistory);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="py-12 text-center text-[13px] text-muted-foreground">
+        {t('history.empty')}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => {
+        const badge = TYPE_BADGE[item.type] ?? { label: item.type, color: 'text-muted-foreground' };
+        const date = new Date(item.createdAt);
+        const summary = extractSummary(item);
+        return (
+          <div key={item.id} className="rounded-2xl border border-border bg-popover p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className={cn('text-[11px] font-semibold uppercase tracking-wider', badge.color)}>
+                  {t(`history.${badge.label}`)}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            </div>
+            {summary && (
+              <p className="mt-2 line-clamp-2 text-[13px] text-muted-foreground">{summary}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function extractSummary(item: HistoryItem): string {
+  const data = item.resultData;
+  if (item.type === 'profile') {
+    return (data as Record<string, unknown>).summary as string ?? (data as Record<string, unknown>).handle as string ?? '';
+  }
+  if (item.type === 'content') {
+    const suggestions = (data as Record<string, unknown>).suggestions as Array<{ text: string }> | undefined;
+    return suggestions?.[0]?.text ?? '';
+  }
+  if (item.type === 'viral_score') {
+    const score = (data as Record<string, unknown>).score as number | undefined;
+    const reach = (data as Record<string, unknown>).estimatedReach as string | undefined;
+    return score != null ? `Skor: ${score}/10${reach ? ` — ${reach}` : ''}` : '';
+  }
+  return '';
 }
 
 function ComingSoon({ t }: { t: ReturnType<typeof useTranslations> }) {
