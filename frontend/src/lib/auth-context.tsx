@@ -23,14 +23,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => Boolean(getToken()));
 
   useEffect(() => {
     const token = getToken();
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
+    if (!token) return;
     apiFetch<CurrentUser>('/auth/me', { skipAuthRedirect: true })
       .then((me) => setUser(me))
       .catch(() => {

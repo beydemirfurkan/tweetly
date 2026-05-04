@@ -94,7 +94,10 @@ export default function ActionsPage() {
   }, [type, status, apiFetch]);
 
   useEffect(() => {
-    load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const replay = async (id: string) => {

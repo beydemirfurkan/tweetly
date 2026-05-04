@@ -32,6 +32,23 @@ export async function classifyVisibleFailure(page: Page): Promise<LoginFlowError
   return null;
 }
 
+export function isRetryableLoginPageText(text: string): boolean {
+  const normalized = text.toLowerCase();
+  return [
+    'bir sorun oluştu',
+    'yeniden yüklemeyi dene',
+    'yeniden dene',
+    'something went wrong',
+    'try reloading',
+    'try again',
+  ].some((needle) => normalized.includes(needle));
+}
+
+export async function hasRetryableLoginPageError(page: Page): Promise<boolean> {
+  const bodyText = await page.locator('body').innerText().catch(() => '');
+  return isRetryableLoginPageText(bodyText);
+}
+
 export async function checkForCaptcha(page: Page): Promise<void> {
   const frame = page.locator(SEL.arkoseFrame).first();
   if (await frame.isVisible().catch(() => false)) {

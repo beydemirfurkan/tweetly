@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ArrowUpRight, Bird, Home, ScrollText } from 'lucide-react';
 import './globals.css';
@@ -38,7 +39,7 @@ export default function GlobalNotFound() {
           />
 
           <main className="relative w-full max-w-[520px] animate-fade-up">
-            <a
+            <Link
               href="/"
               className="mb-10 inline-flex items-center gap-2.5 transition-opacity hover:opacity-80"
             >
@@ -48,7 +49,7 @@ export default function GlobalNotFound() {
               <span className="text-[15px] font-extrabold tracking-tight">
                 xtweetly
               </span>
-            </a>
+            </Link>
 
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-destructive">
               <span className="animate-pulse-dot">●</span> 404 · Not found
@@ -65,7 +66,7 @@ export default function GlobalNotFound() {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <a
+              <Link
                 href="/"
                 className="pill group inline-flex items-center gap-2 bg-foreground px-6 py-3 text-[14px] font-bold text-background transition-transform hover:scale-[1.02]"
               >
@@ -75,7 +76,7 @@ export default function GlobalNotFound() {
                   className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                   strokeWidth={2.75}
                 />
-              </a>
+              </Link>
               <a
                 href="/docs"
                 target="_blank"

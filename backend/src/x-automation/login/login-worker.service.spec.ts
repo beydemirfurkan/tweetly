@@ -209,6 +209,14 @@ describe('isTransientFailure', () => {
     expect(isTransientFailure(fail('unknown', 'step navigate: net::ERR_TIMED_OUT at https://x.com/'))).toBe(true);
   });
 
+  it('matches X retryable login error page text', () => {
+    expect(
+      isTransientFailure(
+        fail('unknown', 'step username: timeout body~Bir sorun oluştu. Yeniden yüklemeyi dene.'),
+      ),
+    ).toBe(true);
+  });
+
   it('matches socket errors', () => {
     expect(isTransientFailure(fail('unknown', 'fetch failed: ECONNRESET'))).toBe(true);
   });

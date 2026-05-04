@@ -18,6 +18,7 @@ import {
   didLeaveUsernameStep,
   extractCookies,
   isLoggedInAs,
+  hasRetryableLoginPageError,
   isVisibleSoon,
   matchesErrorText,
   waitForAdvance,
@@ -124,8 +125,7 @@ export class XLoginService {
     }, page);
 
     await this.step('username', async () => {
-      const field = page.locator(SEL.usernameInput).first();
-      await field.waitFor({ state: 'visible' });
+      const field = await this.waitForUsernameInput(page);
       // X's React form ignores DOM-set values (fill() bypass): we must dispatch
       // real keyboard events. Click for focus, type per-char, then submit.
       await field.click();
@@ -216,6 +216,21 @@ export class XLoginService {
         throw new LoginFlowError('home_not_reached', `did not reach /home (current=${page.url()})`);
       }
     });
+  }
+
+  private async waitForUsernameInput(page: Page): Promise<import('patchright').Locator> {
+    const field = page.locator(SEL.usernameInput).first();
+    try {
+      await field.waitFor({ state: 'visible' });
+      return field;
+    } catch (err) {
+      if (!(await hasRetryableLoginPageError(page))) throw err;
+    }
+
+    this.log.warn('X login rendered retryable error page before username input; reloading login flow once.');
+    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+    await field.waitFor({ state: 'visible' });
+    return field;
   }
 
   private async submitUsernameStep(page: Page, field: import('patchright').Locator): Promise<void> {

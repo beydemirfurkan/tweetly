@@ -88,7 +88,7 @@ function OAuthAuthorizeInner() {
     return () => {
       cancelled = true;
     };
-  }, [params.client_id, params.redirect_uri, isAuthenticated]);
+  }, [params.client_id, params.redirect_uri, isAuthenticated, t]);
 
   const submit = useCallback(
     async (decision: 'allow' | 'deny') => {

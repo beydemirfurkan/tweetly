@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Bird, AlertCircle, Loader2 } from 'lucide-react';
@@ -20,29 +20,25 @@ function VerifyInner() {
   const { consumeToken, isAuthenticated } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
-  const [working, setWorking] = useState(true);
+  const token = searchParams.get('token');
+  const [error, setError] = useState<string | null>(() => (token ? null : t('tokenMissing')));
+  const [working, setWorking] = useState(() => Boolean(token));
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (!token) {
-      setError(t('tokenMissing'));
-      setWorking(false);
-      return;
-    }
+    if (!token) return;
     consumeToken(token).then((result) => {
       setWorking(false);
       if (result.ok) {
-        router.replace('/dashboard' as '/dashboard');
+        router.replace('/dashboard' as const);
       } else {
         setError(result.error ?? t('invalid'));
       }
     });
-  }, [consumeToken, router, searchParams, t]);
+  }, [consumeToken, router, token, t]);
 
   useEffect(() => {
     if (isAuthenticated && !working && !error) {
-      router.replace('/dashboard' as '/dashboard');
+      router.replace('/dashboard' as const);
     }
   }, [isAuthenticated, working, error, router]);
 
@@ -56,12 +52,12 @@ function VerifyInner() {
             <AlertCircle className="h-5 w-5 text-destructive" />
           </div>
           <p className="text-sm text-destructive">{error}</p>
-          <a
+          <Link
             href="/login"
             className="inline-block text-xs underline text-muted-foreground hover:text-foreground"
           >
             {t('retry')}
-          </a>
+          </Link>
         </div>
       ) : null}
     </VerifyShell>

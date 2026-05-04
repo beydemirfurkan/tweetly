@@ -87,9 +87,8 @@ ALERT CircuitBreakerOpen
 
 When an alert fires:
 
-1. Hit `GET /admin/metrics/snapshot` (admin-only) for a human-readable
-   overview — not yet implemented; current path is to query
-   `actions_all` directly:
+1. Hit `GET /metrics` with the admin token and inspect queue gauges, or query
+   `actions_all` directly for a human-readable overview:
    ```sql
    SELECT type, status, COUNT(*) FROM actions_all GROUP BY type, status ORDER BY type, status;
    ```

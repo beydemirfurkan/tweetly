@@ -13,7 +13,7 @@ services:
 
       # Database
       DATABASE_URL: ${DATABASE_URL:-postgres://tweetly:tweetly@postgres:5432/tweetly}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required. Copy .env.example to .env and set a 32-byte key.}
 
       # Bootstrap-only — set on first deploy, then write secrets.admin_token
       # via PUT /admin/secrets and remove these env vars.

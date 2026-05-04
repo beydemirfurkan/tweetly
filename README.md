@@ -54,8 +54,12 @@ pending → claimed → running → succeeded
 
 ```bash
 npm install
+npm --prefix backend install --legacy-peer-deps
+npm --prefix frontend install
 npx patchright install chromium
 cp .env.example .env
+# .env içindeki ENCRYPTION_KEY'i doldur:
+# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 docker compose up -d postgres
 npm run db:migrate
@@ -67,9 +71,11 @@ npm run db:migrate
 
 ```bash
 npm run build          # tsc → dist/
-npm start              # node dist/main.js  (prod)
-npm run dev            # tsx src/main.ts    (lokal geliştirme)
-npm test               # jest
+npm run dev:backend    # backend lokal geliştirme
+npm run dev:frontend   # frontend lokal geliştirme
+npm test               # backend unit testleri
+npm run lint           # backend + frontend lint
+npm run typecheck      # backend + frontend type-check
 
 npm run db:migrate         # Migration'ları uygula
 npm run db:migrate:revert  # Son migration'ı geri al
@@ -251,10 +257,11 @@ Secret'ı kaybedersen: `POST /api/v1/monitors/:id/rotate-secret` ile rotate et.
 ```bash
 # Public
 curl http://localhost:3001/health
-curl http://localhost:3001/metrics
+curl http://localhost:3001/ready
 
-# Durum
+# Durum / metrics (admin token gerekir)
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/status
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/metrics
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/queue/depth
 
 # Action yönetimi
@@ -280,7 +287,7 @@ docker compose up --build
 
 | Volume | İçerik |
 |---|---|
-| `tweetbot_state` | `/data` — session, media, logs |
+| `tweetly_state` | `/data` — session, media, logs |
 | `tweetly_pgdata` | PostgreSQL veri dizini |
 
 ---

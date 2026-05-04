@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   useApiFetch,
@@ -136,9 +137,12 @@ function ProfileCard({
         <div className="flex gap-4 p-4">
           <div className="shrink-0">
             {profile?.profileImageUrl ? (
-              <img
+              <Image
                 src={profile.profileImageUrl}
                 alt={profile.displayName}
+                width={64}
+                height={64}
+                unoptimized
                 className="h-16 w-16 rounded-full object-cover ring-2 ring-border"
               />
             ) : (
@@ -317,7 +321,10 @@ export default function AccountsPage() {
   }, [apiFetch]);
 
   useEffect(() => {
-    loadAccounts();
+    const timer = window.setTimeout(() => {
+      void loadAccounts();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadAccounts]);
 
   const refreshProfile = async (id: string) => {

@@ -47,7 +47,10 @@ export default function ApiKeysPage() {
   }, [apiFetch]);
 
   useEffect(() => {
-    loadKeys();
+    const timer = window.setTimeout(() => {
+      void loadKeys();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadKeys]);
 
   const submitCreate = async () => {

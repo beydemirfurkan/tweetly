@@ -34,7 +34,8 @@ export default function PanelLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setSidebarOpen(false);
+    const timer = window.setTimeout(() => setSidebarOpen(false), 0);
+    return () => window.clearTimeout(timer);
   }, [pathname]);
 
   useEffect(() => {

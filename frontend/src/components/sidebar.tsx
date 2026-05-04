@@ -48,7 +48,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   const handleLogout = () => {
     logout();
-    router.replace('/login' as '/login');
+    router.replace('/login' as const);
   };
 
   const email = user?.email ?? null;

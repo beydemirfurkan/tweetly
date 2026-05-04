@@ -182,7 +182,7 @@ export default function ConnectPage() {
                 <ExternalLink className="h-3 w-3" />
               </a>
               <Link
-                href={'/docs' as '/docs'}
+                href={'/docs' as const}
                 className="pill inline-flex items-center gap-2 border border-border px-4 py-2.5 text-[12px] font-mono text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 {t('apiReference')}

@@ -31,6 +31,7 @@ const TRANSIENT_DETAIL_PATTERNS = [
   /Target page, context or browser has been closed/i,
   /ECONNRESET|ECONNREFUSED|EAI_AGAIN|ETIMEDOUT/i,
   /step navigate:/i,           // navigate-step failures (DNS, route, transient X 5xx)
+  /bir sorun oluştu|yeniden yüklemeyi dene|something went wrong|try reloading/i,
 ];
 
 export function isTransientFailure(result: Extract<XLoginResult, { ok: false }>): boolean {

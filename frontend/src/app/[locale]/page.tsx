@@ -207,7 +207,7 @@ export default async function LandingPage({
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href={'/connect' as '/connect'}
+              href={'/connect' as const}
               className="pill group inline-flex items-center gap-2 bg-foreground px-6 py-3 text-[14px] font-bold text-background transition-transform hover:scale-[1.02]"
             >
               <Sparkles className="h-4 w-4" strokeWidth={2.75} />

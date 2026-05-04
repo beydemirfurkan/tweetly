@@ -67,7 +67,7 @@ Search for tweets mentioning @anthropic, last 10
 Follow @elonmusk from account abc-123`}
           </pre>
           <Link
-            href={'/connect' as '/connect'}
+            href={'/connect' as const}
             className="mt-4 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
           >
             Tüm client&apos;lar için kurulum (Claude Desktop, ChatGPT, Cursor, …)

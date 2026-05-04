@@ -1,4 +1,15 @@
 {
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "test": "npm --prefix backend run test:unit && npm --prefix frontend run test",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "db:migrate:revert": "npm --prefix backend run db:migrate:revert"
+  },
   "dependencies": {
     "zod-to-json-schema": "^3.25.2"
   }

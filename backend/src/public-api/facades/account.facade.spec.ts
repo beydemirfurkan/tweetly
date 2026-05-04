@@ -1,18 +1,21 @@
+import { BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
 import type { AccountsService } from '@/accounts/accounts.service';
 import type { ProfileCacheService } from '@/accounts/profile-cache.service';
 import type { AdminApiService } from '@/admin-api/admin-api.service';
 import type { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
+import type { CookieHealthCheckService } from '@/x-automation/login/cookie-health-check.service';
 import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { AccountFacade } from './account.facade';
-import { BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
 
 function makeFacade(overrides: {
   loginJobs?: Partial<jest.Mocked<LoginJobsRepository>>;
   accounts?: Partial<jest.Mocked<AccountsService>>;
+  cookieHealth?: Partial<jest.Mocked<CookieHealthCheckService>>;
 } = {}): {
   facade: AccountFacade;
   loginJobs: jest.Mocked<LoginJobsRepository>;
   accounts: jest.Mocked<AccountsService>;
+  cookieHealth: jest.Mocked<CookieHealthCheckService>;
 } {
   const loginJobs = {
     create: jest.fn().mockResolvedValue({ id: 'job-1' }),
@@ -24,6 +27,17 @@ function makeFacade(overrides: {
     findByIdForUser: jest.fn(),
     listActiveForUser: jest.fn().mockResolvedValue([]),
     listAllForUser: jest.fn().mockResolvedValue([]),
+    upsertAccount: jest.fn().mockResolvedValue({
+      id: 'alice',
+      displayName: 'alice',
+      status: 'active',
+      authToken: 'auth',
+      authMulti: null,
+      ct0: 'ct0',
+      twid: 'twid',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      lastUsedAt: null,
+    }),
     ...overrides.accounts,
   } as unknown as jest.Mocked<AccountsService>;
   const cipher = {
@@ -31,7 +45,8 @@ function makeFacade(overrides: {
   } as unknown as CredentialCipherService;
   const cookieHealth = {
     check: jest.fn().mockResolvedValue({ ok: false, reason: 'missing_fields' }),
-  } as unknown as import('@/x-automation/login/cookie-health-check.service').CookieHealthCheckService;
+    ...overrides.cookieHealth,
+  } as unknown as jest.Mocked<CookieHealthCheckService>;
   const facade = new AccountFacade(
     accounts,
     {} as unknown as ProfileCacheService,
@@ -40,7 +55,7 @@ function makeFacade(overrides: {
     cipher,
     cookieHealth,
   );
-  return { facade, loginJobs, accounts };
+  return { facade, loginJobs, accounts, cookieHealth };
 }
 
 describe('AccountFacade.createConnectJob', () => {
@@ -117,5 +132,89 @@ describe('AccountFacade.resolveAccountId', () => {
       accounts: { findByIdForUser: jest.fn().mockResolvedValue(null) },
     });
     await expect(facade.resolveAccountId('u1', 'foreign')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('AccountFacade.upsertAccount', () => {
+  it('validates pasted cookies before saving them', async () => {
+    const { facade, accounts, cookieHealth } = makeFacade({
+      cookieHealth: {
+        check: jest.fn().mockResolvedValue({ ok: true, screenName: 'Alice' }),
+      },
+    });
+
+    await facade.upsertAccount('user-1', 'alice', {
+      authToken: ' auth ',
+      ct0: ' ct0 ',
+      twid: 'twid',
+    });
+
+    expect(cookieHealth.check).toHaveBeenCalledWith({
+      authToken: 'auth',
+      ct0: 'ct0',
+      twid: 'twid',
+    });
+    expect(accounts.upsertAccount).toHaveBeenCalled();
+  });
+
+  it('rejects pasted cookies for a different X account', async () => {
+    const { facade, accounts } = makeFacade({
+      cookieHealth: {
+        check: jest.fn().mockResolvedValue({ ok: true, screenName: 'bob' }),
+      },
+    });
+
+    await expect(
+      facade.upsertAccount('user-1', 'alice', {
+        authToken: 'auth',
+        ct0: 'ct0',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(accounts.upsertAccount).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid pasted cookies before saving', async () => {
+    const { facade, accounts } = makeFacade({
+      cookieHealth: {
+        check: jest.fn().mockResolvedValue({
+          ok: false,
+          reason: 'rejected_by_x',
+          detail: 'X rejected the session',
+        }),
+      },
+    });
+
+    await expect(
+      facade.upsertAccount('user-1', 'alice', {
+        authToken: 'auth',
+        ct0: 'ct0',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(accounts.upsertAccount).not.toHaveBeenCalled();
+  });
+
+  it('validates partial cookie updates with existing stored cookies', async () => {
+    const { facade, cookieHealth } = makeFacade({
+      accounts: {
+        findByIdForUser: jest.fn().mockResolvedValue({
+          id: 'alice',
+          userId: 'user-1',
+          authToken: 'old-auth',
+          ct0: 'existing-ct0',
+          twid: 'existing-twid',
+        }),
+      },
+      cookieHealth: {
+        check: jest.fn().mockResolvedValue({ ok: true, screenName: 'alice' }),
+      },
+    });
+
+    await facade.upsertAccount('user-1', 'alice', { authToken: 'new-auth' });
+
+    expect(cookieHealth.check).toHaveBeenCalledWith({
+      authToken: 'new-auth',
+      ct0: 'existing-ct0',
+      twid: 'existing-twid',
+    });
   });
 });

@@ -152,6 +152,7 @@ export class AccountFacade {
     if (body.status && !ACCOUNT_STATUSES.includes(body.status)) {
       throw new BadRequestException(`status must be one of: ${ACCOUNT_STATUSES.join(', ')}`);
     }
+    await this.assertUpsertCookiesBelongToAccount(userId, id, body);
     try {
       const account = await this.accounts.upsertAccount({
         id,
@@ -291,6 +292,44 @@ export class AccountFacade {
       },
       HttpStatus.TOO_MANY_REQUESTS,
     );
+  }
+
+  private async assertUpsertCookiesBelongToAccount(
+    userId: string,
+    accountId: string,
+    body: AccountUpsertDto,
+  ): Promise<void> {
+    const shouldValidateCookies =
+      body.authToken !== undefined || body.ct0 !== undefined || body.twid !== undefined;
+    if (!shouldValidateCookies) return;
+
+    const existing = await this.accounts.findByIdForUser(accountId, userId);
+    const authToken =
+      typeof body.authToken === 'string' ? body.authToken.trim() : existing?.authToken ?? '';
+    const ct0 = typeof body.ct0 === 'string' ? body.ct0.trim() : existing?.ct0 ?? '';
+    const twid = body.twid !== undefined ? body.twid : existing?.twid ?? null;
+
+    const result = await this.cookieHealth.check({
+      authToken,
+      ct0,
+      twid,
+    });
+    if (!result.ok) {
+      throw new BadRequestException({
+        message: 'Cookie validation failed.',
+        code: 'cookie_validation_failed',
+        reason: result.reason,
+        detail: result.detail,
+      });
+    }
+
+    if (result.screenName?.toLowerCase() !== accountId.toLowerCase()) {
+      throw new BadRequestException({
+        message: `Cookies belong to @${result.screenName}, not @${accountId}.`,
+        code: 'cookie_account_mismatch',
+        screenName: result.screenName,
+      });
+    }
   }
 }
 
