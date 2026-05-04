@@ -17,6 +17,7 @@ import {
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import {
   assertBase32Secret,
+  normalizeProxyCountry,
   normalizeUsername,
   requireString,
 } from '@/x-automation/login/login-validation';
@@ -199,6 +200,7 @@ export class AccountFacade {
     const password = requireString(body.password, 'password');
     const totpSecretRaw = body.totpSecret?.trim() || null;
     if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
+    const proxyCountry = resolveLoginProxyCountry(body.proxyCountry, process.env.LOGIN_DEFAULT_PROXY_COUNTRY);
 
     // X account ids are stored lowercase; reject a second 'connect' for an
     // account the user already owns and steer them to /reauth so we don't
@@ -227,7 +229,7 @@ export class AccountFacade {
       encryptedPassword: this.cipher.encrypt(password),
       encryptedTotpSecret: totpSecretRaw ? this.cipher.encrypt(totpSecretRaw) : null,
       saveTotpSecret: Boolean(body.saveTotpSecret),
-      proxyCountry: null,
+      proxyCountry,
     });
     return { jobId: id, kind: 'connect', pollUrl: `/api/v1/accounts/login-jobs/${id}` };
   }
@@ -243,6 +245,10 @@ export class AccountFacade {
     const encryptedTotp = totpSecretRaw
       ? this.cipher.encrypt(totpSecretRaw)
       : account.totpSecretEncrypted;
+    const proxyCountry = resolveLoginProxyCountry(
+      body.proxyCountry,
+      account.proxyCountry ?? process.env.LOGIN_DEFAULT_PROXY_COUNTRY,
+    );
 
     await this.assertLoginCooldownIsClear(userId, account.id);
 
@@ -256,7 +262,7 @@ export class AccountFacade {
       encryptedTotpSecret: encryptedTotp,
       saveTotpSecret:
         Boolean(body.saveTotpSecret) || (totpSecretRaw === null && Boolean(account.totpSecretEncrypted)),
-      proxyCountry: null,
+      proxyCountry,
     });
     return { jobId, kind: 'reauth', pollUrl: `/api/v1/accounts/login-jobs/${jobId}` };
   }
@@ -361,4 +367,8 @@ function defaultHealth(): SessionHealthDto {
 
 function optionalTrimmedString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function resolveLoginProxyCountry(raw: unknown, fallback: string | null | undefined): string | null {
+  return normalizeProxyCountry(raw ?? fallback ?? null);
 }

@@ -41,3 +41,10 @@ export function resolveProxy(country: string | null | undefined): ProxyConfig | 
     return null;
   }
 }
+
+export function hasLoginProxy(country: string | null | undefined): boolean {
+  if (!country) return false;
+  const cc = country.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return false;
+  return Boolean(process.env[`LOGIN_PROXY_${cc}`]?.trim());
+}

@@ -153,36 +153,54 @@ güncelle, eski transporter düşer.
 `mailProvider` `console` kalırsa magic link sadece backend log'una düşer
 (yerel geliştirme için ideal).
 
-X hesabını manuel token-paste ile bağla:
+X hesabını backend üzerinden güvenli login job ile bağla:
 
 ```bash
-curl -X PUT -H "Authorization: Bearer $TWEETLY_API_KEY" \
+curl -X POST -H "Authorization: Bearer $TWEETLY_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"displayName":"Foo","authToken":"x-auth-token","ct0":"x-ct0","twid":"x-twid","status":"active"}' \
-  http://localhost:3001/api/v1/accounts/foo
+  -d '{"username":"foo","password":"x-password","email":"foo@example.com","totpSecret":null,"saveTotpSecret":false,"proxyCountry":"TR"}' \
+  http://localhost:3001/api/v1/accounts/connect
 ```
 
-### X cookie'leri nasıl alınır?
+Yanıt `202 Accepted` döner ve bir `jobId` verir. Durumu poll etmek için:
 
-Tweetly Twitter API kullanmaz; bunun yerine tarayıcıda zaten açık olan
-oturumun cookie'leriyle hareket eder. Bu yüzden ücretsiz / quotasız.
+```bash
+curl -H "Authorization: Bearer $TWEETLY_API_KEY" \
+  http://localhost:3001/api/v1/accounts/login-jobs/$JOB_ID
+```
 
-1. Chrome / Firefox / Edge'de https://x.com'a normalce giriş yap.
-2. DevTools → Application (Chrome) ya da Storage (Firefox) → Cookies → `https://x.com`.
-3. Şu üçünün **Value** kolonunu kopyala:
-   - `auth_token`  → `authToken`
-   - `ct0`        → `ct0`
-   - `twid`       → `twid`
-4. Panel → Hesaplar → Yeni hesap formuna yapıştır.
+Session bozulursa aynı hesabı yeniden doğrula:
 
-> Tek tek cookie kopyalamak yerine "EditThisCookie" / "Cookie-Editor"
-> gibi bir uzantıyla `x.com` cookie'lerini JSON olarak dışa aktarıp
-> oradan da değerleri alabilirsin. Tweetly cookie'leri kalıcı olarak
-> tutar; sadece X tarafında aynı oturum açık kaldığı sürece geçerlidir.
+```bash
+curl -X POST -H "Authorization: Bearer $TWEETLY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"password":"x-password","email":"foo@example.com","totpSecret":null,"saveTotpSecret":false,"proxyCountry":"TR"}' \
+  http://localhost:3001/api/v1/accounts/foo/reauth
+```
+
+Kullanıcıların `auth_token`, `ct0` veya `twid` kopyalaması gerekmez. Tweetly
+X'e kendi tarayıcı otomasyonu ile giriş yapar, gerekli session cookie'lerini
+backend tarafında alır ve saklar.
+
+`proxyCountry` opsiyoneldir. Gönderilmezse backend `LOGIN_DEFAULT_PROXY_COUNTRY`
+değerini, reauth sırasında varsa hesabın saklı `proxy_country` değerini kullanır.
+X aynı sunucu IP'sinden gelen çoklu loginleri geçici olarak bloklayabildiği için
+prod ortamda bölge bazlı egress/proxy tanımlamak önerilir:
+
+```bash
+LOGIN_DEFAULT_PROXY_COUNTRY=TR
+LOGIN_FALLBACK_PROXY_COUNTRIES=US,DE
+LOGIN_PROXY_TR=http://user:pass@tr.proxy.example:8080
+LOGIN_PROXY_US=http://user:pass@us.proxy.example:8080
+```
+
+Login akışı X onboarding tarafında geçici "try again later" veya username
+adımında ilerlememe hatası alırsa worker, yapılandırılmış ilk fallback proxy
+ülkesiyle bir kez daha dener.
 
 ### Oturum ne zaman bozulur?
 
-Cookie'ler süresi dolar veya X "yeni cihaz" tespiti yaparsa Patchright
+X session'ı süresi dolar veya X "yeni cihaz" tespiti yaparsa Patchright
 auth-failure döndürür. Tweetly bunu otomatik olarak kaydeder:
 
 - 1+ ardışık başarısızlık → Hesaplar listesinde **"Token süresi dolmuş?"**
@@ -190,7 +208,8 @@ auth-failure döndürür. Tweetly bunu otomatik olarak kaydeder:
 - 3 ardışık başarısızlık → hesap otomatik olarak `paused` durumuna alınır
   (kuyruktaki aksiyonlar tutulur, üretim bekler).
 
-Bu noktada tarayıcıdan yeni cookie'leri alıp hesabı güncellemek yeterli.
+Bu noktada Hesaplar ekranındaki **Yeniden doğrula** akışıyla kullanıcı adı,
+şifre ve gerekiyorsa 2FA secret bilgisi üzerinden yeni session açılır.
 
 ---
 

@@ -27,6 +27,15 @@ export class AccountConnectDto {
       'can run without re-prompting. When false, the secret is wiped after the login job completes.',
   })
   saveTotpSecret?: boolean;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    example: 'TR',
+    description:
+      'Optional 2-letter proxy country code for the login browser. If omitted, LOGIN_DEFAULT_PROXY_COUNTRY is used when configured.',
+  })
+  proxyCountry?: string | null;
 }
 
 export class AccountReauthDto {
@@ -45,6 +54,15 @@ export class AccountReauthDto {
 
   @ApiProperty({ required: false, nullable: true, description: 'Update the stored email during reauth.' })
   email?: string | null;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    example: 'TR',
+    description:
+      'Optional 2-letter proxy country code for this reauth job. Defaults to the account proxy country, then LOGIN_DEFAULT_PROXY_COUNTRY.',
+  })
+  proxyCountry?: string | null;
 }
 
 export class LoginJobResponseDto {
@@ -76,6 +94,8 @@ export class LoginJobResponseDto {
       'login_cooldown',
       'cookies_missing',
       'home_not_reached',
+      'account_locked',
+      'phone_verification_required',
       'unknown',
     ],
   })

@@ -1,7 +1,8 @@
-import type { BrowserContext, Page } from 'patchright';
+import type { BrowserContext, Locator, Page } from 'patchright';
 import { LoginFlowError } from './login-error';
 import { ERROR_TEXT, SEL } from './login-selectors';
 import type { LoginJobFailureReason, XLoginCookies } from './login.types';
+import { humanDelay, humanTypeDelay } from './login-humanize';
 
 /**
  * Pure DOM-poking helpers carved out of x-login.service.ts. Side-effect-free
@@ -80,27 +81,61 @@ export async function waitForAdvance(page: Page, currentSelector: string, timeou
 }
 
 export async function clickNamedButtonOrPressEnter(page: Page, names: readonly string[]): Promise<void> {
+  if (await clickVisibleNamedControl(page, names)) return;
+  await page.keyboard.press('Enter');
+}
+
+export async function clickVisibleNamedControl(page: Page, names: readonly string[]): Promise<boolean> {
   const pattern = new RegExp(`^(${names.map(escapeRegExp).join('|')})$`, 'i');
   const roleButton = page.getByRole('button', { name: pattern }).first();
-  if (await roleButton.isVisible().catch(() => false)) {
-    await roleButton.click();
-    return;
+  if (await isVisibleAndEnabled(roleButton)) {
+    if (await roleButton.click({ timeout: 3_000 }).then(() => true).catch(() => false)) return true;
   }
 
-  const textButton = page.locator('button, [role="button"]').filter({ hasText: pattern }).first();
-  if (await textButton.isVisible().catch(() => false)) {
-    await textButton.click();
-    return;
+  const roleLink = page.getByRole('link', { name: pattern }).first();
+  if (await isVisibleAndEnabled(roleLink)) {
+    if (await roleLink.click({ timeout: 3_000 }).then(() => true).catch(() => false)) return true;
   }
 
-  await page.keyboard.press('Enter');
+  const textControl = page.locator('button, a, [role="button"], [role="link"]').filter({ hasText: pattern }).first();
+  if (await isVisibleAndEnabled(textControl)) {
+    if (await textControl.click({ timeout: 3_000 }).then(() => true).catch(() => false)) return true;
+  }
+
+  return false;
+}
+
+export async function enterTextLikeUser(page: Page, field: Locator, value: string): Promise<void> {
+  await field.click();
+  await humanDelay(50, 150);
+  await field.press('Control+A').catch(() => undefined);
+  await field.press('Meta+A').catch(() => undefined);
+  await field.press('Backspace').catch(() => undefined);
+  await humanDelay(30, 80);
+
+  const charDelay = await humanTypeDelay();
+  await page.keyboard.type(value, { delay: charDelay });
+
+  const typed = await field.inputValue().catch(() => '');
+  if (typed === value) return;
+
+  // X's React-controlled inputs occasionally ignore synthetic key events in
+  // headless sessions. Use the native setter + input/change events as a
+  // fallback so React state and the DOM value stay in sync.
+  await field.evaluate((el, text) => {
+    const input = el as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter?.call(input, text);
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+  await page.waitForTimeout(150);
 }
 
 export async function didLeaveUsernameStep(page: Page, timeoutMs: number): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await page.locator(SEL.passwordInput).first().isVisible().catch(() => false)) return true;
-    if (await page.locator(SEL.challengeInput).first().isVisible().catch(() => false)) return true;
     if (await page.locator(SEL.arkoseFrame).first().isVisible().catch(() => false)) return true;
     await page.waitForTimeout(250);
   }
@@ -152,4 +187,9 @@ export async function isLoggedInAs(page: Page, username: string): Promise<boolea
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function isVisibleAndEnabled(locator: Locator): Promise<boolean> {
+  if (!(await locator.isVisible().catch(() => false))) return false;
+  return locator.isEnabled().catch(() => true);
 }

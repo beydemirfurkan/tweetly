@@ -6,6 +6,7 @@ import { ProfileCacheService } from '@/accounts/profile-cache.service';
 import { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
 import { XLoginService } from './x-login.service';
 import type { XLoginInput, XLoginResult } from './login.types';
+import { hasLoginProxy } from './proxy-resolver';
 
 interface WorkerOptions {
   pollIntervalMs: number;
@@ -173,6 +174,20 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       result = retry;
     }
 
+    const fallbackProxyCountry = !result.ok ? chooseFallbackProxyCountry(creds.proxyCountry) : null;
+    if (!result.ok && fallbackProxyCountry && shouldRetryWithFallbackProxy(result)) {
+      this.log.warn(
+        `login failed on current egress job=${job.id} reason=${result.reason} ` +
+          `— retrying once with proxyCountry=${fallbackProxyCountry}`,
+      );
+      const retry: XLoginResult = await this.login.run({ ...creds, proxyCountry: fallbackProxyCountry });
+      this.log.log(
+        `proxy retry result job=${job.id} ok=${retry.ok} ` +
+          `reason=${retry.ok ? '-' : retry.reason} duration=${retry.durationMs}ms`,
+      );
+      result = retry;
+    }
+
     if (!result.ok) {
       await this.jobs.markFailure(job.id, result.reason, result.detail);
       // Reauth failure for an existing account → bump session-failure counters
@@ -271,4 +286,30 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       }
     });
   }
+}
+
+export function chooseFallbackProxyCountry(current: string | null | undefined): string | null {
+  const normalizedCurrent = current?.trim().toUpperCase() || null;
+  return fallbackProxyCountries().find((cc) => cc !== normalizedCurrent && hasLoginProxy(cc)) ?? null;
+}
+
+export function shouldRetryWithFallbackProxy(result: Extract<XLoginResult, { ok: false }>): boolean {
+  if (result.reason === 'login_cooldown') {
+    return /onboarding rejected login temporarily|could not log you in now|try again later/i.test(result.detail);
+  }
+  if (result.reason === 'home_not_reached') {
+    return /retryable login page before username input|username step did not advance|password field never appeared|did not reach \/home/i.test(result.detail);
+  }
+  return isTransientFailure(result);
+}
+
+function parseCountryList(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter((s, index, arr) => /^[A-Z]{2}$/.test(s) && arr.indexOf(s) === index);
+}
+
+function fallbackProxyCountries(): string[] {
+  return parseCountryList(process.env.LOGIN_FALLBACK_PROXY_COUNTRIES ?? 'US');
 }

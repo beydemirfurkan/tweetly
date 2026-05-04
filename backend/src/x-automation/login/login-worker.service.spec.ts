@@ -1,4 +1,9 @@
-import { LoginWorker, isTransientFailure } from './login-worker.service';
+import {
+  LoginWorker,
+  chooseFallbackProxyCountry,
+  isTransientFailure,
+  shouldRetryWithFallbackProxy,
+} from './login-worker.service';
 import type { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
 import type { XLoginService } from './x-login.service';
 import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
@@ -37,12 +42,13 @@ interface MockManager {
 }
 
 function makeWorker(opts: {
-  loginResult: XLoginResult | Error;
+  loginResult: XLoginResult | XLoginResult[] | Error;
   cipherDecrypt?: jest.Mock;
   existingAccount?: Array<{ id: string; user_id: string; status: string; totp_secret_encrypted: string | null; proxy_country: string | null }>;
 }): {
   worker: LoginWorker;
   jobs: jest.Mocked<LoginJobsRepository>;
+  login: jest.Mocked<XLoginService>;
   accounts: jest.Mocked<AccountsService>;
   manager: MockManager;
 } {
@@ -55,10 +61,13 @@ function makeWorker(opts: {
     decrypt: opts.cipherDecrypt ?? jest.fn((blob: string) => `decrypted:${blob}`),
   } as unknown as jest.Mocked<CredentialCipherService>;
 
+  const loginResults = Array.isArray(opts.loginResult) ? [...opts.loginResult] : [opts.loginResult];
   const login = {
     run: jest.fn(async (): Promise<XLoginResult> => {
-      if (opts.loginResult instanceof Error) throw opts.loginResult;
-      return opts.loginResult;
+      const result = loginResults.shift();
+      if (result instanceof Error) throw result;
+      if (!result) throw new Error('missing mocked login result');
+      return result;
     }),
   } as unknown as jest.Mocked<XLoginService>;
 
@@ -85,7 +94,7 @@ function makeWorker(opts: {
   };
 
   const worker = new LoginWorker(dataSource, jobs, login, cipher, accounts, profileCache as any);
-  return { worker, jobs, accounts, manager };
+  return { worker, jobs, login, accounts, manager };
 }
 
 describe('LoginWorker.process', () => {
@@ -191,10 +200,41 @@ describe('LoginWorker.process', () => {
     await expect(worker.process(makeJob())).rejects.toThrow(/another user/);
     expect(jobs.markSuccess).not.toHaveBeenCalled();
   });
+
+  it('retries policy-shaped egress failures with a configured fallback proxy', async () => {
+    const previousProxy = process.env.LOGIN_PROXY_US;
+    const previousFallbacks = process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+    process.env.LOGIN_PROXY_US = 'http://us.proxy.example:9000';
+    process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = 'US';
+    try {
+      const { worker, jobs, login } = makeWorker({
+        loginResult: [
+          {
+            ok: false,
+            reason: 'login_cooldown',
+            detail: 'X onboarding rejected login temporarily; try again later',
+            durationMs: 100,
+          },
+          successResult('alice'),
+        ],
+        existingAccount: [],
+      });
+
+      await worker.process(makeJob());
+
+      expect(login.run).toHaveBeenNthCalledWith(2, expect.objectContaining({ proxyCountry: 'US' }));
+      expect(jobs.markSuccess).toHaveBeenCalledWith('job-1', { targetAccountId: 'alice', keepEncryptedTotp: false });
+    } finally {
+      if (previousProxy === undefined) delete process.env.LOGIN_PROXY_US;
+      else process.env.LOGIN_PROXY_US = previousProxy;
+      if (previousFallbacks === undefined) delete process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+      else process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = previousFallbacks;
+    }
+  });
 });
 
 describe('isTransientFailure', () => {
-  const fail = (reason: 'unknown' | 'invalid_credentials' | 'captcha_required', detail: string) => ({
+  const fail = (reason: Extract<XLoginResult, { ok: false }>['reason'], detail: string) => ({
     ok: false as const,
     reason,
     detail,
@@ -228,5 +268,61 @@ describe('isTransientFailure', () => {
 
   it('does not retry an unknown reason whose detail is non-transient', () => {
     expect(isTransientFailure(fail('unknown', 'step username: locator timeout 20000ms exceeded'))).toBe(false);
+  });
+});
+
+describe('fallback proxy helpers', () => {
+  const fail = (reason: Extract<XLoginResult, { ok: false }>['reason'], detail: string) => ({
+    ok: false as const,
+    reason,
+    detail,
+    durationMs: 0,
+  });
+
+  it('chooses a configured fallback proxy country different from the current one', () => {
+    const previousProxy = process.env.LOGIN_PROXY_US;
+    const previousFallbacks = process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+    process.env.LOGIN_PROXY_US = 'http://us.proxy.example:9000';
+    process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = 'US';
+    try {
+      expect(chooseFallbackProxyCountry(null)).toBe('US');
+      expect(chooseFallbackProxyCountry('us')).toBeNull();
+    } finally {
+      if (previousProxy === undefined) delete process.env.LOGIN_PROXY_US;
+      else process.env.LOGIN_PROXY_US = previousProxy;
+      if (previousFallbacks === undefined) delete process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+      else process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = previousFallbacks;
+    }
+  });
+
+  it('does not choose an unconfigured fallback proxy country', () => {
+    const previousProxy = process.env.LOGIN_PROXY_US;
+    const previousFallbacks = process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+    delete process.env.LOGIN_PROXY_US;
+    process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = 'US';
+    try {
+      expect(chooseFallbackProxyCountry(null)).toBeNull();
+    } finally {
+      if (previousProxy === undefined) delete process.env.LOGIN_PROXY_US;
+      else process.env.LOGIN_PROXY_US = previousProxy;
+      if (previousFallbacks === undefined) delete process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+      else process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = previousFallbacks;
+    }
+  });
+
+  it('retries only egress-shaped policy failures with fallback proxy', () => {
+    expect(
+      shouldRetryWithFallbackProxy(
+        fail('login_cooldown', 'X onboarding rejected login temporarily; try again later'),
+      ),
+    ).toBe(true);
+    expect(
+      shouldRetryWithFallbackProxy(fail('home_not_reached', 'username step did not advance. url=https://x.com/i/flow/login')),
+    ).toBe(true);
+    expect(
+      shouldRetryWithFallbackProxy(fail('home_not_reached', 'retryable login page before username input after 3 attempts')),
+    ).toBe(true);
+    expect(shouldRetryWithFallbackProxy(fail('invalid_credentials', 'password rejected'))).toBe(false);
+    expect(shouldRetryWithFallbackProxy(fail('captcha_required', 'arkose iframe visible'))).toBe(false);
   });
 });

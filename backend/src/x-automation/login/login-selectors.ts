@@ -38,6 +38,7 @@ export const SEL = {
   // specific first) so Locator.first() picks the visible primary CTA.
   nextButtonTexts: ['İleri', 'Next', 'Devam', 'Continue'],
   loginButtonTexts: ['Giriş yap', 'Log in', 'Login'],
+  retryButtonTexts: ['Yeniden dene', 'Retry', 'Try again'],
 
   // Error / challenge surfaces
   errorBanner: 'div[role="alert"], [data-testid="toast"]',

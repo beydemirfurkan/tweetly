@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Link, useRouter } from '@/i18n/navigation';
+import { Link } from '@/i18n/navigation';
 import {
   useApiFetch,
   ApiError,
@@ -10,9 +10,7 @@ import {
   isLoginCooldownPayload,
   type ApiFetch,
   type AccountConnectBody,
-  type AccountUpdateBody,
   type AccountReauthBody,
-  type CookieHealthResponse,
   type LoginCooldownPayload,
   type LoginJobAccepted,
   type LoginJobResponse,
@@ -41,7 +39,6 @@ import {
 const POLL_INTERVAL_MS = 2000;
 
 type Mode = 'connect' | 'reauth';
-type ConnectMethod = 'password' | 'cookies';
 
 interface Props {
   open: boolean;
@@ -59,9 +56,6 @@ interface FormState {
   password: string;
   totpSecret: string;
   saveTotpSecret: boolean;
-  authToken: string;
-  ct0: string;
-  twid: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -70,16 +64,7 @@ const EMPTY_FORM: FormState = {
   password: '',
   totpSecret: '',
   saveTotpSecret: false,
-  authToken: '',
-  ct0: '',
-  twid: '',
 };
-
-type CookieValidationState =
-  | { kind: 'idle' }
-  | { kind: 'checking' }
-  | { kind: 'ok'; screenName: string }
-  | { kind: 'fail'; message: string };
 
 interface AlreadyConnectedPayload {
   code: 'account_already_connected';
@@ -89,7 +74,6 @@ interface AlreadyConnectedPayload {
 type Phase =
   | { kind: 'idle' }
   | { kind: 'submitting' }
-  | { kind: 'savingCookies' }
   | { kind: 'polling'; jobId: string; status: LoginJobResponse['status'] }
   | { kind: 'success'; targetAccountId: string }
   | { kind: 'failed'; reason: NonNullable<LoginJobResponse['failureReason']>; detail: string | null }
@@ -100,10 +84,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
   const apiFetch = useApiFetch();
   const t = useTranslations('connectDialog');
   const locale = useLocale();
-  const router = useRouter();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [method, setMethod] = useState<ConnectMethod>('password');
-  const [cookieValidation, setCookieValidation] = useState<CookieValidationState>({ kind: 'idle' });
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [submitError, setSubmitError] = useState('');
   const cancelledRef = useRef(false);
@@ -115,8 +96,6 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
       queueMicrotask(() => {
         if (cancelledRef.current) return;
         setForm(EMPTY_FORM);
-        setMethod('password');
-        setCookieValidation({ kind: 'idle' });
         setPhase({ kind: 'idle' });
         setSubmitError('');
       });
@@ -128,10 +107,6 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
 
   const submit = async () => {
     setSubmitError('');
-    if (method === 'cookies') {
-      await submitManualCookies();
-      return;
-    }
     if (mode === 'connect') {
       if (!form.username.trim()) return setSubmitError(t('errorUsernameRequired'));
     }
@@ -161,82 +136,6 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
       const msg = err instanceof Error ? err.message : t('errorUnknown');
       setPhase({ kind: 'idle' });
       setSubmitError(msg);
-    }
-  };
-
-  const submitManualCookies = async () => {
-    const accountId = manualAccountId({ form, mode, targetAccountId });
-    if (!accountId) return setSubmitError(t('errorUsernameRequired'));
-    if (!form.authToken.trim() || !form.ct0.trim()) return setSubmitError(t('manualCookieRequired'));
-
-    setPhase({ kind: 'savingCookies' });
-    try {
-      await validateManualCookies(accountId);
-      const body: AccountUpdateBody = {
-        authToken: form.authToken.trim(),
-        ct0: form.ct0.trim(),
-        twid: form.twid.trim() || null,
-        status: 'active',
-      };
-      await apiFetch(`/api/v1/accounts/${encodeURIComponent(accountId)}`, {
-        method: 'PUT',
-        body: JSON.stringify(body),
-      });
-      if (cancelledRef.current) return;
-      setPhase({ kind: 'success', targetAccountId: accountId });
-      setTimeout(() => {
-        if (cancelledRef.current) return;
-        onSuccess();
-        onOpenChange(false);
-      }, 800);
-    } catch (err) {
-      if (cancelledRef.current) return;
-      const msg = err instanceof Error ? err.message : t('errorUnknown');
-      setPhase({ kind: 'idle' });
-      setSubmitError(msg);
-    }
-  };
-
-  const validateManualCookies = async (accountId?: string): Promise<string> => {
-    const expectedAccountId = accountId ?? manualAccountId({ form, mode, targetAccountId });
-    if (!expectedAccountId) throw new Error(t('errorUsernameRequired'));
-    if (!form.authToken.trim() || !form.ct0.trim()) throw new Error(t('manualCookieRequired'));
-
-    setCookieValidation({ kind: 'checking' });
-    try {
-      const res = await apiFetch<CookieHealthResponse>('/api/v1/accounts/cookie-validate', {
-        method: 'POST',
-        body: JSON.stringify({
-          authToken: form.authToken.trim(),
-          ct0: form.ct0.trim(),
-          twid: form.twid.trim() || undefined,
-        }),
-      });
-      if (!res.ok || !res.screenName) {
-        const message = cookieValidationMessage(res, t('manualValidationFailed'));
-        setCookieValidation({ kind: 'fail', message });
-        throw new Error(message);
-      }
-      if (res.screenName.toLowerCase() !== expectedAccountId.toLowerCase()) {
-        const message = t('manualMismatch', {
-          screenName: res.screenName,
-          accountId: expectedAccountId,
-        });
-        setCookieValidation({ kind: 'fail', message });
-        throw new Error(message);
-      }
-      setCookieValidation({ kind: 'ok', screenName: res.screenName });
-      return res.screenName;
-    } catch (err) {
-      if (err instanceof Error) {
-        setCookieValidation((current) =>
-          current.kind === 'fail' ? current : { kind: 'fail', message: err.message },
-        );
-        throw err;
-      }
-      const message = t('manualValidationFailed');
-      setCookieValidation({ kind: 'fail', message });
-      throw new Error(message);
     }
   };
 
@@ -279,14 +178,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
 
   // Cooldown is informational, not in-flight; the existing isBusy gate
   // already lets the user dismiss in that phase.
-  const isBusy = phase.kind === 'submitting' || phase.kind === 'savingCookies' || phase.kind === 'polling';
-
-  const goToManualCookieEdit = (accountId: string) => {
-    onOpenChange(false);
-    // Hash so the accounts page can scroll to / open the edit dialog if it
-    // wires that up later. For now it's just a deep-link to /accounts.
-    router.push(`/accounts#edit-${accountId}` as '/accounts');
-  };
+  const isBusy = phase.kind === 'submitting' || phase.kind === 'polling';
 
   const title =
     mode === 'connect'
@@ -313,11 +205,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
         ) : phase.kind === 'cooldown' ? (
           <CooldownPanel
             payload={phase.payload}
-            // For username-typed connect attempts we don't yet know the
-            // account id; for reauth we do. Pass through if available.
-            targetAccountId={mode === 'reauth' ? (targetAccountId ?? null) : null}
             onDone={() => setPhase({ kind: 'idle' })}
-            onSwitchToManual={(id) => goToManualCookieEdit(id)}
           />
         ) : phase.kind === 'failed' ? (
           <FailurePanel
@@ -325,13 +213,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
             detail={phase.detail}
             locale={locale}
             onRetry={() => setPhase({ kind: 'idle' })}
-            onSwitchToManual={() => {
-              setMethod('cookies');
-              setPhase({ kind: 'idle' });
-            }}
           />
-        ) : phase.kind === 'savingCookies' ? (
-          <SavingCookiesPanel />
         ) : phase.kind === 'polling' || phase.kind === 'submitting' ? (
           <PollingPanel
             status={phase.kind === 'polling' ? phase.status : 'queued'}
@@ -339,18 +221,9 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
         ) : (
           <FormPanel
             mode={mode}
-            method={method}
-            setMethod={(next) => {
-              setSubmitError('');
-              setCookieValidation({ kind: 'idle' });
-              setMethod(next);
-            }}
             form={form}
             setForm={setForm}
             submit={submit}
-            validateManualCookies={() => validateManualCookies()}
-            cookieValidation={cookieValidation}
-            resetCookieValidation={() => setCookieValidation({ kind: 'idle' })}
             error={submitError}
             onCancel={() => onOpenChange(false)}
           />
@@ -358,21 +231,6 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
       </DialogContent>
     </Dialog>
   );
-}
-
-function manualAccountId(args: {
-  form: FormState;
-  mode: Mode;
-  targetAccountId?: string;
-}): string {
-  const raw = args.mode === 'connect' ? args.form.username : (args.targetAccountId ?? '');
-  return raw.trim().replace(/^@+/, '').toLowerCase();
-}
-
-function cookieValidationMessage(res: CookieHealthResponse, fallback: string): string {
-  if (res.detail) return res.detail;
-  if (res.reason) return res.reason;
-  return fallback;
 }
 
 function isAlreadyConnectedPayload(value: unknown): value is AlreadyConnectedPayload {
@@ -418,67 +276,30 @@ async function sendRequest(args: {
 
 function FormPanel(props: {
   mode: Mode;
-  method: ConnectMethod;
-  setMethod: (method: ConnectMethod) => void;
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   submit: () => void;
-  validateManualCookies: () => Promise<string>;
-  cookieValidation: CookieValidationState;
-  resetCookieValidation: () => void;
   error: string;
   onCancel: () => void;
 }) {
   const t = useTranslations('connectDialog');
-  const { mode, method, form, setForm, submit, error, onCancel } = props;
+  const { mode, form, setForm, submit, error, onCancel } = props;
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   return (
     <div className="space-y-4 pt-1">
-      <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/20 p-1">
-        <button
-          type="button"
-          onClick={() => props.setMethod('password')}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            method === 'password' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('methodPassword')}
-        </button>
-        <button
-          type="button"
-          onClick={() => props.setMethod('cookies')}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            method === 'cookies' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('methodCookies')}
-        </button>
+      <div className="rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-xs text-primary">
+        {t('passwordLoginBody')}
       </div>
-
-      {method === 'cookies' ? (
-        <ManualCookieForm
-          mode={mode}
-          form={form}
-          update={update}
-          submit={submit}
-          validateManualCookies={props.validateManualCookies}
-          cookieValidation={props.cookieValidation}
-          resetCookieValidation={props.resetCookieValidation}
-          error={error}
-          onCancel={onCancel}
-        />
-      ) : (
-        <PasswordLoginForm
-          mode={mode}
-          form={form}
-          update={update}
-          submit={submit}
-          error={error}
-          onCancel={onCancel}
-        />
-      )}
+      <PasswordLoginForm
+        mode={mode}
+        form={form}
+        update={update}
+        submit={submit}
+        error={error}
+        onCancel={onCancel}
+      />
     </div>
   );
 }
@@ -586,123 +407,6 @@ function PasswordLoginForm(props: {
   );
 }
 
-function ManualCookieForm(props: {
-  mode: Mode;
-  form: FormState;
-  update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
-  submit: () => void;
-  validateManualCookies: () => Promise<string>;
-  cookieValidation: CookieValidationState;
-  resetCookieValidation: () => void;
-  error: string;
-  onCancel: () => void;
-}) {
-  const t = useTranslations('connectDialog');
-  const { mode, form, update, submit, cookieValidation, resetCookieValidation, error, onCancel } = props;
-  const updateCookie = <K extends 'authToken' | 'ct0' | 'twid'>(key: K, value: FormState[K]) => {
-    update(key, value);
-    resetCookieValidation();
-  };
-
-  return (
-    <>
-      <div className="rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-xs text-primary">
-        {t('manualBody')}
-      </div>
-
-      {mode === 'connect' && (
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            {t('usernameLabel')}
-          </Label>
-          <Input
-            placeholder={t('usernamePlaceholder')}
-            value={form.username}
-            onChange={(e) => update('username', e.target.value)}
-            autoComplete="username"
-          />
-        </div>
-      )}
-
-      <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          {t('authTokenLabel')}
-        </Label>
-        <Input
-          type="password"
-          value={form.authToken}
-          onChange={(e) => updateCookie('authToken', e.target.value)}
-          className="font-mono"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          {t('ct0Label')}
-        </Label>
-        <Input
-          type="password"
-          value={form.ct0}
-          onChange={(e) => updateCookie('ct0', e.target.value)}
-          className="font-mono"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          {t('twidLabel')} <span className="text-muted-foreground/60">{t('emailOptional')}</span>
-        </Label>
-        <Input
-          value={form.twid}
-          onChange={(e) => updateCookie('twid', e.target.value)}
-          className="font-mono"
-        />
-      </div>
-
-      {cookieValidation.kind !== 'idle' && (
-        <div
-          className={`rounded-md border px-3 py-2 text-xs ${
-            cookieValidation.kind === 'ok'
-              ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400'
-              : cookieValidation.kind === 'fail'
-                ? 'border-destructive/25 bg-destructive/10 text-destructive'
-                : 'border-border/60 bg-muted/30 text-muted-foreground'
-          }`}
-        >
-          {cookieValidation.kind === 'checking'
-            ? t('manualValidating')
-            : cookieValidation.kind === 'ok'
-              ? t('manualValidationOk', { screenName: cookieValidation.screenName })
-              : cookieValidation.message}
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="flex justify-end gap-2 pt-1">
-        <Button variant="outline" onClick={onCancel}>
-          {t('cancel')}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            void props.validateManualCookies();
-          }}
-          disabled={cookieValidation.kind === 'checking'}
-        >
-          {cookieValidation.kind === 'checking' ? t('manualValidating') : t('manualValidate')}
-        </Button>
-        <Button onClick={submit}>{t('manualSubmit')}</Button>
-      </div>
-    </>
-  );
-}
-
 function PollingPanel({ status }: { status: LoginJobResponse['status'] }) {
   const t = useTranslations('connectDialog');
   return (
@@ -715,20 +419,6 @@ function PollingPanel({ status }: { status: LoginJobResponse['status'] }) {
           {status === 'queued' ? t('queued') : t('running')}
         </p>
         <p className="text-xs text-muted-foreground">{t('durationHint')}</p>
-      </div>
-    </div>
-  );
-}
-
-function SavingCookiesPanel() {
-  const t = useTranslations('connectDialog');
-  return (
-    <div className="space-y-3 pt-2 text-center">
-      <div className="flex justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{t('savingCookies')}</p>
       </div>
     </div>
   );
@@ -794,14 +484,10 @@ function AlreadyConnectedPanel({
 
 function CooldownPanel({
   payload,
-  targetAccountId,
   onDone,
-  onSwitchToManual,
 }: {
   payload: LoginCooldownPayload;
-  targetAccountId: string | null;
   onDone: () => void;
-  onSwitchToManual: (accountId: string) => void;
 }) {
   const t = useTranslations('connectDialog');
   const retryAtMs = useMemo(() => new Date(payload.retryAt).getTime(), [payload.retryAt]);
@@ -845,16 +531,6 @@ function CooldownPanel({
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        {requiresManual && targetAccountId && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onSwitchToManual(targetAccountId)}
-            className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
-          >
-            {t('cooldownManualCta')}
-          </Button>
-        )}
         <Button variant="outline" size="sm" onClick={onDone} disabled={!expired}>
           {expired ? t('tryAgain') : countdown}
         </Button>
@@ -868,13 +544,11 @@ function FailurePanel({
   detail,
   locale,
   onRetry,
-  onSwitchToManual,
 }: {
   reason: NonNullable<LoginJobResponse['failureReason']>;
   detail: string | null;
   locale: string;
   onRetry: () => void;
-  onSwitchToManual: () => void;
 }) {
   const t = useTranslations('connectDialog');
   return (
@@ -891,9 +565,6 @@ function FailurePanel({
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onSwitchToManual}>
-          {t('manualFallbackCta')}
-        </Button>
         <Button variant="outline" size="sm" onClick={onRetry}>
           {t('tryAgain')}
         </Button>

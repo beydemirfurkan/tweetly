@@ -78,8 +78,36 @@ describe('AccountFacade.createConnectJob', () => {
         email: null,
         encryptedPassword: 'enc:secret',
         encryptedTotpSecret: null,
+        proxyCountry: null,
       }),
     );
+  });
+
+  it('normalizes an explicit proxy country on connect jobs', async () => {
+    const { facade, loginJobs } = makeFacade();
+
+    await facade.createConnectJob('user-1', {
+      username: 'alice',
+      password: 'secret',
+      proxyCountry: 'tr',
+    } as any);
+
+    expect(loginJobs.create).toHaveBeenCalledWith(expect.objectContaining({ proxyCountry: 'TR' }));
+  });
+
+  it('uses LOGIN_DEFAULT_PROXY_COUNTRY when connect omits proxyCountry', async () => {
+    const previous = process.env.LOGIN_DEFAULT_PROXY_COUNTRY;
+    process.env.LOGIN_DEFAULT_PROXY_COUNTRY = 'US';
+    try {
+      const { facade, loginJobs } = makeFacade();
+
+      await facade.createConnectJob('user-1', { username: 'alice', password: 'secret' } as any);
+
+      expect(loginJobs.create).toHaveBeenCalledWith(expect.objectContaining({ proxyCountry: 'US' }));
+    } finally {
+      if (previous === undefined) delete process.env.LOGIN_DEFAULT_PROXY_COUNTRY;
+      else process.env.LOGIN_DEFAULT_PROXY_COUNTRY = previous;
+    }
   });
 
   it('rejects malformed username', async () => {
@@ -103,6 +131,50 @@ describe('AccountFacade.createConnectJob', () => {
     await expect(
       facade.createConnectJob('user-1', { username: 'alice', password: 'p' } as any),
     ).rejects.toThrow(HttpException);
+  });
+});
+
+describe('AccountFacade.createReauthJob', () => {
+  it('reuses the stored account proxy country when body omits proxyCountry', async () => {
+    const { facade, loginJobs } = makeFacade({
+      accounts: {
+        findByIdForUser: jest.fn().mockResolvedValue({
+          id: 'alice',
+          totpSecretEncrypted: null,
+          proxyCountry: 'DE',
+        }),
+      },
+    });
+
+    await facade.createReauthJob('user-1', 'Alice', { password: 'secret' } as any);
+
+    expect(loginJobs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'reauth',
+        targetAccountId: 'alice',
+        username: 'alice',
+        proxyCountry: 'DE',
+      }),
+    );
+  });
+
+  it('lets reauth body override the stored proxy country', async () => {
+    const { facade, loginJobs } = makeFacade({
+      accounts: {
+        findByIdForUser: jest.fn().mockResolvedValue({
+          id: 'alice',
+          totpSecretEncrypted: null,
+          proxyCountry: 'DE',
+        }),
+      },
+    });
+
+    await facade.createReauthJob('user-1', 'alice', {
+      password: 'secret',
+      proxyCountry: 'us',
+    } as any);
+
+    expect(loginJobs.create).toHaveBeenCalledWith(expect.objectContaining({ proxyCountry: 'US' }));
   });
 });
 

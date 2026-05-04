@@ -9,6 +9,7 @@ import { AccountEntity } from '@persistence/entities/account.entity';
 import { AppDataSource } from '@persistence/data-source';
 import { LoginJobsRepository, type ClaimedJob } from '@/x-automation/login/login-jobs.repository';
 import { LoginWorker } from '@/x-automation/login/login-worker.service';
+import { normalizeProxyCountry } from '@/x-automation/login/login-validation';
 import { XLoginService } from '@/x-automation/login/x-login.service';
 
 dotenv.config();
@@ -22,6 +23,7 @@ async function main(): Promise<void> {
   const username = getRequiredEnv('X_LOGIN_USERNAME').replace(/^@+/, '');
   const password = getRequiredEnv('X_LOGIN_PASSWORD');
   const email = optionalEnv('X_LOGIN_EMAIL');
+  const proxyCountry = normalizeProxyCountry(optionalEnv('X_LOGIN_PROXY_COUNTRY'));
   const tweetlyUserEmail = process.env.TWEETLY_USER_EMAIL?.trim() || 'smoke@tweetly.local';
 
   await AppDataSource.initialize();
@@ -46,7 +48,7 @@ async function main(): Promise<void> {
       encryptedPassword: cipher.encrypt(password),
       encryptedTotpSecret: null,
       saveTotpSecret: false,
-      proxyCountry: null,
+      proxyCountry,
     });
     const claimedJob = await claimExactJob(dataSource, id);
     await worker.process(claimedJob);
@@ -57,6 +59,7 @@ async function main(): Promise<void> {
       jobId: id,
       status: status.status,
       targetAccountId: status.target_account_id,
+      proxyCountry,
       failureReason: status.failure_reason,
       failureDetail: status.failure_detail,
     }, null, 2));

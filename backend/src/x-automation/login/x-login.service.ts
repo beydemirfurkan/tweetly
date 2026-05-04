@@ -8,6 +8,7 @@ import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
 import type { XLoginCookies, XLoginInput, XLoginResult } from './login.types';
 import { optionalBrowserChannel } from '@/x-automation/browser/browser-channel';
 import { LOGIN_INIT_SCRIPT } from './login-stealth';
+import { humanDelay, humanWarmup, moveMouseRandomly, randomViewport } from './login-humanize';
 import { resolveProxy } from './proxy-resolver';
 import { generateTotp } from './totp';
 import {
@@ -16,10 +17,12 @@ import {
   classifyVisibleFailure,
   clickNamedButtonOrPressEnter,
   didLeaveUsernameStep,
+  enterTextLikeUser,
   extractCookies,
   isLoggedInAs,
   hasRetryableLoginPageError,
   isVisibleSoon,
+  clickVisibleNamedControl,
   matchesErrorText,
   waitForAdvance,
 } from './login-page.utils';
@@ -53,7 +56,7 @@ export class XLoginService {
   async run(input: XLoginInput): Promise<XLoginResult> {
     const t0 = Date.now();
     const username = stripAt(input.username);
-    const profileDir = resolveLoginProfileDir(input.targetAccountId, username);
+    const profileDir = resolveLoginProfileDir(input.targetAccountId, username, input.proxyCountry);
     clearStaleLocks(profileDir);
     this.log.log(
       `login start username=${username} profile=${path.basename(profileDir)} ` +
@@ -64,6 +67,7 @@ export class XLoginService {
     let context: BrowserContext | null = null;
     let page: Page | null = null;
     try {
+      const vp = randomViewport();
       context = await chromium.launchPersistentContext(profileDir, {
         headless: !HEADFUL,
         ...optionalBrowserChannel(),
@@ -72,11 +76,13 @@ export class XLoginService {
         ...(USER_AGENT ? { userAgent: USER_AGENT } : {}),
         locale: 'tr-TR',
         timezoneId: 'Europe/Istanbul',
-        viewport: { width: 1280, height: 800 },
+        viewport: vp,
         args: [
           '--disable-blink-features=AutomationControlled',
+          '--disable-features=AutomationControlled',
           '--no-sandbox',
           '--disable-dev-shm-usage',
+          `--window-size=${vp.width + 16},${vp.height + 88}`,
         ],
       });
       context.setDefaultTimeout(STEP_TIMEOUT_MS);
@@ -84,7 +90,16 @@ export class XLoginService {
       await context.addInitScript(LOGIN_INIT_SCRIPT);
 
       page = context.pages()[0] ?? (await context.newPage());
-      await this.runFlow(page, { ...input, username });
+      const onboardingErrors = collectOnboardingErrors(page);
+
+      const preLogin = await this.tryPreLoginSession(context, page, username);
+      if (preLogin) {
+        const durationMs = Date.now() - t0;
+        this.log.log(`login skipped (session valid) username=${username} screenName=${preLogin.screenName} duration=${durationMs}ms`);
+        return { ok: true, screenName: preLogin.screenName, userId: parseUserIdFromTwid(preLogin.cookies.twid) ?? null, cookies: preLogin.cookies, durationMs };
+      }
+
+      await this.runFlow(page, { ...input, username }, onboardingErrors);
       const cookies = await extractCookies(context);
       const screenName = await this.verifyAuthenticatedSession(context, page, username, cookies);
       const userId = parseUserIdFromTwid(cookies.twid) ?? null;
@@ -109,7 +124,11 @@ export class XLoginService {
     }
   }
 
-  private async runFlow(page: Page, input: XLoginInput & { username: string }): Promise<void> {
+  private async runFlow(
+    page: Page,
+    input: XLoginInput & { username: string },
+    onboardingErrors: string[],
+  ): Promise<void> {
     // Warm-up: visit x.com root before the login flow so X sees the same
     // pattern a real user does (homepage → click "Sign in"). Skipped if the
     // persistent profile already has cookies for the target account
@@ -117,20 +136,21 @@ export class XLoginService {
     await this.step('navigate', async () => {
       try {
         await page.goto('https://x.com/', { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
-        await page.waitForTimeout(1_500);
+        await humanWarmup(page);
       } catch {
         // Best-effort warm-up; proceed to login URL even if root failed.
       }
       await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+      await humanDelay(500, 1200);
+      await moveMouseRandomly(page);
     }, page);
 
     await this.step('username', async () => {
       const field = await this.waitForUsernameInput(page);
       // X's React form ignores DOM-set values (fill() bypass): we must dispatch
       // real keyboard events. Click for focus, type per-char, then submit.
-      await field.click();
-      await page.keyboard.type(input.username, { delay: 30 });
-      await this.submitUsernameStep(page, field);
+      await enterTextLikeUser(page, field, input.username);
+      await this.submitUsernameStep(page, field, onboardingErrors);
     }, page);
 
     // X may now show:
@@ -143,8 +163,7 @@ export class XLoginService {
       await this.step('challenge', async () => {
         const challengeValue = (input.email ?? input.username).trim();
         const field = page.locator(SEL.challengeInput).first();
-        await field.click();
-        await page.keyboard.type(challengeValue, { delay: 30 });
+        await enterTextLikeUser(page, field, challengeValue);
         await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
         await waitForAdvance(page, SEL.challengeInput, 6000);
       });
@@ -165,8 +184,7 @@ export class XLoginService {
         const ctx = await captureDebug(page);
         throw new LoginFlowError('home_not_reached', `password field never appeared. ${ctx}`);
       }
-      await field.click();
-      await page.keyboard.type(input.password, { delay: 30 });
+      await enterTextLikeUser(page, field, input.password);
       const submitBtn = page.locator(SEL.loginSubmit).first();
       if (await submitBtn.isVisible().catch(() => false)) {
         await submitBtn.click();
@@ -182,19 +200,21 @@ export class XLoginService {
       await this.step('2fa', async () => {
         const code = generateTotp(input.totpSecret!);
         const field = page.locator(SEL.totpInput).first();
-        await field.click();
-        await page.keyboard.type(code, { delay: 30 });
+        await enterTextLikeUser(page, field, code);
         await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
       });
     }
 
+    await this.verifyHome(page);
+  }
+
+  private async verifyHome(page: Page): Promise<void> {
     await this.step('verify-home', async () => {
       try {
         await page.waitForURL((url) => url.toString().startsWith(HOME_URL_PREFIX), {
           timeout: STEP_TIMEOUT_MS,
         });
       } catch {
-        // Map to the most-likely cause based on what's on screen.
         if (await matchesErrorText(page, ERROR_TEXT.invalidCredentials)) {
           throw new LoginFlowError('invalid_credentials', 'password rejected');
         }
@@ -208,9 +228,6 @@ export class XLoginService {
           throw new LoginFlowError('suspicious_login_blocked', 'X blocked this login as suspicious');
         }
         await checkForCaptcha(page);
-        // URL-based classification — X parks blocked sessions at distinctive
-        // paths well before the on-page text loads. Catches cases where the
-        // page is visually empty but the URL alone tells the story.
         const urlReason = classifyByUrl(page.url());
         if (urlReason) throw new LoginFlowError(urlReason.reason, urlReason.detail);
         throw new LoginFlowError('home_not_reached', `did not reach /home (current=${page.url()})`);
@@ -220,20 +237,48 @@ export class XLoginService {
 
   private async waitForUsernameInput(page: Page): Promise<import('patchright').Locator> {
     const field = page.locator(SEL.usernameInput).first();
-    try {
-      await field.waitFor({ state: 'visible' });
-      return field;
-    } catch (err) {
-      if (!(await hasRetryableLoginPageError(page))) throw err;
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await field.waitFor({ state: 'visible' });
+        return field;
+      } catch (err) {
+        const retryableLoginPage = await hasRetryableLoginPageError(page);
+        if (!retryableLoginPage && await clickVisibleNamedControl(page, SEL.loginButtonTexts)) {
+          this.log.warn(
+            `X login rendered landing page before username input; clicking login entry point ` +
+              `attempt=${attempt}/${maxAttempts}.`,
+          );
+          await page.waitForTimeout(2_000);
+          continue;
+        }
+        if (!retryableLoginPage) throw err;
+      }
+
+      this.log.warn(
+        `X login rendered retryable error page before username input; ` +
+          `clicking retry button and reloading login flow attempt=${attempt}/${maxAttempts}.`,
+      );
+      await clickNamedButtonOrPressEnter(page, SEL.retryButtonTexts);
+      await page.waitForTimeout(2_000);
+      if (await field.isVisible().catch(() => false)) return field;
+      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+      await page.waitForTimeout(1_000);
     }
 
-    this.log.warn('X login rendered retryable error page before username input; reloading login flow once.');
-    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
-    await field.waitFor({ state: 'visible' });
-    return field;
+    const ctx = await captureDebug(page);
+    throw new LoginFlowError(
+      'home_not_reached',
+      `retryable login page before username input after ${maxAttempts} attempts. ${ctx}`,
+    );
   }
 
-  private async submitUsernameStep(page: Page, field: import('patchright').Locator): Promise<void> {
+  private async submitUsernameStep(
+    page: Page,
+    field: import('patchright').Locator,
+    onboardingErrors: string[],
+  ): Promise<void> {
     await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
     if (await didLeaveUsernameStep(page, 4000)) return;
 
@@ -241,6 +286,15 @@ export class XLoginService {
     if (await didLeaveUsernameStep(page, 4000)) return;
 
     await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
+    if (await didLeaveUsernameStep(page, 4000)) return;
+
+    await checkForCaptcha(page);
+    const apiFailure = classifyOnboardingError(onboardingErrors[onboardingErrors.length - 1]);
+    if (apiFailure) throw new LoginFlowError(apiFailure.reason, apiFailure.detail);
+    const visibleFailure = await classifyVisibleFailure(page);
+    if (visibleFailure) throw visibleFailure;
+    const ctx = await captureDebug(page);
+    throw new LoginFlowError('home_not_reached', `username step did not advance. ${ctx}`);
   }
 
   private async step<T>(name: string, fn: () => Promise<T>, page?: Page): Promise<T> {
@@ -308,7 +362,6 @@ export class XLoginService {
   ): Promise<string> {
     if (await isLoggedInAs(page, typedUsername)) return typedUsername;
 
-    // Fetch from inside the browser context so cookies + UA match the session.
     const urls = [
       'https://api.x.com/1.1/account/settings.json',
       'https://x.com/i/api/1.1/account/settings.json',
@@ -344,6 +397,23 @@ export class XLoginService {
 
     throw new LoginFlowError('home_not_reached', `authenticated settings check failed (last_status=${lastStatus ?? '?'})`);
   }
+
+  private async tryPreLoginSession(
+    context: BrowserContext,
+    page: Page,
+    username: string,
+  ): Promise<{ screenName: string; cookies: XLoginCookies } | null> {
+    try {
+      await page.goto(HOME_URL_PREFIX, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+      await humanDelay(1000, 2000);
+      if (!page.url().startsWith(HOME_URL_PREFIX)) return null;
+      if (!(await isLoggedInAs(page, username))) return null;
+      const cookies = await extractCookies(context);
+      return { screenName: username, cookies };
+    } catch {
+      return null;
+    }
+  }
 }
 
 function stripAt(s: string): string {
@@ -360,6 +430,36 @@ function parseUserIdFromTwid(twid: string | null): string | null {
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
+
+function collectOnboardingErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('response', (response) => {
+    const url = response.url();
+    if (!url.includes('/1.1/onboarding/task.json') || response.status() < 400) return;
+
+    void response.text()
+      .then((body) => errors.push(truncate(body, 500)))
+      .catch((err: unknown) => {
+        const detail = err instanceof Error ? err.message : String(err);
+        errors.push(truncate(detail, 200));
+      });
+  });
+  return errors;
+}
+
+export function classifyOnboardingError(
+  raw: string | undefined,
+): { reason: import('./login.types').LoginJobFailureReason; detail: string } | null {
+  if (!raw) return null;
+  const normalized = raw.toLowerCase();
+  if (normalized.includes('could not log you in now') || normalized.includes('try again later')) {
+    return { reason: 'login_cooldown', detail: 'X onboarding rejected login temporarily; try again later' };
+  }
+  if (normalized.includes('could not authenticate') || normalized.includes('did not match our records')) {
+    return { reason: 'invalid_credentials', detail: 'X onboarding rejected credentials' };
+  }
+  return null;
 }
 
 /**
@@ -397,8 +497,13 @@ function classifyByUrl(rawUrl: string): { reason: import('./login.types').LoginJ
  * account's dir (same path XBrowserService.resolveProfileDir uses) so the
  * fingerprint stays consistent. Connect uses a username-keyed staging dir.
  */
-function resolveLoginProfileDir(targetAccountId: string | null | undefined, username: string): string {
-  const safe = (targetAccountId ?? `login-${username.toLowerCase()}`).replace(
+export function resolveLoginProfileDir(
+  targetAccountId: string | null | undefined,
+  username: string,
+  proxyCountry?: string | null,
+): string {
+  const proxySuffix = targetAccountId || !proxyCountry ? '' : `-${proxyCountry.toLowerCase()}`;
+  const safe = (targetAccountId ?? `login-${username.toLowerCase()}${proxySuffix}`).replace(
     /[^A-Za-z0-9._-]/g,
     '_',
   );

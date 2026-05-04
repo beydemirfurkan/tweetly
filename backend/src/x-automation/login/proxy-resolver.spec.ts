@@ -1,4 +1,4 @@
-import { resolveProxy } from './proxy-resolver';
+import { hasLoginProxy, resolveProxy } from './proxy-resolver';
 
 describe('resolveProxy', () => {
   const ORIGINAL = process.env;
@@ -49,5 +49,12 @@ describe('resolveProxy', () => {
   it('returns null on garbage env value', () => {
     process.env = { ...ORIGINAL, LOGIN_PROXY_DE: 'not-a-url' };
     expect(resolveProxy('DE')).toBeNull();
+  });
+
+  it('reports whether a country proxy env is configured', () => {
+    process.env = { ...ORIGINAL, LOGIN_PROXY_US: 'http://us.proxy.example:9000' };
+    expect(hasLoginProxy('us')).toBe(true);
+    expect(hasLoginProxy('TR')).toBe(false);
+    expect(hasLoginProxy('TUR')).toBe(false);
   });
 });
