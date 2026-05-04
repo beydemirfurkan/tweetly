@@ -117,15 +117,8 @@ function parseSuggestions(raw: string, format: TweetFormat): ContentSuggestion[]
       reasoning: item.reasoning ?? '',
     }));
   } catch {
-    return [
-      {
-        id: randomUUID(),
-        text: raw.slice(0, TWEET_FORMATS[format].maxLength),
-        format,
-        charCount: raw.length,
-        estimatedScore: 5,
-        reasoning: 'Parsed from raw response',
-      },
-    ];
+    throw new Error(
+      `AI returned invalid JSON for content suggestions. Raw length: ${raw.length}. Please try again.`,
+    );
   }
 }

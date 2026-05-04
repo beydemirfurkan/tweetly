@@ -20,3 +20,4 @@ export { QuoteActionEntity } from './quote-action.entity';
 export { BookmarkActionEntity } from './bookmark-action.entity';
 export { MonitorEntity } from './monitor.entity';
 export { WebhookDeliveryEntity } from './webhook-delivery.entity';
+export { CopilotAnalysisEntity } from './copilot-analysis.entity';

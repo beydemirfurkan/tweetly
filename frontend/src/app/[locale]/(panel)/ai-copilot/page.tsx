@@ -16,6 +16,7 @@ import {
   TrendingUp,
   MessageSquare,
   Target,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -150,6 +151,7 @@ export default function AiCopilotPage() {
             setError={setError}
             profile={profile}
             accounts={accounts}
+            tc={tc}
           />
         )}
         {activeTab === 'score' && (
@@ -306,6 +308,7 @@ function ProfileTab({
 
 function ContentTab({
   t,
+  tc,
   apiFetch,
   suggestions,
   setSuggestions,
@@ -314,6 +317,7 @@ function ContentTab({
   accounts,
 }: {
   t: ReturnType<typeof useTranslations>;
+  tc: ReturnType<typeof useTranslations>;
   apiFetch: <T>(path: string, options?: RequestInit) => Promise<T>;
   suggestions: ContentSuggestion[];
   setSuggestions: (v: ContentSuggestion[]) => void;
@@ -326,6 +330,9 @@ function ContentTab({
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduleOpenFor, setScheduleOpenFor] = useState<string | null>(null);
 
   const generate = async () => {
     setLoading(true);
@@ -351,18 +358,20 @@ function ContentTab({
     }
   };
 
-  const publish = async (suggestion: ContentSuggestion) => {
+  const publish = async (suggestion: ContentSuggestion, scheduledAt?: string) => {
     const accountId = selectedAccountId || accounts[0]?.id;
     if (!accountId) return;
     setPublishing(suggestion.id);
     setError('');
     try {
+      const body: Record<string, unknown> = {
+        accountId,
+        text: suggestion.text,
+      };
+      if (scheduledAt) body.scheduledAt = scheduledAt;
       await apiFetch('/copilot/publish', {
         method: 'POST',
-        body: JSON.stringify({
-          accountId,
-          text: suggestion.text,
-        }),
+        body: JSON.stringify(body),
         headers: { 'Content-Type': 'application/json' },
       });
       const updated = suggestions.filter((s) => s.id !== suggestion.id);
@@ -471,19 +480,62 @@ function ContentTab({
                     ))}
                   </select>
                 )}
-                {accounts.length > 0 && (
-                  <button
-                    onClick={() => publish(s)}
-                    disabled={publishing === s.id}
-                    className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-[12px] font-medium transition-colors hover:bg-accent disabled:opacity-50"
-                  >
-                    {publishing === s.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Send className="h-3.5 w-3.5" />
-                    )}
-                    {t('contentGen.publish')}
-                  </button>
+                {scheduleOpenFor === s.id && (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      className="h-7 rounded-md border border-border bg-background px-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <input
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="h-7 rounded-md border border-border bg-background px-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <button
+                      onClick={() => {
+                        if (scheduledDate && scheduledTime) {
+                          publish(s, new Date(`${scheduledDate}T${scheduledTime}`).toISOString());
+                          setScheduleOpenFor(null);
+                        }
+                      }}
+                      disabled={!scheduledDate || !scheduledTime || publishing === s.id}
+                      className="flex h-7 items-center rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground disabled:opacity-50"
+                    >
+                      {t('publish.confirm')}
+                    </button>
+                    <button
+                      onClick={() => setScheduleOpenFor(null)}
+                      className="flex h-7 items-center rounded-md border border-border px-2 text-[11px]"
+                    >
+                      {tc('cancel')}
+                    </button>
+                  </div>
+                )}
+                {accounts.length > 0 && scheduleOpenFor !== s.id && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => publish(s)}
+                      disabled={publishing === s.id}
+                      className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-[12px] font-medium transition-colors hover:bg-accent disabled:opacity-50"
+                    >
+                      {publishing === s.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" />
+                      )}
+                      {t('contentGen.publish')}
+                    </button>
+                    <button
+                      onClick={() => setScheduleOpenFor(s.id)}
+                      className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-[12px] font-medium transition-colors hover:bg-accent"
+                      title={t('contentGen.schedule')}
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

@@ -55,19 +55,11 @@ Respond with JSON:
     try {
       const cleaned = result.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleaned) as ViralScoreResult;
-    } catch {
-      this.logger.warn('Failed to parse viral score JSON');
-      return {
-        score: 5,
-        maxScore: 10,
-        strengths: [],
-        weaknesses: ['Could not analyze'],
-        suggestions: [],
-        estimatedReach: 'Unknown',
-        formatFit: 5,
-        hookStrength: 5,
-        readabilityScore: 5,
-      };
+    } catch (parseErr) {
+      this.logger.warn(`Failed to parse viral score JSON: ${(parseErr as Error).message}`);
+      throw new Error(
+        `AI returned invalid JSON for viral score. Raw response length: ${result.content.length}. Please try again.`,
+      );
     }
   }
 }

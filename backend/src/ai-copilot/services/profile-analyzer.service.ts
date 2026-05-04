@@ -96,19 +96,11 @@ Rules:
     try {
       const cleaned = result.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleaned) as StyleProfile;
-    } catch {
-      this.logger.warn('Failed to parse style profile JSON, using defaults');
-      return {
-        tone: ['neutral'],
-        avgLength: 140,
-        hashtagUsage: 0.2,
-        emojiUsage: 0.1,
-        topTopics: [],
-        contentStyle: 'conversational',
-        postingPattern: 'unknown',
-        engagementStyle: 'unknown',
-        summary: 'Style profile extraction failed.',
-      };
+    } catch (parseErr) {
+      this.logger.warn(`Failed to parse style profile JSON for @${handle}: ${(parseErr as Error).message}`);
+      throw new Error(
+        `AI returned invalid JSON for style profile. Raw response length: ${result.content.length}. Please try again.`,
+      );
     }
   }
 }

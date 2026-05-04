@@ -73,3 +73,7 @@ export const RateLimitMagicLink = () =>
 /** OAuth Dynamic Client Registration: 10 / hour per IP (anti-spam) */
 export const RateLimitOAuthRegister = () =>
   applyDecorators(Throttle({ default: { ttl: 3_600_000, limit: 10 } }));
+
+/** AI Copilot: 10 requests / 60s (cost control for OpenRouter calls) */
+export const RateLimitCopilot = () =>
+  applyDecorators(Throttle({ default: { ttl: 60_000, limit: 10 } }));
