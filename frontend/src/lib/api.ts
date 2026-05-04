@@ -31,7 +31,7 @@ function loginUrl(): string {
   return `/login?next=${encodeURIComponent(next)}`;
 }
 
-const TOKEN_KEY = 'tweetly_session_key';
+const TOKEN_KEY = 'xtweetly_session_key';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;

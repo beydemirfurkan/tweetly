@@ -8,6 +8,7 @@ import { apiReference } from '@scalar/nestjs-api-reference';
 import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { loadMasterKeyFromEnv } from './common/crypto/credential-cipher.service';
+import { version as appVersion } from '../package.json';
 import { GlobalExceptionFilter } from './common/exceptions';
 import { RequestContext } from './common/context';
 
@@ -84,7 +85,7 @@ async function bootstrap(): Promise<void> {
         '(post, reply, like, retweet, quote, follow, bookmark, search, monitor) from your own ' +
         'AI agents over MCP or REST.',
     )
-    .setVersion('1.0.0')
+    .setVersion(appVersion)
     .addBearerAuth(
       {
         type: 'http',
