@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiKeyGuard } from '@/auth/api-key.guard';
 import { AdminUserGuard } from '../guards/admin-user.guard';
@@ -29,20 +30,25 @@ export class AiCopilotController {
 
   @Post('analyze-profile')
   async analyzeProfile(@Body() dto: AnalyzeProfileDto): Promise<ProfileAnalysisResult> {
-    return this.profileAnalyzer.analyzeProfile(dto.handle, dto.accountId);
+    const handle = dto.handle?.replace('@', '').trim();
+    if (!handle) throw new BadRequestException('handle is required');
+    return this.profileAnalyzer.analyzeProfile(handle, dto.accountId);
   }
 
   @Post('suggest')
   async suggest(@Body() dto: ContentSuggestDto): Promise<ContentSuggestResult> {
+    if (!dto.format) throw new BadRequestException('format is required');
     return this.contentSuggester.suggest({
       format: dto.format,
       topic: dto.topic,
       sourceHandles: dto.sourceHandles,
+      styleProfile: dto.styleProfile,
     });
   }
 
   @Post('score')
   async score(@Body() dto: ViralScoreDto): Promise<ViralScoreResult> {
+    if (!dto.text?.trim()) throw new BadRequestException('text is required');
     return this.viralScorer.score({
       text: dto.text,
       format: dto.format,
@@ -52,6 +58,8 @@ export class AiCopilotController {
 
   @Post('publish')
   async publish(@Body() dto: PublishTweetDto) {
+    if (!dto.accountId) throw new BadRequestException('accountId is required');
+    if (!dto.text?.trim()) throw new BadRequestException('text is required');
     const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : new Date();
     const result = await this.enqueue.enqueuePost({
       accountId: dto.accountId,

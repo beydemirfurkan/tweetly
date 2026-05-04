@@ -138,6 +138,7 @@ export default function AiCopilotPage() {
             profile={profile}
             setProfile={setProfile}
             setError={setError}
+            accounts={accounts}
           />
         )}
         {activeTab === 'content' && (
@@ -207,12 +208,14 @@ function ProfileTab({
   profile,
   setProfile,
   setError,
+  accounts,
 }: {
   t: ReturnType<typeof useTranslations>;
   apiFetch: <T>(path: string, options?: RequestInit) => Promise<T>;
   profile: ProfileAnalysis | null;
   setProfile: (v: ProfileAnalysis | null) => void;
   setError: (v: string) => void;
+  accounts: RedactedAccount[];
 }) {
   const [handle, setHandle] = useState('');
   const [loading, setLoading] = useState(false);
@@ -223,9 +226,11 @@ function ProfileTab({
     setLoading(true);
     setError('');
     try {
+      const body: Record<string, unknown> = { handle: clean };
+      if (accounts.length > 0) body.accountId = accounts[0].id;
       const result = await apiFetch<ProfileAnalysis>('/copilot/analyze-profile', {
         method: 'POST',
-        body: JSON.stringify({ handle: clean }),
+        body: JSON.stringify(body),
         headers: { 'Content-Type': 'application/json' },
       });
       setProfile(result);
@@ -251,6 +256,11 @@ function ProfileTab({
               className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[14px] placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
               onKeyDown={(e) => e.key === 'Enter' && analyze()}
             />
+            {accounts.length > 0 && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                {accounts[0].displayName ?? accounts[0].id.slice(0, 8)} session ile analiz edilecek
+              </p>
+            )}
           </div>
           <button
             onClick={analyze}
@@ -315,6 +325,7 @@ function ContentTab({
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   const generate = async () => {
     setLoading(true);
@@ -322,7 +333,10 @@ function ContentTab({
     try {
       const body: Record<string, unknown> = { format };
       if (topic.trim()) body.topic = topic.trim();
-      if (profile) body.sourceHandles = [profile.handle];
+      if (profile) {
+        body.sourceHandles = [profile.handle];
+        body.styleProfile = profile.styleProfile;
+      }
 
       const result = await apiFetch<{ suggestions: ContentSuggestion[]; format: string; generatedAt: string }>('/copilot/suggest', {
         method: 'POST',
@@ -338,14 +352,15 @@ function ContentTab({
   };
 
   const publish = async (suggestion: ContentSuggestion) => {
-    if (accounts.length === 0) return;
+    const accountId = selectedAccountId || accounts[0]?.id;
+    if (!accountId) return;
     setPublishing(suggestion.id);
     setError('');
     try {
       await apiFetch('/copilot/publish', {
         method: 'POST',
         body: JSON.stringify({
-          accountId: accounts[0].id,
+          accountId,
           text: suggestion.text,
         }),
         headers: { 'Content-Type': 'application/json' },
@@ -442,7 +457,20 @@ function ContentTab({
                   <p className="mt-2 text-[12px] text-muted-foreground">{s.reasoning}</p>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-col items-end gap-2">
+                {accounts.length > 1 && (
+                  <select
+                    value={selectedAccountId}
+                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                    className="h-7 rounded-md border border-border bg-background px-2 text-[11px] text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.displayName ?? a.id.slice(0, 8)}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {accounts.length > 0 && (
                   <button
                     onClick={() => publish(s)}

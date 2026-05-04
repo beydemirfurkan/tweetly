@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import type { ContentStyle } from '../types/style-profile.types';
 
 export class AnalyzeProfileDto {
   @ApiProperty({ example: 'elonmusk' })
@@ -17,6 +18,19 @@ export class ContentSuggestDto {
 
   @ApiProperty({ required: false, type: [String] })
   sourceHandles?: string[];
+
+  @ApiProperty({ required: false })
+  styleProfile?: {
+    tone: string[];
+    avgLength: number;
+    hashtagUsage: number;
+    emojiUsage: number;
+    topTopics: string[];
+    contentStyle: ContentStyle;
+    postingPattern: string;
+    engagementStyle: string;
+    summary: string;
+  };
 }
 
 export class ViralScoreDto {
