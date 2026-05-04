@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useApiFetch, type Monitor, type MonitorsResponse, type MonitorDetailResponse } from '@/lib/api';
+import { useLazyLoad } from '@/lib/use-lazy-load';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,16 +58,18 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
   const apiFetch = useApiFetch();
   const [detail, setDetail] = useState<MonitorDetailResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
   const handleExpand = async () => {
     onExpand(monitor.id);
     if (!detail) {
       setLoadingDetail(true);
+      setDetailError('');
       try {
         const res = await apiFetch<MonitorDetailResponse>(`/api/v1/monitors/${monitor.id}`);
         setDetail(res);
       } catch {
-        // ignore
+        setDetailError(t('detailError'));
       } finally {
         setLoadingDetail(false);
       }
@@ -145,6 +148,8 @@ function MonitorRow({ monitor, onDelete, onPause, onRotate, onExpand, expanded }
           <td colSpan={6} className="px-4 py-3">
             {loadingDetail ? (
               <div className="skeleton h-16 rounded" />
+            ) : detailError ? (
+              <p className="text-xs text-destructive">{detailError}</p>
             ) : detail && detail.recentDeliveries.length > 0 ? (
               <div className="space-y-1">
                 <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -207,12 +212,7 @@ export default function MonitoringPage() {
     }
   }, [apiFetch]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void load();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
+  useLazyLoad(load);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

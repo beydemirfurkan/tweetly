@@ -1,16 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { ActionType } from '@domain/types/action.types';
+import type { ActionType, PostPayload } from '@domain/types/action.types';
 import type { ActionContext, ExecutionResult, XSession } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
 import { XPostFlowService } from '@/x-automation/browser/x-post-flow.service';
 import { BasePatchrightExecutor, classifyExecutionError } from './base.executor';
-
-interface PostPayload {
-  text: string;
-  mediaPath?: string | null;
-  mediaPaths?: string[] | null;
-  altTexts?: string[] | null;
-}
 
 @Injectable()
 export class PatchrightPostExecutor extends BasePatchrightExecutor<PostPayload> {

@@ -132,11 +132,27 @@
     "cooldownTitle": "Login temporarily blocked",
     "cooldownBody": "Wait {countdown} before trying again.",
     "cooldownManualTitle": "Too many recent failures — manual review needed",
-    "cooldownManualBody": "{count} failed attempts in a row. Wait at least {countdown}; if it keeps failing, ask support for manual review."
+    "cooldownManualBody": "{count} failed attempts in a row. Wait at least {countdown}; if it keeps failing, ask support for manual review.",
+    "failureReasons": {
+      "invalid_credentials": "Wrong username or password. Confirm you can sign in to x.com manually, then try again.",
+      "captcha_required": "X showed a captcha challenge. Verify the account on x.com or wait a bit, then try again.",
+      "email_challenge": "X asked for an \"unusual login\" verification step. Add the account email and try again; if 2FA is enabled, provide the base32 secret too.",
+      "email_verification_required": "X asked for an email or verification code. Complete that verification on x.com, then try again.",
+      "suspicious_login_blocked": "X flagged this login as suspicious. Sign in manually from the same IP/region, confirm the account, then try again.",
+      "login_cooldown": "X detected too many login attempts. Wait 30–60 minutes and try again.",
+      "cookies_missing": "Login completed but the X session cookies couldn't be captured. Wait a moment and retry; if it keeps happening, ask support for manual review.",
+      "home_not_reached": "We submitted the password but X didn't take us to the home page. It likely asked for extra verification or applied a soft block.",
+      "account_locked": "X has locked this account. Sign in to x.com directly, complete the on-screen steps (phone verify, email confirm, etc.), then try again.",
+      "phone_verification_required": "X requires phone verification. Complete it on x.com, then try connecting again.",
+      "unknown": "Unexpected error. Wait a moment and retry; if it persists, ask support for manual review."
+    }
   },
   "panel": {
     "loading": "Loading",
-    "redirecting": "Redirecting"
+    "redirecting": "Redirecting",
+    "errorTitle": "Something went wrong",
+    "errorDefaultMessage": "An unexpected error occurred. Please try again.",
+    "errorBack": "Back"
   },
   "common": {
     "refresh": "Refresh",
@@ -305,9 +321,11 @@
     "rotateAction": "Rotate",
     "secretTitle": "Webhook secret — shown only once",
     "secretDesc": "Secret for <handle>@{handleName}</handle>. Store this value to verify the <code>X-Tweetly-Signature</code> header on your webhook receiver.",
-    "secretAck": "Got it"
+    "secretAck": "Got it",
+    "detailError": "Failed to load monitor details."
   },
   "guide": {
+    "eyebrow": "Onboarding",
     "title": "Quick Start",
     "subtitle": "Connect xtweetly to Claude Code in 5 minutes.",
     "step1Title": "1. Connect Your X Account",
@@ -328,7 +346,8 @@
     "troubleTitle": "Troubleshooting",
     "trouble1": "Invalid API key: make sure it starts with tk_.",
     "trouble2": "MCP not connecting: verify the URL — copy it fresh from the Dashboard.",
-    "trouble3": "Action failed: check error details on the /actions page."
+    "trouble3": "Action failed: check error details on the /actions page.",
+    "allClientsSetup": "Setup for all clients (Claude Desktop, ChatGPT, Cursor, …)"
   },
   "docs": {
     "back": "Back home",

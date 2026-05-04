@@ -25,7 +25,7 @@ export class WebhookDeliveryService {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'User-Agent': 'tweetly-mcp-webhook/1.0',
+      'User-Agent': 'xtweetly-mcp-webhook/1.0',
       'X-Tweetly-Event': String(payload.event ?? 'unknown'),
     };
 

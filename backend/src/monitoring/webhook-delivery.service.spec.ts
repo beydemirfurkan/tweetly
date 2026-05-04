@@ -55,7 +55,7 @@ describe('WebhookDeliveryService', () => {
     await createService().deliver(TEST_URL, TEST_PAYLOAD, null);
     const [, options] = (global.fetch as jest.Mock).mock.calls[0];
     expect(options.headers['X-Tweetly-Event']).toBe('tweet.new');
-    expect(options.headers['User-Agent']).toBe('tweetly-mcp-webhook/1.0');
+    expect(options.headers['User-Agent']).toBe('xtweetly-mcp-webhook/1.0');
   });
 
   it('omits the signature header when secret is null', async () => {

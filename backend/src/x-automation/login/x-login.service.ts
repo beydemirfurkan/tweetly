@@ -7,6 +7,7 @@ import { redactLoginDebugText, writeLoginDebugArtifact } from './login-debug-art
 import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
 import type { XLoginCookies, XLoginInput, XLoginResult } from './login.types';
 import { optionalBrowserChannel } from '@/x-automation/browser/browser-channel';
+import { clearStaleLocks } from '@/x-automation/browser/clear-stale-locks';
 import { LOGIN_INIT_SCRIPT } from './login-stealth';
 import { humanDelay, humanWarmup, moveMouseRandomly, randomViewport } from './login-humanize';
 import { resolveProxy } from './proxy-resolver';
@@ -508,17 +509,4 @@ export function resolveLoginProfileDir(
     '_',
   );
   return path.join(DATA_ROOT, 'user-data', safe);
-}
-
-/**
- * Persistent contexts leave SingletonLock files behind when crashed; clear
- * them before the next launch or chromium will refuse to bind.
- */
-function clearStaleLocks(profileDir: string): void {
-  fs.mkdirSync(profileDir, { recursive: true });
-  for (const name of ['SingletonCookie', 'SingletonLock', 'SingletonSocket']) {
-    try {
-      fs.rmSync(path.join(profileDir, name), { force: true, recursive: true });
-    } catch {}
-  }
 }

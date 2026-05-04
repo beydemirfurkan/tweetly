@@ -4,6 +4,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { chromium, type BrowserContext, type Page } from 'patchright';
 import { AccountsService } from '@/accounts/accounts.service';
 import { AuthRequiredError } from './auth-required-error';
+import { clearStaleLocks } from './clear-stale-locks';
 import { optionalBrowserChannel } from './browser-channel';
 import { SelectorRegistry } from './selector-registry';
 import { extractTweetCards, type BrowserTweetResult } from './profile-tweet-extractor';
@@ -114,15 +115,6 @@ export class XBrowserService implements OnModuleDestroy {
     });
   }
 
-  private clearStaleLocks(profileDir: string): void {
-    fs.mkdirSync(profileDir, { recursive: true });
-    for (const name of ['SingletonCookie', 'SingletonLock', 'SingletonSocket']) {
-      try {
-        fs.rmSync(path.join(profileDir, name), { force: true, recursive: true });
-      } catch {}
-    }
-  }
-
   private resolveProfileDir(accountId?: string): string {
     if (accountId) {
       return path.join(this.cfg.rootDir, 'user-data', accountId);
@@ -132,7 +124,7 @@ export class XBrowserService implements OnModuleDestroy {
 
   async launch(accountId?: string): Promise<LaunchResult> {
     const profileDir = this.resolveProfileDir(accountId);
-    this.clearStaleLocks(profileDir);
+    clearStaleLocks(profileDir);
 
     const context = await chromium.launchPersistentContext(profileDir, {
       headless: this.cfg.headless,

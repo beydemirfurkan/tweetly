@@ -60,3 +60,10 @@ export const ERROR_CLASSES: readonly ErrorClass[] = [
   'transient',
   'permanent',
 ] as const;
+
+export interface PostPayload {
+  text: string;
+  mediaPath?: string | null;
+  mediaPaths?: string[] | null;
+  altTexts?: string[] | null;
+}

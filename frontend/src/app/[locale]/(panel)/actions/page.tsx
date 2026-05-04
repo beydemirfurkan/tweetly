@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useApiFetch, type ActionRow } from '@/lib/api';
+import { useLazyLoad } from '@/lib/use-lazy-load';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -93,12 +94,7 @@ export default function ActionsPage() {
     }
   }, [type, status, apiFetch]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void load();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
+  useLazyLoad(load);
 
   const replay = async (id: string) => {
     await apiFetch(`/api/v1/actions/${type}/${id}/replay`, { method: 'POST' });

@@ -132,11 +132,27 @@
     "cooldownTitle": "Giriş geçici olarak engellendi",
     "cooldownBody": "Tekrar denemek için {countdown} kadar bekleyin.",
     "cooldownManualTitle": "Çok fazla başarısız deneme — manuel inceleme gerekiyor",
-    "cooldownManualBody": "Üst üste {count} başarısız deneme. En az {countdown} bekleyin; sorun devam ederse destekten manuel inceleme isteyin."
+    "cooldownManualBody": "Üst üste {count} başarısız deneme. En az {countdown} bekleyin; sorun devam ederse destekten manuel inceleme isteyin.",
+    "failureReasons": {
+      "invalid_credentials": "Kullanıcı adı veya şifre hatalı. X panelinden giriş yapabildiğinizi doğrulayın, sonra tekrar deneyin.",
+      "captcha_required": "X captcha doğrulaması istedi. x.com üzerinde hesabı doğrulayın veya biraz bekleyip tekrar deneyin.",
+      "email_challenge": "X \"olağandışı giriş\" doğrulaması istedi. E-postayı girip tekrar deneyin; 2FA açıksa base32 secret bilgisini de sağlayın.",
+      "email_verification_required": "X e-posta veya doğrulama kodu istedi. x.com üzerinde doğrulamayı tamamlayın, sonra yeniden deneyin.",
+      "suspicious_login_blocked": "X bu girişi şüpheli gördü. Aynı IP/bölgeden manuel giriş yapıp hesabı doğrulayın, sonra tekrar deneyin.",
+      "login_cooldown": "X çok fazla giriş denemesi tespit etti. 30-60 dakika bekleyip tekrar deneyin.",
+      "cookies_missing": "Login tamamlanmış göründü ama gerekli X session cookie'leri alınamadı. Biraz bekleyip yeniden deneyin; sürerse destekten manuel inceleme isteyin.",
+      "home_not_reached": "Şifre gönderildi ama X ana sayfasına geçilemedi. X ek doğrulama veya geçici blok istemiş olabilir.",
+      "account_locked": "X bu hesabı kilitledi. Doğrudan x.com'da giriş yapıp ekrandaki adımları (telefon doğrulama, e-posta onayı vb.) tamamlayın, sonra tekrar deneyin.",
+      "phone_verification_required": "X telefon numarasıyla doğrulama istiyor. x.com'a girip telefon doğrulamasını tamamlayın, sonra yeniden deneyin.",
+      "unknown": "Beklenmeyen bir hata oluştu. Biraz bekleyip yeniden deneyin; sorun devam ederse destekten manuel inceleme isteyin."
+    }
   },
   "panel": {
     "loading": "Yükleniyor",
-    "redirecting": "Yönlendiriliyor"
+    "redirecting": "Yönlendiriliyor",
+    "errorTitle": "Bir şeyler ters gitti",
+    "errorDefaultMessage": "Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.",
+    "errorBack": "Geri"
   },
   "common": {
     "refresh": "Yenile",
@@ -305,9 +321,11 @@
     "rotateAction": "Yenile",
     "secretTitle": "Webhook secret — sadece bir kez gösterilir",
     "secretDesc": "<handle>@{handleName}</handle> için secret. Webhook alıcınızda <code>X-Tweetly-Signature</code> imzasını doğrulamak için bu değeri saklayın.",
-    "secretAck": "Anladım"
+    "secretAck": "Anladım",
+    "detailError": "Monitor detayı yüklenirken hata oluştu."
   },
   "guide": {
+    "eyebrow": "Onboarding",
     "title": "Hızlı Başlangıç",
     "subtitle": "5 dakikada xtweetly'yi Claude Code'a bağlayın.",
     "step1Title": "1. X Hesabınızı Bağlayın",
@@ -328,7 +346,8 @@
     "troubleTitle": "Sorun Giderme",
     "trouble1": "API key hatalı: tk_ önekiyle başladığından emin olun.",
     "trouble2": "MCP bağlanamıyor: URL'yi kontrol edin — Dashboard'dan taze kopyalayın.",
-    "trouble3": "Aksiyon başarısız: /actions sayfasından hata detayını inceleyin."
+    "trouble3": "Aksiyon başarısız: /actions sayfasından hata detayını inceleyin.",
+    "allClientsSetup": "Tüm client'lar için kurulum (Claude Desktop, ChatGPT, Cursor, …)"
   },
   "docs": {
     "back": "Anasayfa",

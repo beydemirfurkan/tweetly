@@ -106,14 +106,12 @@ export type ApiFetch = <T>(
   options?: RequestInit & { skipAuthRedirect?: boolean },
 ) => Promise<T>;
 
-/**
- * Bare fetch helper used outside React (e.g. in auth-context). Reads the token
- * from localStorage; on 401, clears the token and bounces to /login unless
- * skipAuthRedirect is set.
- */
-export async function apiFetch<T>(
+type OnUnauthorized = () => void;
+
+async function coreFetch<T>(
   path: string,
-  options?: RequestInit & { skipAuthRedirect?: boolean },
+  options: RequestInit & { skipAuthRedirect?: boolean },
+  onUnauthorized: OnUnauthorized,
 ): Promise<T> {
   const token = getToken();
   const { skipAuthRedirect, headers: extraHeaders, ...rest } = options ?? {};
@@ -127,7 +125,7 @@ export async function apiFetch<T>(
   const res = await fetch(apiUrl(path), { ...rest, headers });
 
   if (res.status === 401 && !skipAuthRedirect) {
-    clearToken();
+    onUnauthorized();
     if (typeof window !== 'undefined') {
       window.location.href = loginUrl();
     }
@@ -140,47 +138,23 @@ export async function apiFetch<T>(
   }
 
   const text = await res.text();
-  if (!text) return {} as T;
+  if (!text) return undefined as T;
   return JSON.parse(text) as T;
 }
 
-/**
- * Hook variant that integrates with AuthContext: on 401, clears the in-memory
- * user (logout) so the panel guard re-renders and redirects.
- */
+export async function apiFetch<T>(
+  path: string,
+  options?: RequestInit & { skipAuthRedirect?: boolean },
+): Promise<T> {
+  return coreFetch<T>(path, options ?? {}, () => clearToken());
+}
+
 export function useApiFetch(): ApiFetch {
   const { logout } = useAuth();
 
   return useCallback<ApiFetch>(
-    async <T>(path: string, options?: RequestInit & { skipAuthRedirect?: boolean }): Promise<T> => {
-      const token = getToken();
-      const { skipAuthRedirect, headers: extraHeaders, ...rest } = options ?? {};
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(extraHeaders as Record<string, string> | undefined),
-      };
-
-      const res = await fetch(apiUrl(path), { ...rest, headers });
-
-      if (res.status === 401 && !skipAuthRedirect) {
-        logout();
-        if (typeof window !== 'undefined') {
-          window.location.href = loginUrl();
-        }
-        throw new ApiError(401, 'Unauthorized');
-      }
-
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new ApiError(res.status, body || `API error: ${res.status}`, parseErrorBody(body));
-      }
-
-      const text = await res.text();
-      if (!text) return {} as T;
-      return JSON.parse(text) as T;
-    },
+    async <T>(path: string, options?: RequestInit & { skipAuthRedirect?: boolean }): Promise<T> =>
+      coreFetch<T>(path, options ?? {}, logout),
     [logout],
   );
 }
@@ -329,70 +303,6 @@ export interface LoginJobResponse {
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
-}
-
-export const FAILURE_REASON_TR: Record<LoginJobFailureReason, string> = {
-  invalid_credentials:
-    'Kullanıcı adı veya şifre hatalı. X panelinden giriş yapabildiğinizi doğrulayın, sonra tekrar deneyin.',
-  captcha_required:
-    'X captcha doğrulaması istedi. x.com üzerinde hesabı doğrulayın veya biraz bekleyip tekrar deneyin.',
-  email_challenge:
-    'X "olağandışı giriş" doğrulaması istedi. E-postayı girip tekrar deneyin; 2FA açıksa base32 secret bilgisini de sağlayın.',
-  email_verification_required:
-    'X e-posta veya doğrulama kodu istedi. x.com üzerinde doğrulamayı tamamlayın, sonra yeniden deneyin.',
-  suspicious_login_blocked:
-    'X bu girişi şüpheli gördü. Aynı IP/bölgeden manuel giriş yapıp hesabı doğrulayın, sonra tekrar deneyin.',
-  login_cooldown:
-    'X çok fazla giriş denemesi tespit etti. 30-60 dakika bekleyip tekrar deneyin.',
-  cookies_missing:
-    'Login tamamlanmış göründü ama gerekli X session cookie’leri alınamadı. Biraz bekleyip yeniden deneyin; sürerse destekten manuel inceleme isteyin.',
-  home_not_reached:
-    'Şifre gönderildi ama X ana sayfasına geçilemedi. X ek doğrulama veya geçici blok istemiş olabilir.',
-  account_locked:
-    'X bu hesabı kilitledi. Doğrudan x.com\'da giriş yapıp ekrandaki adımları (telefon doğrulama, e-posta onayı vb.) tamamlayın, sonra tekrar deneyin.',
-  phone_verification_required:
-    'X telefon numarasıyla doğrulama istiyor. x.com\'a girip telefon doğrulamasını tamamlayın, sonra yeniden deneyin.',
-  unknown:
-    'Beklenmeyen bir hata oluştu. Biraz bekleyip yeniden deneyin; sorun devam ederse destekten manuel inceleme isteyin.',
-};
-
-export const FAILURE_REASON_EN: Record<LoginJobFailureReason, string> = {
-  invalid_credentials:
-    'Wrong username or password. Confirm you can sign in to x.com manually, then try again.',
-  captcha_required:
-    "X showed a captcha challenge. Verify the account on x.com or wait a bit, then try again.",
-  email_challenge:
-    'X asked for an "unusual login" verification step. Add the account email and try again; if 2FA is enabled, provide the base32 secret too.',
-  email_verification_required:
-    "X asked for an email or verification code. Complete that verification on x.com, then try again.",
-  suspicious_login_blocked:
-    'X flagged this login as suspicious. Sign in manually from the same IP/region, confirm the account, then try again.',
-  login_cooldown:
-    'X detected too many login attempts. Wait 30–60 minutes and try again.',
-  cookies_missing:
-    "Login completed but the X session cookies couldn't be captured. Wait a moment and retry; if it keeps happening, ask support for manual review.",
-  home_not_reached:
-    "We submitted the password but X didn't take us to the home page. It likely asked for extra verification or applied a soft block.",
-  account_locked:
-    "X has locked this account. Sign in to x.com directly, complete the on-screen steps (phone verify, email confirm, etc.), then try again.",
-  phone_verification_required:
-    "X requires phone verification. Complete it on x.com, then try connecting again.",
-  unknown:
-    'Unexpected error. Wait a moment and retry; if it persists, ask support for manual review.',
-};
-
-/**
- * Locale-aware lookup. Pass the next-intl locale string ('tr' / 'en'); falls
- * back to the Turkish copy for any unknown locale since the dashboard
- * defaults to Turkish.
- */
-export function failureReasonMessage(
-  reason: LoginJobFailureReason,
-  locale?: string,
-): string {
-  const lower = (locale ?? '').toLowerCase();
-  if (lower.startsWith('en')) return FAILURE_REASON_EN[reason];
-  return FAILURE_REASON_TR[reason];
 }
 
 // ── Actions / system ──────────────────────────────────────────────────────

@@ -60,7 +60,7 @@ class McpClient {
     await this.request('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: { name: 'tweetly-mcp-smoke', version: '1.0.0' },
+      clientInfo: { name: 'xtweetly-mcp-smoke', version: '1.0.0' },
     }, 15_000);
     await this.post({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} });
   }

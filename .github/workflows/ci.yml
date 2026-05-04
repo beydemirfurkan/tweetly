@@ -53,7 +53,7 @@ jobs:
       - run: npm run test:integration
 
   frontend:
-    name: Frontend (build + lint)
+    name: Frontend (build + lint + typecheck)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -67,4 +67,5 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm run build

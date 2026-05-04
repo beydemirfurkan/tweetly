@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useApiFetch, type ApiKey, type CreatedApiKey } from '@/lib/api';
+import { useLazyLoad } from '@/lib/use-lazy-load';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,12 +47,7 @@ export default function ApiKeysPage() {
     }
   }, [apiFetch]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadKeys();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadKeys]);
+  useLazyLoad(loadKeys);
 
   const submitCreate = async () => {
     if (!newKeyName.trim()) return;

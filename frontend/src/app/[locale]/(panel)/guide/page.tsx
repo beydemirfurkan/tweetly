@@ -12,7 +12,7 @@ export default function GuidePage() {
     <div className="max-w-3xl space-y-8 animate-fade-up">
       <header className="border-b border-border pb-6">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          <span className="text-primary">●</span> Onboarding
+          <span className="text-primary">●</span> {t('eyebrow')}
         </p>
         <h1 className="mt-2 text-[32px] font-black leading-tight tracking-[-0.025em]">
           {t('title')}
@@ -70,7 +70,7 @@ Follow @elonmusk from account abc-123`}
             href={'/connect' as const}
             className="mt-4 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
           >
-            Tüm client&apos;lar için kurulum (Claude Desktop, ChatGPT, Cursor, …)
+            {t('allClientsSetup')}
             <ArrowRight className="h-3 w-3" />
           </Link>
         </StepCard>

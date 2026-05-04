@@ -65,7 +65,7 @@ export class McpService {
 
   createServer(userId: string): Server {
     const server = new Server(
-      { name: 'tweetly-mcp', version: '1.0.0' },
+      { name: 'xtweetly-mcp', version: '1.0.0' },
       { capabilities: { tools: {} } },
     );
 

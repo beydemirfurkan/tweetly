@@ -1,7 +1,7 @@
 {
-  "name": "tweetbot",
+  "name": "xtweetly",
   "version": "1.0.0",
-  "description": "GitHub Trending repos için Türkçe tweet otomasyonu",
+  "description": "Multi-tenant X (Twitter) automation platform with MCP and REST API",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc && tsc-alias",

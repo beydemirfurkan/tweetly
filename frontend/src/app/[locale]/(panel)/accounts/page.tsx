@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
+import { useLazyLoad } from '@/lib/use-lazy-load';
 import {
   useApiFetch,
   type AccountsResponse,
@@ -310,12 +311,7 @@ export default function AccountsPage() {
     }
   }, [apiFetch]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadAccounts();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadAccounts]);
+  useLazyLoad(loadAccounts);
 
   const refreshProfile = async (id: string) => {
     setRefreshingProfile(id);

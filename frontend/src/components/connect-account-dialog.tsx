@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import {
   useApiFetch,
   ApiError,
-  failureReasonMessage,
   isLoginCooldownPayload,
   type ApiFetch,
   type AccountConnectBody,
@@ -83,7 +82,6 @@ type Phase =
 export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId, onSuccess }: Props) {
   const apiFetch = useApiFetch();
   const t = useTranslations('connectDialog');
-  const locale = useLocale();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [submitError, setSubmitError] = useState('');
@@ -211,7 +209,6 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
           <FailurePanel
             reason={phase.reason}
             detail={phase.detail}
-            locale={locale}
             onRetry={() => setPhase({ kind: 'idle' })}
           />
         ) : phase.kind === 'polling' || phase.kind === 'submitting' ? (
@@ -542,12 +539,10 @@ function CooldownPanel({
 function FailurePanel({
   reason,
   detail,
-  locale,
   onRetry,
 }: {
   reason: NonNullable<LoginJobResponse['failureReason']>;
   detail: string | null;
-  locale: string;
   onRetry: () => void;
 }) {
   const t = useTranslations('connectDialog');
@@ -556,7 +551,7 @@ function FailurePanel({
       <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
         <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <div className="space-y-1">
-          <p className="font-medium">{failureReasonMessage(reason, locale)}</p>
+          <p className="font-medium">{t(`failureReasons.${reason}`)}</p>
           {detail && (
             <p className="text-[11px] opacity-70">
               {t('techDetail')}: {detail}
