@@ -1,7 +1,15 @@
 {
-  "name": "panel",
+  "name": "tweetly-panel",
   "version": "0.1.0",
   "private": true,
+  "description": "Next.js panel for tweetly — magic-link auth, X account connect, AI Copilot.",
+  "license": "MIT",
+  "author": "Furkan Beydemir <furkanbeydemirr@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/beydemirfurkan/tweetly.git",
+    "directory": "frontend"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

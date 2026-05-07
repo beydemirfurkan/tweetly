@@ -2,11 +2,11 @@ import { redactLoginDebugText } from './login-debug-artifact';
 
 describe('redactLoginDebugText', () => {
   it('redacts known credentials and token-like values', () => {
-    const text = 'user=test-account email=a@example.com password=Secret123 auth_token=abc ct0=def Bearer xyz 123456';
+    const text = 'user=testuser email=a@example.com password=Secret123 auth_token=abc ct0=def Bearer xyz 123456';
 
-    const redacted = redactLoginDebugText(text, ['test-account', 'a@example.com', 'Secret123']);
+    const redacted = redactLoginDebugText(text, ['testuser', 'a@example.com', 'Secret123']);
 
-    expect(redacted).not.toContain('test-account');
+    expect(redacted).not.toContain('testuser');
     expect(redacted).not.toContain('a@example.com');
     expect(redacted).not.toContain('Secret123');
     expect(redacted).not.toContain('auth_token=abc');

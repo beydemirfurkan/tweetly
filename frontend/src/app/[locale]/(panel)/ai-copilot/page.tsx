@@ -67,7 +67,12 @@ interface ViralScore {
   readabilityScore: number;
 }
 
-const ADMIN_EMAIL = 'furkanbeydemirr@gmail.com';
+const ADMIN_EMAILS = new Set(
+  (process.env.NEXT_PUBLIC_AI_COPILOT_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
 const FORMATS: { key: TweetFormat; maxLen: number }[] = [
   { key: 'micro', maxLen: 45 },
   { key: 'punch', maxLen: 120 },
@@ -83,7 +88,8 @@ export default function AiCopilotPage() {
   const { user } = useAuth();
   const apiFetch = useApiFetch();
 
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const userEmail = user?.email?.toLowerCase();
+  const isAdmin = userEmail ? ADMIN_EMAILS.has(userEmail) : false;
 
   const [accounts, setAccounts] = useState<RedactedAccount[]>([]);
   const [profile, setProfile] = useState<ProfileAnalysis | null>(null);

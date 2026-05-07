@@ -86,4 +86,4 @@ Supported `type` values: `user_followers`, `user_following`, `user_tweets`, `use
 
 - Repository: https://github.com/beydemirfurkan/tweetly
 - Support: furkanbeydemirr@gmail.com
-- Status: public beta. Brand split — `xtweetly` is the X automation platform; `xquik` is a separate product.
+- Status: public beta.

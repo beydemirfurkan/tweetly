@@ -1,8 +1,23 @@
 # tweetly
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build](https://img.shields.io/badge/build-NestJS%2011%20%7C%20Next.js%2016-blue)](#mimari)
+
+> **Live demo:** [tw-panel.beydemir.dev](https://tw-panel.beydemir.dev) — bağlanmak için kendi e-postanla magic link iste, kendi `tk_*` API key'ini üret.
+> Production için **kendi sunucunda self-host** etmen önerilir; aşağıdaki "Coolify deploy" bölümüne bak.
+
 X (Twitter) için MCP tabanlı aksiyon platformu. Geliştiriciler kendi yapay zeka ajanlarıyla (Claude Code, Codex, vb.) bağlanır, içeriği kendileri üretir; Tweetly de gönderim, etkileşim ve okuma aksiyonlarını çalıştırır.
 
 İçerik üretimi ve senaryo yönetimi backend'de tutulmaz — Tweetly saf "X üzerinde aksiyon alma" katmanıdır.
+
+## Disclaimer
+
+Tweetly, X'in resmi public API'sini kullanmaz; bunun yerine **gerçek bir tarayıcı session'ı** (Patchright + saklanan cookie) ile X'i sürer. Bu tasarımın iki sonucu var:
+
+1. **X'in Terms of Service'ini ihlal edebilir.** Otomasyon, üçüncü-taraf araçlarla session paylaşımı, yapay etkileşim — hepsi ToS gri/kırmızı bölgesidir. Hesap askıya alma riski tamamen kullanıcıdadır.
+2. **Bilinen bir şirket altyapısı değildir.** Bu repo bir araştırma / kişisel-kullanım projesidir. Production'da müşteri hesaplarına yönlendirmeden önce risk değerlendirmesi yap.
+
+Sorumluluk MIT lisansı uyarınca tamamen kullanıcıya aittir. Bkz. `LICENSE`.
 
 ## Mimari
 

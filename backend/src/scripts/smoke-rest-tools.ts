@@ -12,7 +12,7 @@ interface RestSmokeResult {
 
 const baseUrl = env('TWEETLY_BASE_URL', 'http://localhost:3001').replace(/\/$/, '');
 const apiKey = requiredEnv('TWEETLY_API_KEY');
-const accountId = env('TWEETLY_ACCOUNT_ID', 'test-account');
+const accountId = requiredEnv('TWEETLY_ACCOUNT_ID');
 const targetHandle = env('TWEETLY_TARGET_HANDLE', accountId);
 const targetTweetUrl = process.env.TWEETLY_TARGET_TWEET_URL;
 const suite = env('TWEETLY_SMOKE_SUITE', argValue('--suite') ?? 'safe');

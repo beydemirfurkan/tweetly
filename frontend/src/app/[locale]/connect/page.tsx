@@ -18,7 +18,9 @@ import {
 import { AnthropicLogo, OpenAILogo, CursorLogo } from '@/components/brand-logos';
 
 const apiBase = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
-  ?? 'https://api.your-domain.com');
+  ?? 'https://your-backend.example.com');
+const panelBase = (process.env.NEXT_PUBLIC_PANEL_URL?.replace(/\/$/, '')
+  ?? 'https://your-panel.example.com');
 const mcpUrl = `${apiBase}/mcp`;
 const mcpSseUrl = `${apiBase}/mcp/sse`;
 
@@ -205,7 +207,7 @@ curl -X POST ${apiBase}/oauth/register \\
 # { "client_id": "oauth_...", "client_secret": "...", ... }
 
 # 2. Send user to authorization endpoint with PKCE challenge:
-# https://tw-panel.beydemir.dev/oauth/authorize?
+# ${panelBase}/oauth/authorize?
 #   response_type=code&client_id=...&redirect_uri=...
 #   &code_challenge=BASE64URL(SHA256(verifier))&code_challenge_method=S256
 #   &state=...

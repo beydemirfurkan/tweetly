@@ -3,7 +3,14 @@ import { UsersService } from '@/auth/users.service';
 import type { Request } from 'express';
 import { getAuthContext } from '@/auth/api-key.guard';
 
-const ADMIN_EMAILS = new Set(['furkanbeydemirr@gmail.com']);
+function loadAdminEmails(): Set<string> {
+  return new Set(
+    (process.env.AI_COPILOT_ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
 
 @Injectable()
 export class AdminUserGuard implements CanActivate {
@@ -16,7 +23,8 @@ export class AdminUserGuard implements CanActivate {
     const user = await this.users.findById(auth.userId);
     if (!user) throw new ForbiddenException('User not found');
 
-    if (!ADMIN_EMAILS.has(user.email.toLowerCase())) {
+    const allowed = loadAdminEmails();
+    if (allowed.size === 0 || !allowed.has(user.email.toLowerCase())) {
       throw new ForbiddenException('Admin access required');
     }
 

@@ -26,9 +26,25 @@
     "smoke:rest": "tsx src/scripts/smoke-rest-tools.ts",
     "smoke:selectors": "tsx src/scripts/smoke-selectors.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "twitter",
+    "x",
+    "mcp",
+    "nestjs",
+    "patchright",
+    "automation"
+  ],
+  "author": "Furkan Beydemir <furkanbeydemirr@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/beydemirfurkan/tweetly.git",
+    "directory": "backend"
+  },
+  "bugs": {
+    "url": "https://github.com/beydemirfurkan/tweetly/issues"
+  },
+  "homepage": "https://github.com/beydemirfurkan/tweetly#readme",
   "type": "commonjs",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

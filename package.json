@@ -1,5 +1,27 @@
 {
+  "name": "tweetly",
+  "version": "1.0.0",
+  "description": "Multi-tenant X (Twitter) automation platform with MCP and REST API. Bring your own AI; Tweetly handles browser-driven actions.",
   "private": true,
+  "license": "MIT",
+  "author": "Furkan Beydemir <furkanbeydemirr@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/beydemirfurkan/tweetly.git"
+  },
+  "bugs": {
+    "url": "https://github.com/beydemirfurkan/tweetly/issues"
+  },
+  "homepage": "https://github.com/beydemirfurkan/tweetly#readme",
+  "keywords": [
+    "twitter",
+    "x",
+    "mcp",
+    "automation",
+    "nestjs",
+    "patchright",
+    "playwright"
+  ],
   "scripts": {
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
     "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
