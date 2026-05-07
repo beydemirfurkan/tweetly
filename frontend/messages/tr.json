@@ -358,7 +358,7 @@
     "openReference": "API Reference'i aç",
     "envWarning": {
       "title": "Backend URL ayarlanmamış",
-      "body": "Bu sayfa (ve tüm Docs linkleri) canlı backend'inize bağlanması için <code>NEXT_PUBLIC_API_URL</code> değişkenini ayarlayın. Production'da genelde <code>https://api.xtweetly.app</code> gibi olur."
+      "body": "Bu sayfa (ve tüm Docs linkleri) canlı backend'inize bağlanması için <code>NEXT_PUBLIC_API_URL</code> değişkenini ayarlayın. Production'da genelde <code>https://api.your-domain.com</code> gibi olur."
     },
     "surface": {
       "eyebrow": "Yüzey",

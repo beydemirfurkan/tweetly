@@ -7,7 +7,7 @@ import { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
 import { SettingsService } from '@/settings/settings.service';
 
 const LINK_TTL_MIN = 15;
-const DEFAULT_FROM = 'xtweetly <noreply@xtweetly.app>';
+const DEFAULT_FROM = 'tweetly <noreply@example.com>';
 
 interface SmtpConfig {
   host: string;

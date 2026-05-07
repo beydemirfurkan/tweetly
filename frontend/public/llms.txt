@@ -1,89 +1,67 @@
-# xtweetly
+# tweetly
 
 > Multi-tenant X (Twitter) automation platform for AI agents. Connect one or more X accounts, then drive them programmatically over MCP or REST: post, reply, like, retweet, quote, follow, bookmark, search, and monitor — all backed by a real browser session, not the X API.
 
-xtweetly speaks two languages:
+tweetly speaks two languages:
 - **MCP** — drop the server into Claude / Cursor / any MCP client and your agent can act on X with natural-language tool calls.
 - **REST** — bearer-authenticated HTTP API (`tk_*` keys) for any agent or backend that prefers raw HTTP.
 
 The same Zod schemas back both surfaces, so a tool name in MCP maps 1:1 to a route in REST.
 
-## Docs
+## Self-hosting
 
-- [Developer overview](https://xtweetly.app/docs): getting started, auth model, action lifecycle, webhook monitors.
-- [Connect an X account](https://xtweetly.app/connect): per-client setup guide for Claude Desktop, Cursor, and other MCP clients.
+This is an open-source project. The official source and setup instructions are at <https://github.com/beydemirfurkan/tweetly>.
+
+When deploying on your own infrastructure, this `llms.txt` is served from the panel domain. Override it (or replace the URLs below) with your own deployment endpoints — the defaults are placeholders.
 
 ## API
 
-- [API Reference (Scalar)](https://api.xtweetly.app/docs): interactive reference for all 37 REST endpoints across `auth`, `accounts`, `actions`, `x`, `monitors`, and `admin`.
-- [OpenAPI spec](https://api.xtweetly.app/api/openapi.json): machine-readable JSON; consume with codegen, Postman, Insomnia, or your own tooling.
+- API Reference (Scalar): served at `<your-backend>/docs` once deployed.
+- OpenAPI spec: `<your-backend>/api/openapi.json` — machine-readable JSON; consume with codegen, Postman, Insomnia, or your own tooling.
 - Auth: bearer tokens issued from `POST /auth/api-keys`. Format: `Authorization: Bearer tk_...`.
-- OAuth resource metadata: `https://api.xtweetly.app/.well-known/oauth-protected-resource`.
+- OAuth resource metadata: `<your-backend>/.well-known/oauth-protected-resource`.
 
 ## MCP
 
-The MCP server is mounted at `https://api.xtweetly.app/mcp`. It exposes 43 tools backed by the same Zod schemas as the REST API.
+The MCP server is mounted at `<your-backend>/mcp`. It exposes ~43 tools backed by the same Zod schemas as the REST API.
 
 ### Write tools (queue-backed actions)
-- `post_tweet`: Post a tweet from a connected X account.
-- `reply_to_tweet`: Reply to a tweet.
-- `quote_tweet`: Quote tweet with your own comment.
-- `post_thread`: Post a multi-tweet thread (5s spacing between tweets).
-- `like_tweet` / `unlike_tweet`: Like or remove a like.
-- `retweet_tweet` / `unretweet_tweet`: Retweet or undo a retweet.
-- `bookmark_tweet`: Bookmark a tweet.
-- `follow_account` / `unfollow_account`: Follow or unfollow an account.
-- `delete_tweet`: Delete one of your own tweets.
-- `send_dm`: Send a direct message.
-- `update_profile`: Update name, bio, location, or website.
-- `update_avatar` / `update_banner`: Replace the profile image or banner.
+- `post_tweet`, `reply_to_tweet`, `quote_tweet`, `post_thread`
+- `like_tweet` / `unlike_tweet`, `retweet_tweet` / `unretweet_tweet`, `bookmark_tweet`
+- `follow_account` / `unfollow_account`
+- `delete_tweet`, `send_dm`
+- `update_profile`, `update_avatar`, `update_banner`
 
 ### Read tools (synchronous lookups)
 
-List-style reads return `{ items, nextCursor }`. Pass `nextCursor` back as the `cursor` argument to fetch subsequent pages; cursors are opaque (don't parse them). Single-resource reads (`get_user`, `get_tweet`, `get_x_trending`, `get_thread`) return their plain shape.
+List-style reads return `{ items, nextCursor }`. Pass `nextCursor` back as the `cursor` argument to fetch subsequent pages; cursors are opaque (don't parse them). Single-resource reads return their plain shape.
 
-- `search_tweets`: Live tweet search by query.
-- `search_users`: Search users by name or handle.
-- `get_user`: Profile (display name, bio, counts, verified).
-- `get_tweet`: Full tweet details by URL.
-- `get_user_tweets`: Recent tweets from a user.
-- `get_user_followers` / `get_user_following`: Connection lists.
-- `get_tweet_retweeters` / `get_tweet_quotes` / `get_tweet_replies`: Engagement on a tweet.
-- `get_user_mentions`: Recent tweets mentioning a handle.
-- `get_x_trending`: Current X trending topics for the active session region.
-- `get_user_likes`: Tweets a user has publicly liked.
-- `get_my_bookmarks`: The calling account's own bookmarks.
-- `get_list_members`: Members of a public X list (numeric ID).
-- `get_mutual_followers`: Followers-you-know — accounts the caller follows that also follow the target.
-- `get_thread`: Same-author thread chain rooted at a tweet.
-- `get_user_lists`: Lists owned by a user (with name, description, member count).
-- `get_list`: List metadata (member + subscriber counts, owner).
-- `get_list_subscribers`: Paginated subscribers of a public X list.
+- `search_tweets`, `search_users`, `get_user`, `get_tweet`
+- `get_user_tweets`, `get_user_followers`, `get_user_following`
+- `get_tweet_retweeters`, `get_tweet_quotes`, `get_tweet_replies`
+- `get_user_mentions`, `get_x_trending`, `get_user_likes`, `get_my_bookmarks`
+- `get_list_members`, `get_list_subscribers`, `get_list`, `get_user_lists`
+- `get_mutual_followers`, `get_thread`
 
 ### Monitors
-- `create_monitor`: Webhook monitor for a target handle.
-- `list_monitors` / `get_monitor`: Inspect monitors and recent deliveries.
-- `pause_monitor` / `delete_monitor`: Stop polling or remove.
+- `create_monitor`, `list_monitors`, `get_monitor`, `pause_monitor`, `delete_monitor`
 
 ### Bulk extractions (async, file output)
 
 Queue large jobs that run a cursor-paginated read endpoint to completion (up to 100K rows). Output is JSONL on the server; download via REST.
 
-- `create_extraction`: Queue an extraction job (`type` + `params` + `max_rows`). Returns `{id}`.
-- `get_extraction`: Poll job status (rows extracted, file path, error).
-- `list_extractions`: Recent jobs for the caller.
-- `cancel_extraction`: Cancel a queued or running job.
+- `create_extraction`, `get_extraction`, `list_extractions`, `cancel_extraction`
 
 Supported `type` values: `user_followers`, `user_following`, `user_tweets`, `user_likes`, `user_mentions`, `tweet_retweeters`, `search_tweets`, `list_members`. Download endpoint is REST-only: `GET /api/v1/extractions/{id}/download`.
 
 ### Accounts, jobs, settings
-- `get_accounts` / `get_account_health`: Connected accounts + session health.
-- `connect_x_account` / `reauth_x_account` / `get_x_login_job`: Server-side login flow.
-- `list_actions` / `cancel_action` / `replay_action`: Manage queued write actions.
-- `get_settings` / `update_settings`: Per-account key-value settings.
+- `get_accounts`, `get_account_health`
+- `connect_x_account`, `reauth_x_account`, `get_x_login_job`
+- `list_actions`, `cancel_action`, `replay_action`
+- `get_settings`, `update_settings`
 
 ## Optional
 
-- Repository: https://github.com/beydemirfurkan/tweetly
-- Support: furkanbeydemirr@gmail.com
-- Status: public beta.
+- Repository: <https://github.com/beydemirfurkan/tweetly>
+- Issues / contributing: <https://github.com/beydemirfurkan/tweetly/issues>
+- License: MIT
