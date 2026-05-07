@@ -1,7 +1,8 @@
 # tweetly
 
+[![CI](https://github.com/beydemirfurkan/tweetly/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/beydemirfurkan/tweetly/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build](https://img.shields.io/badge/build-NestJS%2011%20%7C%20Next.js%2016-blue)](#architecture)
+[![Stack](https://img.shields.io/badge/stack-NestJS%2011%20%7C%20Next.js%2016-blue)](#architecture)
 
 > **Live demo:** [tw-panel.beydemir.dev](https://tw-panel.beydemir.dev) — request a magic link with your email, mint a `tk_*` API key for your own AI agent.
 > For production, **self-host on your own infrastructure** — see the "Coolify deploy" section below.

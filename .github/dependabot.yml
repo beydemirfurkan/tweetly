@@ -1,0 +1,126 @@
+version: 2
+
+updates:
+  # Backend (NestJS) — group production and dev deps separately so security
+  # bumps merge fast while dev-tooling churn stays contained.
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - backend
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: scope
+    groups:
+      backend-production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      backend-development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Major bumps require human review (breaking-change risk in NestJS, TypeORM, Patchright).
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # Frontend (Next.js + React)
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - frontend
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: scope
+    groups:
+      frontend-production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      frontend-development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Next.js majors and React majors are evaluated manually.
+      - dependency-name: "next"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "react"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "react-dom"
+        update-types:
+          - version-update:semver-major
+
+  # Root monorepo (zod-to-json-schema, root devtools)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - monorepo-root
+    commit-message:
+      prefix: "chore(deps)"
+
+  # GitHub Actions versions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Docker base images (NestJS Dockerfile, frontend Dockerfile)
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: "chore(docker)"
