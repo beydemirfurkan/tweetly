@@ -35,16 +35,17 @@ import { LoginWorker } from './login/login-worker.service';
 import { CookieHealthCheckService } from './login/cookie-health-check.service';
 
 /**
- * X otomasyon adapter modülü.
+ * X automation adapter module.
  *
  * `@Global()` so the PROFILE_FETCHER port binding is visible to
  * AccountsModule.ProfileCacheService without AccountsModule importing this
  * module — that's what kills the previous accounts ↔ x-automation cycle.
  *
- * Domain `IXActionExecutor` portu Domain'de tanımlı; Patchright bu modülde izole.
- * Hangi executor'ların register edileceği `X_EXECUTOR_MODE` env değişkeniyle kontrol edilir:
- *   - `noop` (varsayılan): NoOp executor'lar (test/dev)
- *   - `patchright`: Gerçek Patchright tabanlı executor'lar (prod)
+ * The domain `IXActionExecutor` port is defined in Domain; Patchright stays
+ * isolated to this module. Which executors get registered is controlled by
+ * the `X_EXECUTOR_MODE` env var:
+ *   - `noop` (default): NoOp executors (test/dev)
+ *   - `patchright`: real Patchright-backed executors (prod)
  */
 @Global()
 @Module({

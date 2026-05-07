@@ -47,7 +47,7 @@ export class MultiTenantAuth1761800000000 implements MigrationInterface {
     await queryRunner.query(`CREATE UNIQUE INDEX idx_magic_links_token_hash ON magic_links(token_hash)`);
     await queryRunner.query(`CREATE INDEX idx_magic_links_user_id ON magic_links(user_id)`);
 
-    // accounts.user_id: önce nullable ekle, sonra bootstrap user'a ata, sonra NOT NULL yap.
+    // accounts.user_id: add nullable first, assign existing rows to the bootstrap user, then enforce NOT NULL.
     await queryRunner.query(`ALTER TABLE accounts ADD COLUMN user_id UUID`);
 
     const bootstrapEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? 'admin@tweetly.local').trim().toLowerCase();

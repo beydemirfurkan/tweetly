@@ -29,7 +29,7 @@ export class PatchrightQuoteExecutor extends BasePatchrightExecutor<QuotePayload
     }
 
     try {
-      this.log.log(`Quote execute başlıyor: ${targetTweetUrl}`);
+      this.log.log(`Quote execute starting: ${targetTweetUrl}`);
       const result = await this.flow.execute({
         text,
         username: session.accountId,

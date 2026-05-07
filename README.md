@@ -1,50 +1,60 @@
 # tweetly
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build](https://img.shields.io/badge/build-NestJS%2011%20%7C%20Next.js%2016-blue)](#mimari)
+[![Build](https://img.shields.io/badge/build-NestJS%2011%20%7C%20Next.js%2016-blue)](#architecture)
 
-> **Live demo:** [tw-panel.beydemir.dev](https://tw-panel.beydemir.dev) — bağlanmak için kendi e-postanla magic link iste, kendi `tk_*` API key'ini üret.
-> Production için **kendi sunucunda self-host** etmen önerilir; aşağıdaki "Coolify deploy" bölümüne bak.
+> **Live demo:** [tw-panel.beydemir.dev](https://tw-panel.beydemir.dev) — request a magic link with your email, mint a `tk_*` API key for your own AI agent.
+> For production, **self-host on your own infrastructure** — see the "Coolify deploy" section below.
 
-X (Twitter) için MCP tabanlı aksiyon platformu. Geliştiriciler kendi yapay zeka ajanlarıyla (Claude Code, Codex, vb.) bağlanır, içeriği kendileri üretir; Tweetly de gönderim, etkileşim ve okuma aksiyonlarını çalıştırır.
+An MCP-based action layer for X (Twitter). Developers connect their own AI agents (Claude Code, Codex, etc.) and bring their own content; tweetly executes the post / engage / read actions on X.
 
-İçerik üretimi ve senaryo yönetimi backend'de tutulmaz — Tweetly saf "X üzerinde aksiyon alma" katmanıdır.
+Content generation, persona, voice, and prompts are **not** stored on the backend — tweetly is a pure "act on X" layer.
 
 ## Disclaimer
 
-Tweetly, X'in resmi public API'sini kullanmaz; bunun yerine **gerçek bir tarayıcı session'ı** (Patchright + saklanan cookie) ile X'i sürer. Bu tasarımın iki sonucu var:
+Tweetly does **not** use X's official public API. It drives X through a **real browser session** (Patchright + persisted cookies). Two consequences follow:
 
-1. **X'in Terms of Service'ini ihlal edebilir.** Otomasyon, üçüncü-taraf araçlarla session paylaşımı, yapay etkileşim — hepsi ToS gri/kırmızı bölgesidir. Hesap askıya alma riski tamamen kullanıcıdadır.
-2. **Bilinen bir şirket altyapısı değildir.** Bu repo bir araştırma / kişisel-kullanım projesidir. Production'da müşteri hesaplarına yönlendirmeden önce risk değerlendirmesi yap.
+1. **It may violate X's Terms of Service.** Automation, third-party session sharing, and synthetic engagement all sit in ToS gray/red territory. Account suspension risk is on you.
+2. **This is not a vetted enterprise product.** The repository is a research / personal-use project. Run a risk assessment before pointing it at customer accounts in production.
 
-Sorumluluk MIT lisansı uyarınca tamamen kullanıcıya aittir. Bkz. `LICENSE`.
+All liability remains with the user under the MIT License — see `LICENSE`.
 
-## Mimari
+## Architecture
 
 **Stack:** NestJS 11, TypeScript, PostgreSQL + TypeORM, Patchright (anti-detection browser), MCP SDK.
 
 ```
-src/
-  accounts/          Hesap yönetimi (per-user X session token'ları)
+backend/src/
+  accounts/          Account management (per-user X session tokens)
   action-engine/     ClaimWorker, ExecutorRegistry, CircuitBreaker, RetryPolicy
                      GenericActionRepository (FOR UPDATE SKIP LOCKED)
   admin-api/         AdminApiController, AdminTokenGuard, AdminApiService
-  content-memory/    Jaccard similarity dedup (opsiyonel)
-  domain/            Port interface'leri, domain service'leri, action tipleri
-  mcp/               MCP server (SSE transport, ~30 tool)
+  ai-copilot/        Optional content analysis (env-gated to specific emails)
+  auth/              UsersService, ApiKeyService, MagicLinkService, ApiKeyGuard
+  content-memory/    Jaccard similarity dedup (optional)
+  domain/            Port interfaces, domain services, action types
+  mcp/               MCP server (SSE transport, ~43 tools)
   monitoring/        Account monitor + webhook delivery
+  oauth/             OAuth2 authorization server for MCP clients
   observability/     HealthController, MetricsController (Prometheus)
-  persistence/       TypeORM DataSource, Entity'ler, Migrations
-  settings/          Per-account override destekli ayar servisi
+  persistence/       TypeORM DataSource, entities, migrations
+  public-api/        REST controllers under /api/v1, user-scoped
+  settings/          Per-account override-aware settings service
   x-automation/      XBrowserService, XPostFlowService, SelectorRegistry
-                     7 NoOp + 7 Patchright executor
+                     NoOp + Patchright executors per action type
   app.module.ts
   main.ts
+
+frontend/src/
+  app/[locale]/      Next.js 16 panel (i18n: tr/en)
+  components/        Shadcn-based UI
+  i18n/              next-intl config
+  lib/               API client, auth context, hooks
 ```
 
-### Action Engine
+### Action engine
 
-Her action tipi (`post`, `reply`, `like`, `bookmark`, `retweet`, `quote`, `follow`, `unlike`, `unretweet`, `unfollow`, `delete_tweet`, `dm`, `profile_update`, `avatar_update`, `banner_update`) ayrı bir Postgres tablosunda tutulur. `ClaimWorker` polling loop'u `FOR UPDATE SKIP LOCKED` ile claim alır; `ExecutorRegistry` doğru executor'a yönlendirir.
+Each action type (`post`, `reply`, `like`, `bookmark`, `retweet`, `quote`, `follow`, `unlike`, `unretweet`, `unfollow`, `delete_tweet`, `dm`, `profile_update`, `avatar_update`, `banner_update`) lives in its own Postgres table. The `ClaimWorker` polls with `FOR UPDATE SKIP LOCKED` and the `ExecutorRegistry` dispatches to the matching executor.
 
 ```
 pending → claimed → running → succeeded
@@ -53,28 +63,33 @@ pending → claimed → running → succeeded
          ↘ cancelled (admin)
 ```
 
-### MCP Tool Seti (özet)
+### MCP tool surface (summary)
 
-- **Yazma:** `post_tweet`, `reply_to_tweet`, `like_tweet`, `retweet_tweet`, `quote_tweet`, `bookmark_tweet`, `follow_account`, `post_thread`
-- **Geri alma / silme:** `unlike_tweet`, `unretweet_tweet`, `unfollow_account`, `delete_tweet`, `send_dm`, `update_profile`, `update_avatar`, `update_banner`
-- **Okuma:** `search_tweets`, `get_user`, `get_tweet`, `get_user_tweets`, `search_users`, `get_user_followers`, `get_user_following`, `get_tweet_retweeters`, `get_tweet_quotes`, `get_tweet_replies`, `get_user_mentions`, `get_x_trending`
-- **Yönetim:** `get_accounts`, `get_account_health`, `connect_x_account`, `reauth_x_account`, `get_x_login_job`, `list_actions`, `cancel_action`, `replay_action`, `get_settings`, `update_settings`
+- **Write:** `post_tweet`, `reply_to_tweet`, `like_tweet`, `retweet_tweet`, `quote_tweet`, `bookmark_tweet`, `follow_account`, `post_thread`
+- **Undo / delete:** `unlike_tweet`, `unretweet_tweet`, `unfollow_account`, `delete_tweet`, `send_dm`, `update_profile`, `update_avatar`, `update_banner`
+- **Read:** `search_tweets`, `get_user`, `get_tweet`, `get_user_tweets`, `search_users`, `get_user_followers`, `get_user_following`, `get_tweet_retweeters`, `get_tweet_quotes`, `get_tweet_replies`, `get_user_mentions`, `get_x_trending`, `get_user_likes`, `get_my_bookmarks`, `get_thread`, `get_mutual_followers`, `get_user_lists`, `get_list`, `get_list_members`, `get_list_subscribers`
+- **Management:** `get_accounts`, `get_account_health`, `connect_x_account`, `reauth_x_account`, `get_x_login_job`, `list_actions`, `cancel_action`, `replay_action`, `get_settings`, `update_settings`
 - **Monitor:** `create_monitor`, `list_monitors`, `get_monitor`, `delete_monitor`, `pause_monitor`
+- **Bulk extractions:** `create_extraction`, `get_extraction`, `list_extractions`, `cancel_extraction`
 
-> **Breaking (2026-05-03):** `retweet` → `retweet_tweet`, `unretweet` → `unretweet_tweet`. Eski isimler `Unknown tool` döndürür.
+> **Breaking (2026-05-03):** `retweet` → `retweet_tweet`, `unretweet` → `unretweet_tweet`. Old names now return `Unknown tool`.
 
 ---
 
-## Kurulum
+## Setup
 
 ```bash
+git clone https://github.com/beydemirfurkan/tweetly.git
+cd tweetly
+
 npm install
 npm --prefix backend install --legacy-peer-deps
 npm --prefix frontend install
 npx patchright install chromium
+
 cp .env.example .env
-# .env içindeki ENCRYPTION_KEY'i doldur:
-# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Generate a 32-byte master key and paste it as ENCRYPTION_KEY in .env:
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 docker compose up -d postgres
 npm run db:migrate
@@ -82,69 +97,69 @@ npm run db:migrate
 
 ---
 
-## Komutlar
+## Commands
 
 ```bash
-npm run build          # tsc → dist/
-npm run dev:backend    # backend lokal geliştirme
-npm run dev:frontend   # frontend lokal geliştirme
-npm test               # backend unit testleri
+npm run build          # tsc → dist/ for backend; next build for frontend
+npm run dev:backend    # backend dev server (http://localhost:3001)
+npm run dev:frontend   # frontend dev server (http://localhost:3000)
+npm test               # backend unit tests + frontend tests
 npm run lint           # backend + frontend lint
 npm run typecheck      # backend + frontend type-check
 
-npm run db:migrate         # Migration'ları uygula
-npm run db:migrate:revert  # Son migration'ı geri al
+npm run db:migrate         # apply pending migrations
+npm run db:migrate:revert  # revert the last migration
 ```
 
-### Local smoke testleri
+### Local smoke tests
 
-Production'a deploy etmeden önce MCP ve REST tool matrisini lokal backend'e
-karşı çalıştır:
+Run the MCP and REST tool matrix against a local backend before deploying:
 
 ```bash
 cd backend
-TWEETLY_API_KEY=tk_... npm run smoke:mcp
-TWEETLY_API_KEY=tk_... npm run smoke:rest
+TWEETLY_API_KEY=tk_... TWEETLY_ACCOUNT_ID=your-x-handle npm run smoke:mcp
+TWEETLY_API_KEY=tk_... TWEETLY_ACCOUNT_ID=your-x-handle npm run smoke:rest
 
-# X read path'lerini dahil et
-TWEETLY_API_KEY=tk_... TWEETLY_SMOKE_SUITE=read npm run smoke:mcp
-TWEETLY_API_KEY=tk_... TWEETLY_SMOKE_SUITE=read npm run smoke:rest
+# Include X read paths
+TWEETLY_API_KEY=tk_... TWEETLY_ACCOUNT_ID=... TWEETLY_SMOKE_SUITE=read npm run smoke:mcp
+TWEETLY_API_KEY=tk_... TWEETLY_ACCOUNT_ID=... TWEETLY_SMOKE_SUITE=read npm run smoke:rest
 
-# Queue/write tool'ları bilinçli opt-in ister
-TWEETLY_API_KEY=tk_... TWEETLY_SMOKE_SUITE=queue \
+# Queue/write tools require explicit opt-in
+TWEETLY_API_KEY=tk_... TWEETLY_ACCOUNT_ID=... TWEETLY_SMOKE_SUITE=queue \
   TWEETLY_ALLOW_WRITE_SMOKE=true \
   TWEETLY_TARGET_TWEET_URL=https://x.com/.../status/... \
   npm run smoke:mcp
 ```
 
-`destructive` suite (`delete_tweet`, `update_profile`, `send_dm`, `unfollow`,
-vb.) sadece test hesabıyla ve `TWEETLY_ALLOW_DESTRUCTIVE_SMOKE=true` ile
-çalıştırılmalı.
+The `destructive` suite (`delete_tweet`, `update_profile`, `send_dm`, `unfollow`, etc.) must only run against a throwaway test account and requires `TWEETLY_ALLOW_DESTRUCTIVE_SMOKE=true`.
 
 ---
 
-## Env Değişkenleri
+## Environment variables
 
-| Değişken | Zorunlu | Açıklama |
+| Variable | Required | Description |
 |---|---|---|
-| `X_EXECUTOR_MODE` | Evet | Gerçek gönderim için `patchright`; lokal dry-run için `noop` |
-| `BOOTSTRAP_ADMIN_TOKEN` | İlk kurulumda | DB'de `secrets.admin_token` oluşturmak için geçici token |
-| `DATABASE_URL` | Evet | PostgreSQL bağlantı URL'i |
+| `DATABASE_URL` | Yes | PostgreSQL connection URL |
+| `ENCRYPTION_KEY` | Yes | 32-byte base64 master key for AES-256-GCM credential encryption |
+| `X_EXECUTOR_MODE` | Yes | `patchright` for real X delivery; `noop` for local dry-runs |
+| `BOOTSTRAP_ADMIN_TOKEN` | First boot only | Temporary token used to seed `secrets.admin_token` in the DB |
+| `BOOTSTRAP_ADMIN_EMAIL` | First boot only | Email of the first admin user to create |
+| `CORS_ORIGINS` | Production | Comma-separated origin whitelist (empty = reject all) |
+| `REDIS_URL` | Multi-instance | Required when running 2+ backend replicas |
+| `AI_COPILOT_ADMIN_EMAILS` | Optional | Comma-separated emails allowed to use the AI Copilot module (empty = feature off) |
 
-Kalıcı admin token'ı DB'ye yaz, sonra env'den kaldır:
+After first boot, write a permanent admin token to the DB and remove `BOOTSTRAP_ADMIN_TOKEN` from your environment:
 
 ```bash
 curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"adminToken":"kalici-admin-token"}' \
+  -d '{"adminToken":"<another-random-32-byte-hex>"}' \
   http://localhost:3001/admin/secrets
 ```
 
-### Mail (SMTP) credential'larını DB'ye yaz
+### SMTP credentials live in the database
 
-Magic-link maillerini göndermek için SMTP bilgileri **DB'de** yaşar — env'de
-hiçbir SMTP değişkeni yok. Provider'ı (Postmark, Mailgun, SES, Gmail, vs.)
-seçtikten sonra credential'ları aynı `/admin/secrets` endpoint'i üzerinden yaz:
+Magic-link emails are sent through SMTP. **No SMTP variables are read from env** — credentials are stored in the DB via `PUT /admin/secrets`. Pick a provider (Postmark, Mailgun, SES, Gmail, etc.) and write the credentials in:
 
 ```bash
 curl -X PUT -H "Authorization: Bearer $ADMIN_API_TOKEN" \
@@ -161,14 +176,13 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   http://localhost:3001/admin/secrets
 ```
 
-Tweetly transporter'ı bir sonraki magic-link gönderiminde DB'den yeniden
-kurar; yeniden başlatmaya gerek yok. Provider değiştirdiğinde aynı endpoint'le
-güncelle, eski transporter düşer.
+The transporter is rebuilt on the next magic-link send — no restart needed. Updating credentials at the same endpoint cycles the previous transporter automatically.
 
-`mailProvider` `console` kalırsa magic link sadece backend log'una düşer
-(yerel geliştirme için ideal).
+If `mailProvider` stays `console` (the default), magic links are written to backend stdout instead of being sent — ideal for local dev.
 
-X hesabını backend üzerinden güvenli login job ile bağla:
+### Connect an X account
+
+Tweetly logs into X using its own browser automation; the user never has to copy `auth_token` / `ct0` / `twid`. Kick off a server-side login job:
 
 ```bash
 curl -X POST -H "Authorization: Bearer $TWEETLY_API_KEY" \
@@ -177,14 +191,14 @@ curl -X POST -H "Authorization: Bearer $TWEETLY_API_KEY" \
   http://localhost:3001/api/v1/accounts/connect
 ```
 
-Yanıt `202 Accepted` döner ve bir `jobId` verir. Durumu poll etmek için:
+The response is `202 Accepted` with a `jobId`. Poll its status:
 
 ```bash
 curl -H "Authorization: Bearer $TWEETLY_API_KEY" \
   http://localhost:3001/api/v1/accounts/login-jobs/$JOB_ID
 ```
 
-Session bozulursa aynı hesabı yeniden doğrula:
+When a session breaks, re-authenticate the same account:
 
 ```bash
 curl -X POST -H "Authorization: Bearer $TWEETLY_API_KEY" \
@@ -193,14 +207,7 @@ curl -X POST -H "Authorization: Bearer $TWEETLY_API_KEY" \
   http://localhost:3001/api/v1/accounts/foo/reauth
 ```
 
-Kullanıcıların `auth_token`, `ct0` veya `twid` kopyalaması gerekmez. Tweetly
-X'e kendi tarayıcı otomasyonu ile giriş yapar, gerekli session cookie'lerini
-backend tarafında alır ve saklar.
-
-`proxyCountry` opsiyoneldir. Gönderilmezse backend `LOGIN_DEFAULT_PROXY_COUNTRY`
-değerini, reauth sırasında varsa hesabın saklı `proxy_country` değerini kullanır.
-X aynı sunucu IP'sinden gelen çoklu loginleri geçici olarak bloklayabildiği için
-prod ortamda bölge bazlı egress/proxy tanımlamak önerilir:
+`proxyCountry` is optional. If omitted, the backend uses `LOGIN_DEFAULT_PROXY_COUNTRY`; for reauth, it falls back to the account's stored `proxy_country`. X temporarily blocks bursts of logins from the same server IP, so configuring per-region egress proxies in production is recommended:
 
 ```bash
 LOGIN_DEFAULT_PROXY_COUNTRY=TR
@@ -209,55 +216,45 @@ LOGIN_PROXY_TR=http://user:pass@tr.proxy.example:8080
 LOGIN_PROXY_US=http://user:pass@us.proxy.example:8080
 ```
 
-Login akışı X onboarding tarafında geçici "try again later" veya username
-adımında ilerlememe hatası alırsa worker, yapılandırılmış ilk fallback proxy
-ülkesiyle bir kez daha dener.
+If the X onboarding flow returns a transient "try again later" or stalls on the username step, the worker retries once with the first configured fallback proxy country.
 
-### Oturum ne zaman bozulur?
+### When does a session break?
 
-X session'ı süresi dolar veya X "yeni cihaz" tespiti yaparsa Patchright
-auth-failure döndürür. Tweetly bunu otomatik olarak kaydeder:
+When an X session expires or X flags a "new device" sign-in, Patchright surfaces an auth failure. Tweetly records it automatically:
 
-- 1+ ardışık başarısızlık → Hesaplar listesinde **"Token süresi dolmuş?"**
-  rozeti görünür (mouse-over ile son hata sebebi).
-- 3 ardışık başarısızlık → hesap otomatik olarak `paused` durumuna alınır
-  (kuyruktaki aksiyonlar tutulur, üretim bekler).
+- **1+ consecutive failures** → an "Expired token?" badge appears on the Accounts list (hover for the last error reason).
+- **3 consecutive failures** → the account is auto-`paused` (queued actions are held; production stalls).
 
-Bu noktada Hesaplar ekranındaki **Yeniden doğrula** akışıyla kullanıcı adı,
-şifre ve gerekiyorsa 2FA secret bilgisi üzerinden yeni session açılır.
+From there, the **Re-authenticate** flow on the Accounts page opens a new session using the username, password, and 2FA secret if applicable.
 
 ---
 
-## MCP Bağlantısı (Claude Code örneği)
+## MCP connection (Claude Code example)
 
-MCP `/mcp/sse` endpoint'i **kullanıcı `tk_*` API key'i** ile çalışır
-(admin token değil). Her user kendi key'iyle bağlanır ve sadece kendi
-hesaplarına erişir.
+The MCP `/mcp/sse` endpoint is authenticated with a **user `tk_*` API key** (not the admin token). Each user connects with their own key and can only act on their own accounts.
 
 ```bash
-# tk_ key'i frontend → /login → magic-link → API Keys ekranından üret
+# Mint a tk_ key from the panel: /login → magic link → API Keys page.
 claude mcp add tweetly --url http://localhost:3001/mcp/sse \
   --header "Authorization: Bearer $TWEETLY_API_KEY"   # tk_xxx...
 ```
 
-Sonra Claude Code içinde: "Tweetly üzerinden 'merhaba' diye bir tweet at" denildiğinde `post_tweet` tool'u tetiklenir, action engine'e enqueue edilir, Patchright X üzerinde gönderir.
+Then, inside Claude Code: "Post 'hello world' through tweetly" triggers the `post_tweet` tool, which enqueues to the action engine and dispatches Patchright to publish on X.
 
-> **Auth modeli özet**:
-> - `tk_*` user key → `/mcp/*`, `/api/v1/*` (kullanıcının kendi
->   hesapları, çok kullanıcılı)
-> - `secrets.admin_token` → `/admin/*` (operatör/sysadmin uçları,
->   tüm kullanıcılar)
-> İkisini karıştırma — MCP istemcisine asla admin token verme.
+> **Auth model summary:**
+> - `tk_*` user key → `/mcp/*`, `/api/v1/*` (the user's own accounts, multi-tenant)
+> - `secrets.admin_token` → `/admin/*` (operator/sysadmin endpoints, all users)
+>
+> Don't mix them — never hand the admin token to an MCP client.
 
 ---
 
-## Webhook HMAC doğrulama
+## Webhook HMAC verification
 
-Monitor oluşturduğunda response `webhookSecret` döner — sadece bir kez.
-Webhook receiver'ın bu secret'la `X-Tweetly-Signature` başlığını doğrulamalı:
+When you create a monitor, the response includes `webhookSecret` — shown only once. Your webhook receiver must verify the `X-Tweetly-Signature` header with this secret:
 
 ```js
-// Express örneği
+// Express example
 app.post('/tweetly-webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const header = req.header('X-Tweetly-Signature') ?? '';
   const [tPart, vPart] = header.split(',');
@@ -282,7 +279,7 @@ app.post('/tweetly-webhook', express.raw({ type: 'application/json' }), (req, re
 });
 ```
 
-Secret'ı kaybedersen: `POST /api/v1/monitors/:id/rotate-secret` ile rotate et.
+Lost the secret? Rotate via `POST /api/v1/monitors/:id/rotate-secret`.
 
 ---
 
@@ -293,47 +290,47 @@ Secret'ı kaybedersen: `POST /api/v1/monitors/:id/rotate-secret` ile rotate et.
 curl http://localhost:3001/health
 curl http://localhost:3001/ready
 
-# Durum / metrics (admin token gerekir)
+# Status / metrics (admin token required)
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/status
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/metrics
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/queue/depth
 
-# Action yönetimi
+# Action management
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" "http://localhost:3001/admin/actions?type=post&status=dead"
 curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/actions/post/UUID/replay
 curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/actions/post/UUID/cancel
 
-# Manuel test gönderim
+# Manual test post
 curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"text":"merhaba","account":"foo"}' \
+  -d '{"text":"hello","account":"foo"}' \
   http://localhost:3001/admin/test/post
 ```
 
 ---
 
-## Docker / Coolify Deploy
+## Docker / Coolify deploy
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-| Volume | İçerik |
+| Volume | Contents |
 |---|---|
-| `tweetly_state` | `/data` — session, media, logs |
-| `tweetly_pgdata` | PostgreSQL veri dizini |
+| `tweetly_state` | `/data` — sessions, media, logs |
+| `tweetly_pgdata` | PostgreSQL data directory |
 
 ---
 
 ## Coolify deploy
 
-### Servisler
+### Services
 
-| Servis | Tip | Notlar |
+| Service | Type | Notes |
 |---|---|---|
-| `tweetly-backend` | Application (Dockerfile) | `backend/` dizini, `Dockerfile` build, port 3000 |
-| `tweetly-frontend` | Application (Dockerfile) | `frontend/` dizini, build arg `NEXT_PUBLIC_API_URL=https://tw-backend.<domain>` |
+| `tweetly-backend` | Application (Dockerfile) | `backend/` directory, `Dockerfile` build, port 3000 |
+| `tweetly-frontend` | Application (Dockerfile) | `frontend/` directory, build arg `NEXT_PUBLIC_API_URL=https://api.your-domain.com` |
 | `tweetly-postgres` | Managed Postgres | Coolify add-on, 16-alpine, persistent volume |
 
 ### Backend env (Coolify → Environment Variables)
@@ -344,43 +341,40 @@ NODE_ENV=production
 X_EXECUTOR_MODE=patchright
 APP_URL=https://panel.yourdomain.com
 CORS_ORIGINS=https://panel.yourdomain.com
-BOOTSTRAP_ADMIN_TOKEN=<random-32-byte-hex>      # bir kerelik
-BOOTSTRAP_ADMIN_EMAIL=you@yourdomain.com         # ilk user'ın maili
-# REDIS_URL=redis://<coolify-redis>:6379         # 2+ instance'da gerekli
+BOOTSTRAP_ADMIN_TOKEN=<random-32-byte-hex>      # one-time
+BOOTSTRAP_ADMIN_EMAIL=you@yourdomain.com         # first user's email
+# REDIS_URL=redis://<coolify-redis>:6379         # required for 2+ instances
 ```
 
 ### Frontend env
 
 ```env
-# Build arg (Coolify "Build Arguments" alanı):
-NEXT_PUBLIC_API_URL=https://tw-backend.yourdomain.com
+# Build arg (Coolify "Build Arguments"):
+NEXT_PUBLIC_API_URL=https://api.your-domain.com
 ```
 
-`tw-panel.*` ↔ `tw-backend.*` adlandırmasını kullanırsan `NEXT_PUBLIC_API_URL`'a
-gerek yok, `lib/api.ts` runtime'da otomatik çıkartır. Farklı bir convention
-ise build-arg zorunlu.
+If you keep the `panel.*` ↔ `api.*` naming convention, `NEXT_PUBLIC_API_URL` can be omitted — `lib/api.ts` derives it at runtime. Any other convention requires the build arg.
 
 ### Persistent volume
 
-Backend container'ı `/data`'ya kalıcı volume bekliyor:
-- `/data/user-data` — X session profile'ları (cookie kalıcılığı)
-- `/data/app-data/{errors,logs}` — runtime artifact'lar
+The backend container expects a persistent volume mounted at `/data`:
+- `/data/user-data` — X session profiles (cookie persistence)
+- `/data/app-data/{errors,logs}` — runtime artifacts
 
-Patchright Chromium binary'si image içinde `/app/browsers` altında tutulur;
-`/data` volume'una koyma, aksi halde Coolify volume mount image içindeki binary'yi gizler.
+The Patchright Chromium binary is stored at `/app/browsers` inside the image. **Don't mount `/data` over `/app/browsers`** — Coolify volume mounts shadow the in-image binary.
 
-Coolify "Persistent Storage" → mount: `/data`.
+In Coolify: "Persistent Storage" → mount `/data`.
 
-### Bootstrap akışı (deploy sonrası, bir kerelik)
+### Bootstrap flow (post-deploy, one-time)
 
 ```bash
-# 1. İlk admin user'ı yarat
+# 1. Create the first admin user
 curl -X POST -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"email":"you@yourdomain.com"}' \
-  https://tw-backend.yourdomain.com/admin/users
+  https://api.your-domain.com/admin/users
 
-# 2. Kalıcı admin token + SMTP credentials yaz
+# 2. Write the permanent admin token + SMTP credentials
 curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -392,95 +386,86 @@ curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
     "smtpPass": "<provider-pass>",
     "mailFrom": "Tweetly <noreply@yourdomain.com>"
   }' \
-  https://tw-backend.yourdomain.com/admin/secrets
+  https://api.your-domain.com/admin/secrets
 
-# 3. BOOTSTRAP_ADMIN_TOKEN env'ini Coolify'dan kaldır, redeploy et
-# 4. Frontend → /login → email gir → SMTP üzerinden gelen link → giriş
+# 3. Remove BOOTSTRAP_ADMIN_TOKEN from Coolify env, redeploy
+# 4. Frontend → /login → enter email → click magic link from SMTP → in
 ```
 
 ### Migration
 
-Coolify "Run Command" sekmesinden:
+From Coolify "Run Command":
 
 ```bash
 npm run db:migrate
 ```
 
-İlk deploy sonrası bir kez. Sonraki migration'larda her container start'ta
-zaten startup'ta uygulanmaz — manuel çalıştırmak gerekiyor.
+Run once after the first deploy. Subsequent migrations don't auto-apply on container start — you have to run the command manually.
 
 ---
 
-## Tek instance vs çoklu instance
+## Single-instance vs multi-instance
 
-Tweetly tek bir Node process'inde sıfır ek konfigürasyonla çalışır.
-Yatay ölçekleme istiyorsan dikkat edilecek dört koordinasyon noktası
-var; üçü kod tarafında halledildi, biri load balancer ayarı:
+Tweetly runs in a single Node process with zero extra configuration. To scale horizontally there are four coordination points; three are handled in code, the fourth is a load-balancer setting:
 
-| Bileşen | Multi-instance ayarı |
+| Component | Multi-instance setup |
 |---|---|
-| **Action ClaimWorker** | Postgres `FOR UPDATE SKIP LOCKED` ile zaten safe — ek ayar yok |
-| **Rate limiter** | `REDIS_URL` set et — ortak counter Redis'te, tüm instance'lar aynı limit'e sayar |
-| **Monitor poller** | `pg_try_advisory_lock` ile leader election — her cycle yalnız bir instance poll yapar, ek ayar yok |
-| **MCP SSE** | Load balancer'da **sticky session** zorunlu (aşağı bakın) |
+| **Action ClaimWorker** | Postgres `FOR UPDATE SKIP LOCKED` already safe — no extra config |
+| **Rate limiter** | Set `REDIS_URL` — shared counter in Redis, all instances count toward the same limit |
+| **Monitor poller** | `pg_try_advisory_lock` leader election — only one instance polls per cycle, no extra config |
+| **MCP SSE** | **Sticky session** required at the load balancer (see below) |
 
-### Sticky session (LB tarafı)
+### Sticky session (at the LB)
 
-MCP SSE bağlantısı uzun ömürlü; aynı kullanıcının `/mcp/messages` POST'ları
-SSE'yi açtığı instance'a düşmek zorunda. Aksi halde "session not found"
-yerine `502 session_on_other_instance` alırsın (Tweetly bunu Redis kaydından
-tespit edip operatöre işaret eder).
+The MCP SSE connection is long-lived; the same user's `/mcp/messages` POSTs must land on the instance that opened the SSE stream. Otherwise the client gets `502 session_on_other_instance` (tweetly detects this from the Redis registry and signals the operator) instead of "session not found".
 
-Caddy / nginx / Traefik için `Authorization` header üzerinden hash-based
-sticky veya cookie-based affinity yeterli. Coolify'da "Session affinity"
-seçeneğini açman yeterli.
+Caddy / nginx / Traefik: hash-based sticky on the `Authorization` header, or cookie-based affinity, both work. In Coolify: enable "Session affinity".
 
-### REDIS_URL ne zaman gerekli?
+### When is `REDIS_URL` required?
 
-| Senaryo | REDIS_URL |
+| Scenario | `REDIS_URL` |
 |---|---|
-| Tek instance dev/prod | gerekmez |
-| 2+ instance | **gerekli** (rate limit + MCP session registry) |
+| Single instance dev/prod | not required |
+| 2+ instances | **required** (rate limit + MCP session registry) |
 
-Kurulum: `redis://localhost:6379` veya Coolify'da managed Redis service-name.
+Use `redis://localhost:6379` or a Coolify-managed Redis service name.
 
-### Doğrulama
+### Verification
 
-İki instance ayağa kaldır, aynı user için 31 PUT request at: ikinci
-instance'da da 30. ve sonrası 429 dönmeli (Redis ortak counter). Tek
-instance'da idi: ikinci instance'ın ayrı counter'ı olur, 60 isteğe
-kadar geçerdi.
+Bring up two instances and fire 31 PUT requests for the same user: the 30th and beyond must return 429 even when they hit the second instance (shared Redis counter). Without Redis, each instance has its own counter, so 60 requests would slip through.
 
-Monitor poller: log'larda yalnız bir instance "Polling N monitor(s)
-(leader)" yazar, diğerleri "skipped — another instance holds the leader
-lock" der.
+Monitor poller: only one instance logs `Polling N monitor(s) (leader)`; the others log `skipped — another instance holds the leader lock`.
 
 ---
 
-## Prometheus Metrikleri
+## Prometheus metrics
 
-`GET /metrics` Bearer auth gerektirir (`secrets.admin_token`). Prometheus
-scrape config örneği:
+`GET /metrics` requires bearer auth (`secrets.admin_token`). Example Prometheus scrape config:
 
 ```yaml
 scrape_configs:
   - job_name: tweetly
     metrics_path: /metrics
     static_configs:
-      - targets: ['tw-backend.yourdomain.com:443']
+      - targets: ['api.your-domain.com:443']
     scheme: https
-    bearer_token: <secrets.admin_token değeri>
-    # veya bearer_token_file: /etc/prometheus/tweetly-token
+    bearer_token: <secrets.admin_token>
+    # or bearer_token_file: /etc/prometheus/tweetly-token
 ```
 
-Grafana Cloud free tier kullanıyorsan Grafana Agent veya Alloy aynı
-config'i kabul eder.
+Grafana Cloud free tier? Grafana Agent or Alloy accepts the same config.
 
-
-
-| Metrik | Tür |
+| Metric | Type |
 |---|---|
 | `tweetly_action_total` | Counter |
 | `tweetly_action_duration_ms` | Histogram |
 | `tweetly_queue_depth` | Gauge |
 | `tweetly_circuit_breaker_paused` | Gauge |
+
+---
+
+## License
+
+[MIT](./LICENSE) © Furkan Beydemir.
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup and PR conventions, and [`SECURITY.md`](./SECURITY.md) for vulnerability disclosure.

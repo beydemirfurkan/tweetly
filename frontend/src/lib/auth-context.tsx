@@ -46,9 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) return { ok: true };
       const body = await res.text().catch(() => '');
-      return { ok: false, error: body || `Hata: ${res.status}` };
+      return { ok: false, error: body || `HTTP ${res.status}` };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'Sunucuya ulaşılamıyor' };
+      return { ok: false, error: err instanceof Error ? err.message : 'Cannot reach the server' };
     }
   }, []);
 
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (!res.ok) {
         const body = await res.text().catch(() => '');
-        return { ok: false, error: body || 'Geçersiz veya süresi geçmiş bağlantı' };
+        return { ok: false, error: body || 'Invalid or expired link' };
       }
       const data = (await res.json()) as ConsumeResponse;
       setToken(data.sessionKey);
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'Sunucuya ulaşılamıyor' };
+      return { ok: false, error: err instanceof Error ? err.message : 'Cannot reach the server' };
     }
   }, []);
 

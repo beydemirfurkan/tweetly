@@ -86,7 +86,7 @@ export class GenericActionRepository {
       RETURNING a.*
     `;
     const result = (await this.dataSource.query(sql, [workerId, batchSize, lockTtlSec])) as unknown;
-    // TypeORM PG driver bazı UPDATE..RETURNING durumlarında [rows, count] tuple'ı döndürür.
+    // The TypeORM PG driver returns a [rows, count] tuple for some UPDATE..RETURNING flows.
     if (Array.isArray(result) && result.length === 2 && Array.isArray(result[0])) {
       return result[0] as ClaimedActionRow[];
     }

@@ -96,9 +96,9 @@ export class XPostFlowService {
     }
     try {
       await page.waitForSelector(this.selectors.mediaAttached, { timeout: 20000 });
-      this.log.log(`Media yüklendi (${existing.length} dosya): ${existing.map((p) => path.basename(p)).join(', ')}`);
+      this.log.log(`Media uploaded (${existing.length} file(s)): ${existing.map((p) => path.basename(p)).join(', ')}`);
     } catch {
-      this.log.warn('Media upload preview görünmedi (timeout). Yine de devam ediliyor.');
+      this.log.warn('Media upload preview did not appear (timeout). Continuing anyway.');
     }
     await page.waitForTimeout(800 + Math.random() * 600);
 

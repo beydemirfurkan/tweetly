@@ -105,7 +105,7 @@ async function main(): Promise<void> {
 
   try {
     if (args.truncate && !args.dryRun) {
-      console.log('Hedef tabloları temizliyorum...');
+      console.log('Truncating target tables...');
       const truncateOrder = [
         'analytics_events',
         'content_memory',
@@ -139,10 +139,10 @@ async function main(): Promise<void> {
 
     if (args.dryRun) {
       await queryRunner.rollbackTransaction();
-      console.log('\nDRY-RUN — değişiklik commit edilmedi.');
+      console.log('\nDRY-RUN — no changes were committed.');
     } else {
       await queryRunner.commitTransaction();
-      console.log('\nCommit edildi.');
+      console.log('\nCommitted.');
     }
   } catch (err) {
     if (queryRunner.isTransactionActive) {
@@ -155,8 +155,8 @@ async function main(): Promise<void> {
     sqlite.close();
   }
 
-  console.log('\n=== Diff Raporu ===');
-  console.log('tablo                  kaynak  yazılan');
+  console.log('\n=== Diff report ===');
+  console.log('table                  source  written');
   console.log('---------------------- ------- -------');
   for (const [table, c] of Object.entries(counts)) {
     const ok = c.source === c.written;
