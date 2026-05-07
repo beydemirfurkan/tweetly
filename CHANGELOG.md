@@ -68,4 +68,4 @@ All notable changes to this project. Dates are ISO (YYYY-MM-DD).
 - After deploy, MCP clients calling `retweet` or `unretweet` will fail
   loudly. Update client tool calls to the new names.
 
-[Unreleased]: https://github.com/yourname/tweetly/compare/main...HEAD
+[Unreleased]: https://github.com/beydemirfurkan/tweetly/compare/main...HEAD

@@ -10,6 +10,10 @@
     "url": "https://github.com/beydemirfurkan/tweetly.git",
     "directory": "frontend"
   },
+  "bugs": {
+    "url": "https://github.com/beydemirfurkan/tweetly/issues"
+  },
+  "homepage": "https://github.com/beydemirfurkan/tweetly#readme",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
