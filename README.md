@@ -215,7 +215,7 @@ Same Zod schemas back the MCP and REST surfaces, so a tool name in MCP maps 1:1 
 
 **Management:** `get_accounts` · `get_account_health` · `connect_x_account` · `reauth_x_account` · `get_x_login_job` · `list_actions` · `cancel_action` · `replay_action` · `get_settings` · `update_settings`
 
-**Monitor:** `create_monitor` · `list_monitors` · `get_monitor` · `delete_monitor` · `pause_monitor`
+**Monitor:** `create_monitor` · `list_monitors` · `get_monitor` · `rotate_secret` · `delete_monitor` · `pause_monitor`
 
 > **Breaking (2026-05-03):** `retweet` → `retweet_tweet`, `unretweet` → `unretweet_tweet`. Old names now return `Unknown tool`.
 

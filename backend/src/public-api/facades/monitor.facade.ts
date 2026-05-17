@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
+import { redactMonitor } from '@/monitoring/monitor-redactor';
 import { AccountFacade } from './account.facade';
 import type { MonitorCreateDto } from '../dto/monitor.dto';
 
@@ -70,10 +71,4 @@ export class MonitorFacade {
     await this.accounts.assertAccountOwnership(userId, monitor.accountId);
     return monitor;
   }
-}
-
-function redactMonitor<T extends { webhookSecret?: string | null }>(monitor: T) {
-  const { webhookSecret: _omit, ...rest } = monitor as T & { webhookSecret?: string | null };
-  void _omit;
-  return { ...rest, hasWebhookSecret: Boolean(monitor.webhookSecret) };
 }
