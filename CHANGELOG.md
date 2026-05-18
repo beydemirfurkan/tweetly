@@ -4,6 +4,18 @@ All notable changes to this project. Dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
 
+### Breaking
+
+- **MCP `update_settings` now allowlists keys against `SettingsService.getDefs()`** (#61, closes #21). Unknown keys (e.g. `secrets.admin_token`) are rejected with `BadRequestException` instead of being silently upserted; value types must also match the registry declaration. Account-scoped writes are now atomic — a single invalid key rejects the entire batch. To expose a new account setting, add it to `SettingsService.DEFS`.
+
+### Security
+
+- **Magic-link console fallback disabled outside development** (#60, closes #5). When SMTP delivery is unconfigured or fails, the service now throws `ServiceUnavailableException` (503) instead of logging the sign-in URL to stdout. Console fallback remains in `development`, `test`, `local`, and unset `NODE_ENV` for local debugging.
+
+### Added
+
+- **i18n key parity test** (#62, closes #31). Vitest spec walks `frontend/messages/{en,tr}.json` recursively and fails CI on missing keys in either locale.
+
 ## 2026-05-03 — Consistency & Quality Sprint
 
 ### Breaking
