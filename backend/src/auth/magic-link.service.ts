@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
@@ -8,6 +8,7 @@ import { SettingsService } from '@/settings/settings.service';
 
 const LINK_TTL_MIN = 15;
 const DEFAULT_FROM = 'tweetly <noreply@example.com>';
+const MAGIC_LINK_CONSOLE_ENVS = new Set(['development', 'test', 'local']);
 
 interface SmtpConfig {
   host: string;
@@ -85,7 +86,16 @@ export class MagicLinkService {
       }
     }
 
-    this.log.log(`[MAGIC_LINK] ${email} → ${link}`);
+    if (canLogMagicLinkToConsole()) {
+      this.log.log(`[MAGIC_LINK] ${email} → ${link}`);
+      return;
+    }
+
+    this.log.warn(
+      `Magic-link console fallback disabled in NODE_ENV=${process.env.NODE_ENV ?? 'production'}; ` +
+        'configure SMTP delivery to issue sign-in links.',
+    );
+    throw new ServiceUnavailableException('Magic-link delivery is not configured');
   }
 
   private async resolveTransporter(): Promise<Transporter | null> {
@@ -117,6 +127,10 @@ export class MagicLinkService {
     this.log.log(`SMTP transport configured from DB: ${host}:${port} (secure=${secure})`);
     return this.transporter;
   }
+}
+
+function canLogMagicLinkToConsole(env = process.env.NODE_ENV): boolean {
+  return !env || MAGIC_LINK_CONSOLE_ENVS.has(env.toLowerCase());
 }
 
 function sha256(value: string): string {

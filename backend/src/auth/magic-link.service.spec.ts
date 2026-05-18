@@ -1,0 +1,87 @@
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
+import { MagicLinkService } from './magic-link.service';
+import type { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
+import { mockRepository } from '@/test/mocks/repository.mock';
+
+function createService() {
+  const repo = mockRepository<MagicLinkEntity>();
+  repo.insert = jest.fn().mockResolvedValue({ identifiers: [{ id: 'ml-1' }] }) as any;
+  const settings = {
+    get: jest.fn().mockImplementation(async (_key: string, fallback: unknown) => fallback),
+  };
+  const service = new MagicLinkService(repo as any, settings as any);
+  return { service, repo, settings };
+}
+
+describe('MagicLinkService', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+  let errorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+    jest.restoreAllMocks();
+  });
+
+  it('logs the magic-link URL to console in development fallback mode', async () => {
+    process.env.NODE_ENV = 'development';
+    const { service } = createService();
+
+    const result = await service.issue('user-1', 'user@example.com');
+
+    expect(result.token).toMatch(/^[a-f0-9]{64}$/);
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[MAGIC_LINK] user@example.com'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining(result.token));
+  });
+
+  it('does not log the magic-link URL in production when delivery is not configured', async () => {
+    process.env.NODE_ENV = 'production';
+    const { service } = createService();
+
+    await expect(service.issue('user-1', 'user@example.com')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+
+    const logged = logSpy.mock.calls.flat().join('\n');
+    const warned = warnSpy.mock.calls.flat().join('\n');
+    expect(logged).not.toContain('[MAGIC_LINK]');
+    expect(logged).not.toContain('/auth/verify?token=');
+    expect(warned).toContain('Magic-link console fallback disabled');
+  });
+
+  it('does not log the magic-link URL in production when SMTP delivery fails', async () => {
+    process.env.NODE_ENV = 'production';
+    const { service } = createService();
+    const sendMail = jest.fn().mockRejectedValue(new Error('smtp down'));
+    Object.assign(service as any, {
+      transporter: { sendMail },
+      cachedConfig: {
+        host: 'smtp.example.com',
+        port: 587,
+        user: null,
+        pass: null,
+        secure: false,
+        from: 'tweetly <noreply@example.com>',
+      },
+    });
+
+    await expect(service.issue('user-1', 'user@example.com')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+
+    const logged = logSpy.mock.calls.flat().join('\n');
+    expect(sendMail).toHaveBeenCalled();
+    expect(logged).not.toContain('[MAGIC_LINK]');
+    expect(logged).not.toContain('/auth/verify?token=');
+  });
+});
