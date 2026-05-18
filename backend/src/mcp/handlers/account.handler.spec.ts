@@ -24,7 +24,7 @@ function mocks() {
   } as unknown as jest.Mocked<AdminApiService>;
 
   const settings = {
-    getDefs: jest.fn().mockReturnValue([{ key: 'foo', defaultValue: 'bar' }]),
+    getDefs: jest.fn().mockReturnValue([{ key: 'foo', defaultValue: 'bar', type: 'string' }]),
     get: jest.fn().mockResolvedValue('val'),
     invalidateCache: jest.fn(),
   } as unknown as jest.Mocked<SettingsService>;
@@ -225,8 +225,14 @@ describe('AccountHandler', () => {
       ).rejects.toThrow(/settings must be an object/);
     });
 
-    it('updateSettings infers the right type for primitives and stores objects as JSON', async () => {
+    it('updateSettings stores allowlisted keys with their declared types', async () => {
       const { handler, upsert, settings } = build();
+      settings.getDefs.mockReturnValue([
+        { key: 's', defaultValue: '', type: 'string' },
+        { key: 'n', defaultValue: 0, type: 'number' },
+        { key: 'b', defaultValue: false, type: 'boolean' },
+        { key: 'j', defaultValue: {}, type: 'json' },
+      ]);
 
       const result = await handler.updateSettings(
         { account_id: 'acc-1', settings: { s: 'hi', n: 42, b: true, j: { k: 1 } } },
@@ -234,15 +240,53 @@ describe('AccountHandler', () => {
       );
 
       expect(upsert).toHaveBeenCalledTimes(4);
-      // String / number / boolean / json branches:
       expect(upsert.mock.calls[0][0]).toMatchObject({ key: 's', type: 'string', value: 'hi' });
       expect(upsert.mock.calls[1][0]).toMatchObject({ key: 'n', type: 'number', value: '42' });
       expect(upsert.mock.calls[2][0]).toMatchObject({ key: 'b', type: 'boolean', value: 'true' });
       expect(upsert.mock.calls[3][0]).toMatchObject({ key: 'j', type: 'json', value: '{"k":1}' });
-
-      // Settings cache must be busted so subsequent reads see the writes.
       expect(settings.invalidateCache).toHaveBeenCalled();
       expect(result).toEqual({ ok: true, updated: 4 });
+    });
+
+    it('updateSettings rejects unknown keys without writing them', async () => {
+      const { handler, upsert } = build();
+
+      await expect(
+        handler.updateSettings(
+          { account_id: 'acc-1', settings: { 'secrets.admin_token': 'x' } },
+          fakeContext(),
+        ),
+      ).rejects.toThrow(/Unknown setting: secrets\.admin_token/);
+
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('updateSettings validates all keys before writing any rows', async () => {
+      const { handler, settings, upsert } = build();
+      settings.getDefs.mockReturnValue([{ key: 'max_attempts', defaultValue: 3, type: 'number' }]);
+
+      await expect(
+        handler.updateSettings(
+          { account_id: 'acc-1', settings: { max_attempts: 5, 'secrets.admin_token': 'x' } },
+          fakeContext(),
+        ),
+      ).rejects.toThrow(/Unknown setting: secrets\.admin_token/);
+
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('updateSettings rejects values that do not match the setting type', async () => {
+      const { handler, settings, upsert } = build();
+      settings.getDefs.mockReturnValue([{ key: 'max_attempts', defaultValue: 3, type: 'number' }]);
+
+      await expect(
+        handler.updateSettings(
+          { account_id: 'acc-1', settings: { max_attempts: 'many' } },
+          fakeContext(),
+        ),
+      ).rejects.toThrow(/max_attempts must be number/);
+
+      expect(upsert).not.toHaveBeenCalled();
     });
   });
 });

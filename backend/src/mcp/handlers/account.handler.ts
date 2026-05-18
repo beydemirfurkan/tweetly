@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AccountsService } from '@/accounts/accounts.service';
 import { AdminApiService } from '@/admin-api/admin-api.service';
@@ -202,13 +202,26 @@ export class AccountHandler extends BaseMcpHandler {
     await ctx.assertAccountOwnership(accountId);
     const settings = args.settings as Record<string, unknown>;
     if (!settings || typeof settings !== 'object') throw new Error('settings must be an object');
+    const defs = new Map(this.settings.getDefs().map((def) => [def.key, def]));
+    const entries = Object.entries(settings).map(([key, value]) => {
+      const def = defs.get(key);
+      if (!def) {
+        throw new BadRequestException(`Unknown setting: ${key}`);
+      }
+      if (!matchesSettingType(value, def.type)) {
+        throw new BadRequestException(`Setting ${key} must be ${def.type}`);
+      }
+      return {
+        key,
+        raw: def.type === 'json' ? JSON.stringify(value) : String(value),
+        type: def.type,
+      };
+    });
     const repo = this.dataSource.getRepository('settings');
     const now = new Date();
-    for (const [key, value] of Object.entries(settings)) {
-      const type = inferType(value);
-      const raw = type === 'json' ? JSON.stringify(value) : String(value);
+    for (const entry of entries) {
       await repo.upsert(
-        { key, accountId, value: raw, type, updatedAt: now },
+        { key: entry.key, accountId, value: entry.raw, type: entry.type, updatedAt: now },
         ['key', 'accountId'],
       );
     }
@@ -217,9 +230,15 @@ export class AccountHandler extends BaseMcpHandler {
   }
 }
 
-function inferType(value: unknown): 'string' | 'number' | 'boolean' | 'json' {
-  if (typeof value === 'number') return 'number';
-  if (typeof value === 'boolean') return 'boolean';
-  if (typeof value === 'object' && value !== null) return 'json';
-  return 'string';
+function matchesSettingType(value: unknown, type: 'string' | 'number' | 'boolean' | 'json'): boolean {
+  switch (type) {
+    case 'string':
+      return typeof value === 'string';
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value);
+    case 'boolean':
+      return typeof value === 'boolean';
+    case 'json':
+      return typeof value === 'object' && value !== null;
+  }
 }
