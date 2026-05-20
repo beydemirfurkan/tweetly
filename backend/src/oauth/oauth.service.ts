@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { OAuthClientEntity } from '@persistence/entities/oauth-client.entity';
 import { OAuthCodeStore, type AuthCodeRecord } from './oauth-code-store.service';
 
@@ -78,7 +78,7 @@ export class OAuthService {
   async verifyClientSecret(clientId: string, clientSecret: string): Promise<OAuthClientEntity | null> {
     const client = await this.findClient(clientId);
     if (!client) return null;
-    return sha256(clientSecret) === client.clientSecretHash ? client : null;
+    return safeCompare(sha256(clientSecret), client.clientSecretHash) ? client : null;
   }
 
   // ── Authorization codes ───────────────────────────────────────────────────
@@ -98,7 +98,7 @@ export class OAuthService {
   verifyPkce(verifier: string, challenge: string): boolean {
     if (!verifier || !challenge) return false;
     const computed = createHash('sha256').update(verifier).digest('base64url');
-    return timingSafeEqual(computed, challenge);
+    return safeCompare(computed, challenge);
   }
 
   // ── Validation helpers ────────────────────────────────────────────────────
@@ -128,9 +128,9 @@ function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
 }
