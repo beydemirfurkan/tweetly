@@ -33,6 +33,18 @@ describe('AdminTokenGuard', () => {
 
     await expect(guard.canActivate((guard as unknown as { context: ExecutionContext }).context)).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it('rejects requests with no authorization header or x-admin-token', async () => {
+    const guard = createGuard({}, 'db-token', 'bootstrap-token');
+
+    await expect(guard.canActivate((guard as unknown as { context: ExecutionContext }).context)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('rejects a token that differs by one character (timing-safe boundary)', async () => {
+    const guard = createGuard({ 'x-admin-token': 'db-token!' }, 'db-token', '');
+
+    await expect(guard.canActivate((guard as unknown as { context: ExecutionContext }).context)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
 });
 
 function createContext(headers: Record<string, string | undefined>): ExecutionContext {

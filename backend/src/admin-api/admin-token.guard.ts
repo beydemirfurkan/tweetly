@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { timingSafeEqual } from 'crypto';
 import { SettingsService } from '@/settings/settings.service';
 
 @Injectable()
@@ -17,7 +18,12 @@ export class AdminTokenGuard implements CanActivate {
     const bearer = req.headers['authorization'] as string | undefined;
     const xToken = req.headers['x-admin-token'] as string | undefined;
 
-    if (bearer === `Bearer ${token}` || xToken === token) return true;
+    if (
+      (bearer != null && safeEqual(bearer, `Bearer ${token}`)) ||
+      (xToken != null && safeEqual(xToken, token))
+    ) {
+      return true;
+    }
     throw new UnauthorizedException('Invalid admin token');
   }
 
@@ -26,4 +32,11 @@ export class AdminTokenGuard implements CanActivate {
     if (stored) return stored;
     return this.config.get<string>('BOOTSTRAP_ADMIN_TOKEN') ?? this.config.get<string>('ADMIN_TOKEN');
   }
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
 }
