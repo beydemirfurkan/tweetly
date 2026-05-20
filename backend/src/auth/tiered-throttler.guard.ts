@@ -7,6 +7,10 @@ import type { AuthedRequest } from './api-key.guard';
  * Tiered rate limiter.
  * Per-user (req.tweetlyAuth.userId) tracker; IP fallback for unauthenticated requests.
  *
+ * Uses req.ip which Express derives from X-Forwarded-For ONLY when the
+ * "trust proxy" setting is correctly configured. This prevents attackers
+ * from spoofing their IP via a crafted X-Forwarded-For header.
+ *
  * 429 body: { error: "rate_limit_exceeded", retryAfter, statusCode }
  * Retry-After response header is set automatically by ThrottlerGuard.
  */
@@ -15,9 +19,7 @@ export class TieredThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Request): Promise<string> {
     const ctx = (req as AuthedRequest).tweetlyAuth;
     if (ctx?.userId) return `user:${ctx.userId}`;
-    const xff = req.headers['x-forwarded-for'];
-    const fwd = typeof xff === 'string' ? xff.split(',')[0]?.trim() : Array.isArray(xff) ? xff[0] : '';
-    return `ip:${fwd || req.ip || 'anon'}`;
+    return `ip:${req.ip || 'anon'}`;
   }
 
   protected async throwThrottlingException(

@@ -74,6 +74,35 @@ async function bootstrap(): Promise<void> {
   // emitted before this line are flushed via the structured logger.
   app.useLogger(app.get(PinoLogger));
 
+  // ── Trust proxy configuration ────────────────────────────────────────────
+  // By default Express treats req.ip as the direct socket remote address.
+  // When behind a reverse proxy (nginx, AWS ALB, Cloudflare, etc.) the real
+  // client IP lives in X-Forwarded-For — but blindly trusting that header
+  // lets anyone spoof their IP and bypass rate limiting.
+  //
+  // TRUST_PROXY values:
+  //   "false"  (default) — do not trust any proxy; req.ip = socket address
+  //   "true"   — trust all proxies (only use in trusted environments)
+  //   "loopback" — trust loopback addresses (127.0.0.1, ::1)
+  //   <number> — trust up to N hops from the end of the X-Forwarded-For chain
+  //   <cidr>   — trust specific CIDR ranges (e.g. "10.0.0.0/8")
+  const trustProxy = process.env.TRUST_PROXY ?? 'loopback';
+  const httpAdapter = app.getHttpAdapter();
+  const instance = httpAdapter.getInstance();
+  if (trustProxy === 'false' || trustProxy === 'off') {
+    instance.set('trust proxy', false);
+    Logger.log('Trust proxy disabled — req.ip = socket remote address', 'Bootstrap');
+  } else if (trustProxy === 'true') {
+    instance.set('trust proxy', true);
+    Logger.warn(
+      'Trust proxy set to true — only safe if ALL upstream proxies are trusted',
+      'Bootstrap',
+    );
+  } else {
+    instance.set('trust proxy', trustProxy);
+    Logger.log(`Trust proxy set to: ${trustProxy}`, 'Bootstrap');
+  }
+
   app.enableShutdownHooks();
   app.enableCors(buildCorsOptions(isProd));
   app.useGlobalFilters(new GlobalExceptionFilter(app.get(RequestContext)));
