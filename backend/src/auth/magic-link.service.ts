@@ -1,6 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { createTransport, type Transporter } from 'nodemailer';
 import { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
@@ -50,12 +50,18 @@ export class MagicLinkService {
   async consume(token: string): Promise<string | null> {
     if (!token) return null;
     const tokenHash = sha256(token);
-    const row = await this.repo.findOne({ where: { tokenHash, consumedAt: IsNull() } });
-    if (!row) return null;
-    if (row.expiresAt.getTime() < Date.now()) return null;
 
-    await this.repo.update(row.id, { consumedAt: new Date() });
-    return row.userId;
+    const result = await this.repo
+      .createQueryBuilder()
+      .update(MagicLinkEntity)
+      .set({ consumedAt: () => 'now()' })
+      .where('token_hash = :tokenHash', { tokenHash })
+      .andWhere('consumed_at IS NULL')
+      .andWhere('expires_at > now()')
+      .returning(['userId'])
+      .execute();
+
+    return getConsumedUserId(result.raw);
   }
 
   private async deliver(email: string, token: string): Promise<void> {
@@ -135,6 +141,16 @@ function canLogMagicLinkToConsole(env = process.env.NODE_ENV): boolean {
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function getConsumedUserId(raw: unknown): string | null {
+  const rows = Array.isArray(raw) && Array.isArray(raw[0]) ? raw[0] : raw;
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  const row = rows[0] as { user_id?: unknown; userId?: unknown };
+  if (typeof row.user_id === 'string') return row.user_id;
+  if (typeof row.userId === 'string') return row.userId;
+  return null;
 }
 
 // Brand palette (light email):

@@ -1,6 +1,7 @@
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
+import type { UpdateQueryBuilder, UpdateResult } from 'typeorm';
 import { MagicLinkService } from './magic-link.service';
-import type { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
+import { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
 import { mockRepository } from '@/test/mocks/repository.mock';
 
 function createService() {
@@ -83,5 +84,48 @@ describe('MagicLinkService', () => {
     expect(sendMail).toHaveBeenCalled();
     expect(logged).not.toContain('[MAGIC_LINK]');
     expect(logged).not.toContain('/auth/verify?token=');
+  });
+
+  describe('consume()', () => {
+    function mockConsumeUpdate(raw: unknown[]) {
+      const builder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ raw, affected: raw.length } as UpdateResult),
+      } as unknown as jest.Mocked<UpdateQueryBuilder<MagicLinkEntity>>;
+      return builder;
+    }
+
+    it('returns the user id from a single atomic consume update', async () => {
+      const { service, repo } = createService();
+      const builder = mockConsumeUpdate([{ user_id: 'user-1' }]);
+      repo.createQueryBuilder = jest.fn().mockReturnValue(builder) as any;
+
+      await expect(service.consume('valid-token')).resolves.toBe('user-1');
+
+      expect(repo.findOne).not.toHaveBeenCalled();
+      expect(repo.update).not.toHaveBeenCalled();
+      expect(builder.update).toHaveBeenCalledWith(MagicLinkEntity);
+      expect(builder.set).toHaveBeenCalledWith({ consumedAt: expect.any(Function) });
+      expect(builder.where).toHaveBeenCalledWith('token_hash = :tokenHash', {
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      });
+      expect(builder.andWhere).toHaveBeenCalledWith('consumed_at IS NULL');
+      expect(builder.andWhere).toHaveBeenCalledWith('expires_at > now()');
+      expect(builder.returning).toHaveBeenCalledWith(['userId']);
+    });
+
+    it('returns null when a racing request already consumed the token', async () => {
+      const { service, repo } = createService();
+      repo.createQueryBuilder = jest.fn().mockReturnValue(mockConsumeUpdate([])) as any;
+
+      await expect(service.consume('valid-token')).resolves.toBeNull();
+
+      expect(repo.findOne).not.toHaveBeenCalled();
+      expect(repo.update).not.toHaveBeenCalled();
+    });
   });
 });
