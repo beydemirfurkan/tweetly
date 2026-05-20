@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { assertPublicWebhookUrl, WebhookUrlError } from './webhook-url.guard';
 
 const WEBHOOK_TIMEOUT_MS = 10_000;
 export const SIGNATURE_HEADER = 'X-Tweetly-Signature';
@@ -19,6 +20,15 @@ export class WebhookDeliveryService {
     payload: Record<string, unknown>,
     secret: string | null,
   ): Promise<DeliveryResult> {
+    // SSRF protection: reject URLs that resolve to private/internal IPs
+    try {
+      await assertPublicWebhookUrl(url);
+    } catch (err) {
+      const msg = err instanceof WebhookUrlError ? err.message : String(err);
+      this.log.warn(`Webhook URL rejected (SSRF protection): ${url} → ${msg}`);
+      return { ok: false, error: msg };
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
     const body = JSON.stringify(payload);

@@ -1,6 +1,12 @@
 import { createHmac } from 'crypto';
 import { WebhookDeliveryService, SIGNATURE_HEADER } from './webhook-delivery.service';
 
+// Mock the SSRF guard so tests can use non-routable test URLs
+jest.mock('./webhook-url.guard', () => ({
+  assertPublicWebhookUrl: jest.fn().mockResolvedValue(undefined),
+  WebhookUrlError: class WebhookUrlError extends Error {},
+}));
+
 function createService() {
   return new WebhookDeliveryService();
 }
