@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
 import { AccountFacade } from './account.facade';
+import { assertPublicWebhookUrl, WebhookUrlError } from '@/monitoring/webhook-url.guard';
 import type { MonitorCreateDto } from '../dto/monitor.dto';
 
 /**
@@ -30,6 +31,15 @@ export class MonitorFacade {
     if (!body.webhookUrl?.startsWith('http')) {
       throw new BadRequestException('webhookUrl must be a valid HTTP/HTTPS URL');
     }
+
+    // SSRF protection: reject webhook URLs that resolve to private/internal IPs
+    try {
+      await assertPublicWebhookUrl(body.webhookUrl);
+    } catch (err) {
+      const msg = err instanceof WebhookUrlError ? err.message : 'Invalid webhook URL';
+      throw new BadRequestException(msg);
+    }
+
     const accountId = await this.accounts.resolveAccountId(userId, body.accountId);
     const monitor = await this.monitoring.create({
       accountId,
