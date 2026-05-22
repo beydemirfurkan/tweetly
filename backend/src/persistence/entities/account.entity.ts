@@ -1,5 +1,6 @@
 import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 import type { AccountStatus } from '@domain/types/account.types';
+import { cookieCipherTransformer } from '@common/crypto/cookie-cipher.transformer';
 
 @Entity('accounts')
 export class AccountEntity {
@@ -13,16 +14,16 @@ export class AccountEntity {
   @Column({ name: 'display_name', type: 'text', nullable: true })
   displayName!: string | null;
 
-  @Column({ name: 'auth_token', type: 'text' })
+  @Column({ name: 'auth_token', type: 'text', transformer: cookieCipherTransformer })
   authToken!: string;
 
-  @Column({ name: 'auth_multi', type: 'text', nullable: true })
+  @Column({ name: 'auth_multi', type: 'text', nullable: true, transformer: cookieCipherTransformer })
   authMulti!: string | null;
 
-  @Column({ name: 'ct0', type: 'text', nullable: true })
+  @Column({ name: 'ct0', type: 'text', nullable: true, transformer: cookieCipherTransformer })
   ct0!: string | null;
 
-  @Column({ name: 'twid', type: 'text', nullable: true })
+  @Column({ name: 'twid', type: 'text', nullable: true, transformer: cookieCipherTransformer })
   twid!: string | null;
 
   @Index()
