@@ -7,6 +7,12 @@ All notable changes to this project. Dates are ISO (YYYY-MM-DD).
 ### Breaking
 
 - **MCP `update_settings` now allowlists keys against `SettingsService.getDefs()`** (#61, closes #21). Unknown keys (e.g. `secrets.admin_token`) are rejected with `BadRequestException` instead of being silently upserted; value types must also match the registry declaration. Account-scoped writes are now atomic — a single invalid key rejects the entire batch. To expose a new account setting, add it to `SettingsService.DEFS`.
+- Monitor read responses no longer include `webhookSecret` from
+  `list_monitors`, `get_monitor`, or the REST equivalents. They now expose
+  `hasWebhookSecret: boolean`; clients that need a new secret value should call
+  `rotate_secret`, which returns the rotated secret once. Existing monitor
+  secrets are unchanged, and clients with cached secrets keep working until the
+  next rotation.
 
 ### Security
 

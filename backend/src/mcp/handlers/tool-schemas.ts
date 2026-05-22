@@ -337,6 +337,7 @@ const createMonitor = z.object({
 });
 const listMonitors = z.object({}).strict();
 const getMonitor = z.object({ monitor_id: monitorId });
+const rotateSecret = z.object({ monitor_id: monitorId });
 const deleteMonitor = z.object({ monitor_id: monitorId });
 const pauseMonitor = z.object({ monitor_id: monitorId });
 
@@ -452,6 +453,7 @@ export const TOOL_SCHEMAS = {
   create_monitor: createMonitor,
   list_monitors: listMonitors,
   get_monitor: getMonitor,
+  rotate_secret: rotateSecret,
   delete_monitor: deleteMonitor,
   pause_monitor: pauseMonitor,
 

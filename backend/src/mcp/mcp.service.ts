@@ -164,6 +164,7 @@ export class McpService {
       case 'create_monitor': return m.createMonitor(args, ctx);
       case 'list_monitors': return m.listMonitors(args, ctx);
       case 'get_monitor': return m.getMonitor(args, ctx);
+      case 'rotate_secret': return m.rotateSecret(args, ctx);
       case 'delete_monitor': return m.deleteMonitor(args, ctx);
       case 'pause_monitor': return m.pauseMonitor(args, ctx);
 

@@ -59,6 +59,7 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   create_monitor: 'Create a webhook monitor for a target handle',
   list_monitors: 'List all monitors visible to the caller',
   get_monitor: 'Get a monitor + recent webhook deliveries',
+  rotate_secret: 'Rotate a monitor webhook secret and return the new secret once',
   delete_monitor: 'Delete a monitor',
   pause_monitor: 'Pause a monitor (stops polling without deleting)',
 

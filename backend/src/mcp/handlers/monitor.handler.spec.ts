@@ -7,6 +7,7 @@ function mockMonitoring(): jest.Mocked<MonitoringService> {
     create: jest.fn().mockResolvedValue({ id: 'm-1' }),
     listAll: jest.fn().mockResolvedValue([]),
     findById: jest.fn().mockResolvedValue(null),
+    rotateSecret: jest.fn().mockResolvedValue(null),
     delete: jest.fn().mockResolvedValue(true),
     disable: jest.fn().mockResolvedValue(true),
     listDeliveries: jest.fn().mockResolvedValue([]),
@@ -37,21 +38,37 @@ describe('MonitorHandler', () => {
         eventTypes: ['tweet.new'],
       }));
     });
+
+    it('returns the webhook secret once while redacting it from the monitor body', async () => {
+      const m = mockMonitoring();
+      m.create.mockResolvedValue({ id: 'm-1', accountId: 'acc-1', webhookSecret: 'secret-1' } as never);
+      const h = new MonitorHandler(m);
+
+      const result = await h.createMonitor({ target_handle: 'u', webhook_url: 'https://hook' }, fakeContext());
+
+      expect(result).toEqual({
+        ok: true,
+        webhookSecret: 'secret-1',
+        monitor: { id: 'm-1', accountId: 'acc-1', hasWebhookSecret: true },
+      });
+      expect(result.monitor).not.toHaveProperty('webhookSecret');
+    });
   });
 
   describe('listMonitors', () => {
     it('filters monitors by the userAccountIdSet', async () => {
       const m = mockMonitoring();
       m.listAll.mockResolvedValue([
-        { id: 'm-1', accountId: 'acc-1' },
-        { id: 'm-2', accountId: 'other-user-acc' },
+        { id: 'm-1', accountId: 'acc-1', webhookSecret: 'secret-1' },
+        { id: 'm-2', accountId: 'other-user-acc', webhookSecret: 'secret-2' },
       ] as never);
       const ctx = fakeContext({ userAccountIdSet: jest.fn().mockResolvedValue(new Set(['acc-1'])) });
       const h = new MonitorHandler(m);
 
       const result = await h.listMonitors({}, ctx);
 
-      expect(result).toEqual({ count: 1, monitors: [{ id: 'm-1', accountId: 'acc-1' }] });
+      expect(result).toEqual({ count: 1, monitors: [{ id: 'm-1', accountId: 'acc-1', hasWebhookSecret: true }] });
+      expect(result.monitors[0]).not.toHaveProperty('webhookSecret');
     });
   });
 
@@ -71,6 +88,30 @@ describe('MonitorHandler', () => {
 
       await expect(h.getMonitor({ monitor_id: 'm-1' }, ctx)).rejects.toThrow(/foreign-acc/);
       expect(ctx.assertAccountOwnership).toHaveBeenCalledWith('foreign-acc');
+    });
+
+    it('redacts webhookSecret from getMonitor read responses', async () => {
+      const m = mockMonitoring();
+      m.findById.mockResolvedValue({ id: 'm-1', accountId: 'acc-1', webhookSecret: 'secret-1' } as never);
+      const h = new MonitorHandler(m);
+
+      const result = await h.getMonitor({ monitor_id: 'm-1' }, fakeContext());
+
+      expect(result.monitor).toEqual({ id: 'm-1', accountId: 'acc-1', hasWebhookSecret: true });
+      expect(result.monitor).not.toHaveProperty('webhookSecret');
+    });
+
+    it('rotates webhookSecret and returns the new secret once', async () => {
+      const m = mockMonitoring();
+      m.findById.mockResolvedValue({ id: 'm-1', accountId: 'acc-1', webhookSecret: 'old-secret' } as never);
+      m.rotateSecret.mockResolvedValue({ id: 'm-1', accountId: 'acc-1', webhookSecret: 'new-secret' } as never);
+      const h = new MonitorHandler(m);
+
+      await expect(h.rotateSecret({ monitor_id: 'm-1' }, fakeContext())).resolves.toEqual({
+        ok: true,
+        webhookSecret: 'new-secret',
+      });
+      expect(m.rotateSecret).toHaveBeenCalledWith('m-1');
     });
 
     it('deleteMonitor returns ok and pauseMonitor returns paused on success', async () => {

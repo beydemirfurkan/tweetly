@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
+import { redactMonitor } from '@/monitoring/monitor-redactor';
 import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
@@ -24,13 +25,13 @@ export class MonitorHandler extends BaseMcpHandler {
       accountId, targetHandle, webhookUrl,
       eventTypes: (args.event_types as string[] | undefined) ?? ['tweet.new'],
     });
-    return { ok: true, monitor };
+    return { ok: true, monitor: redactMonitor(monitor), webhookSecret: monitor.webhookSecret };
   }
 
   async listMonitors(_args: McpToolArgs, ctx: McpToolContext) {
     const allowedIds = await ctx.userAccountIdSet();
     const all = await this.monitoring.listAll();
-    const filtered = all.filter((m) => allowedIds.has(m.accountId));
+    const filtered = all.filter((m) => allowedIds.has(m.accountId)).map(redactMonitor);
     return { count: filtered.length, monitors: filtered };
   }
 
@@ -41,7 +42,18 @@ export class MonitorHandler extends BaseMcpHandler {
     if (!monitor) throw new Error(`Monitor ${id} not found`);
     await ctx.assertAccountOwnership(monitor.accountId);
     const deliveries = await this.monitoring.listDeliveries(id, 10);
-    return { monitor, recentDeliveries: deliveries };
+    return { monitor: redactMonitor(monitor), recentDeliveries: deliveries };
+  }
+
+  async rotateSecret(args: McpToolArgs, ctx: McpToolContext) {
+    const id = args.monitor_id as string;
+    if (!id) throw new Error('monitor_id is required');
+    const monitor = await this.monitoring.findById(id);
+    if (!monitor) throw new Error(`Monitor ${id} not found`);
+    await ctx.assertAccountOwnership(monitor.accountId);
+    const rotated = await this.monitoring.rotateSecret(id);
+    if (!rotated) throw new Error(`Monitor ${id} not found`);
+    return { ok: true, webhookSecret: rotated.webhookSecret };
   }
 
   async deleteMonitor(args: McpToolArgs, ctx: McpToolContext) {
