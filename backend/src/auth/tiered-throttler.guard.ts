@@ -15,9 +15,11 @@ export class TieredThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Request): Promise<string> {
     const ctx = (req as AuthedRequest).tweetlyAuth;
     if (ctx?.userId) return `user:${ctx.userId}`;
-    const xff = req.headers['x-forwarded-for'];
-    const fwd = typeof xff === 'string' ? xff.split(',')[0]?.trim() : Array.isArray(xff) ? xff[0] : '';
-    return `ip:${fwd || req.ip || 'anon'}`;
+    // req.ip respects Express's `trust proxy` setting configured in main.ts —
+    // do NOT parse X-Forwarded-For manually here, that would let any client
+    // bypass IP-based throttling by spoofing the header. See README's
+    // "Trust proxy" section for the correct deployment configuration.
+    return `ip:${req.ip || 'anon'}`;
   }
 
   protected async throwThrottlingException(
