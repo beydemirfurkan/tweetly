@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { checkWebhookUrl } from './webhook-url-validator';
 
 const WEBHOOK_TIMEOUT_MS = 10_000;
 export const SIGNATURE_HEADER = 'X-Tweetly-Signature';
@@ -19,6 +20,18 @@ export class WebhookDeliveryService {
     payload: Record<string, unknown>,
     secret: string | null,
   ): Promise<DeliveryResult> {
+    // Re-run the SSRF check at delivery time too, in case a hostname that
+    // resolved to a public IP at create time has since rebound to a private
+    // address (DNS rebinding). A small TTL race remains between this lookup
+    // and fetch, but anything pointed at internal infra by config-time
+    // change is now caught.
+    const urlCheck = await checkWebhookUrl(url);
+    if (!urlCheck.ok) {
+      const err = `blocked at delivery (${urlCheck.reason})`;
+      this.log.warn(`Webhook delivery blocked: ${url} → ${err}`);
+      return { ok: false, error: err };
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
     const body = JSON.stringify(payload);
