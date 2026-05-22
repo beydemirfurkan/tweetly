@@ -255,9 +255,9 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
 
       const params = [
         accountId,
-        result.cookies.authToken,
-        result.cookies.ct0,
-        result.cookies.twid,
+        this.cipher.encrypt(result.cookies.authToken),
+        this.cipher.encrypt(result.cookies.ct0),
+        result.cookies.twid ? this.cipher.encrypt(result.cookies.twid) : null,
         totpToStore,
         job.proxyCountry,
       ];

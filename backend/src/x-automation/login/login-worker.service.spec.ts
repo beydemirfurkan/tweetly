@@ -59,6 +59,7 @@ function makeWorker(opts: {
 
   const cipher = {
     decrypt: opts.cipherDecrypt ?? jest.fn((blob: string) => `decrypted:${blob}`),
+    encrypt: jest.fn((plain: string) => `v1:enc(${plain})`),
   } as unknown as jest.Mocked<CredentialCipherService>;
 
   const loginResults = Array.isArray(opts.loginResult) ? [...opts.loginResult] : [opts.loginResult];
@@ -139,7 +140,7 @@ describe('LoginWorker.process', () => {
     const insertCall = manager.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO accounts'));
     expect(insertCall).toBeDefined();
     expect(insertCall![1]).toEqual(
-      expect.arrayContaining(['alice', 'user-1', 'Alice', 'AT', 'C0', 'u%3D12345']),
+      expect.arrayContaining(['alice', 'user-1', 'Alice', 'v1:enc(AT)', 'v1:enc(C0)', 'v1:enc(u%3D12345)']),
     );
     expect(jobs.markSuccess).toHaveBeenCalledWith('job-1', { targetAccountId: 'alice', keepEncryptedTotp: false });
     expect(accounts.recordSessionSuccess).toHaveBeenCalledWith('alice');

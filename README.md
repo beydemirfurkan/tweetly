@@ -286,7 +286,7 @@ The `destructive` suite (`delete_tweet`, `update_profile`, `send_dm`, `unfollow`
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection URL |
-| `ENCRYPTION_KEY` | Yes | 32-byte base64 master key for AES-256-GCM credential encryption |
+| `ENCRYPTION_KEY` | Yes | 32-byte base64/hex master key for AES-256-GCM encryption of login credentials AND X session cookies (`auth_token`, `ct0`, `auth_multi`, `twid`). See "Rotating ENCRYPTION_KEY" below |
 | `X_EXECUTOR_MODE` | Yes | `patchright` for real X delivery; `noop` for local dry-runs |
 | `BOOTSTRAP_ADMIN_TOKEN` | First boot | Temporary token used to seed `secrets.admin_token` in the DB |
 | `BOOTSTRAP_ADMIN_EMAIL` | First boot | Email of the first admin user to create |
@@ -452,6 +452,29 @@ curl -H "Authorization: Bearer $ADMIN_API_TOKEN" "http://localhost:3001/admin/ac
 curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/actions/post/UUID/replay
 curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3001/admin/actions/post/UUID/cancel
 ```
+
+---
+
+### Rotating `ENCRYPTION_KEY`
+
+The same `ENCRYPTION_KEY` protects (a) login-job passwords + TOTP secrets and (b) X session cookies (`auth_token`, `ct0`, `auth_multi`, `twid`). All ciphertext is stamped with a `v1:` version prefix.
+
+A naive key swap invalidates every stored credential. For zero-downtime rotation:
+
+1. **Generate the new key** (keep the old one):
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   ```
+2. **Bump cipher version** in code: edit `backend/src/common/crypto/credential-cipher.service.ts` to introduce a `v2:` envelope using the new key, while keeping the `v1:` decrypt path mapped to the old key (parallel-decrypt window). Cookies/credentials written from this point use `v2:`; existing `v1:` payloads continue to decrypt with the old key.
+3. **Deploy**, run for a migration window (24–72h is typical).
+4. **One-shot re-encrypt** existing `v1:` rows under the new key:
+   ```bash
+   COOKIE_ENCRYPT_MIGRATE=true tsx backend/src/scripts/encrypt-account-cookies.ts
+   ```
+   (This script is also the path used when retro-fitting cookie encryption to a deployment that ran with plaintext cookies before the change landed.)
+5. **Remove** the old key + `v1:` decrypt path in a follow-up release.
+
+If you skip steps 2–4, you must instead force every user through a reconnect (`POST /api/v1/accounts/:id/login-jobs`) — old cookies become unreadable and `recordSessionFailure` will quickly pause those accounts.
 
 ---
 

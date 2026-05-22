@@ -5,6 +5,7 @@ import * as dotenv from 'dotenv';
 import Database from 'better-sqlite3';
 import { DataSource } from 'typeorm';
 import { buildDataSourceOptions, readDatabaseEnv } from '@/config/database.config';
+import { encryptCookieValue } from '@common/crypto/cookie-cipher.transformer';
 import {
   buildPostKey,
   buildReplyKey,
@@ -199,10 +200,10 @@ async function migrateAccounts(
       [
         r.id,
         r.display_name,
-        r.auth_token,
-        r.auth_multi,
-        r.ct0,
-        r.twid,
+        encryptCookieValue(r.auth_token),
+        encryptCookieValue(r.auth_multi),
+        encryptCookieValue(r.ct0),
+        encryptCookieValue(r.twid),
         r.status,
         r.created_at,
         r.last_used_at,

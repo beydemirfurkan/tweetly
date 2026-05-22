@@ -16,6 +16,7 @@ All notable changes to this project. Dates are ISO (YYYY-MM-DD).
 
 ### Security
 
+- **X session cookies (`auth_token`, `ct0`, `auth_multi`, `twid`) are now encrypted at rest** (closes #1). All writes through `AccountEntity` flow through a TypeORM transformer that wraps the value in the existing `CredentialCipherService` envelope (AES-256-GCM with HKDF-derived key, `v1:` version prefix). Legacy plaintext rows are still readable (backward-compat) so live deployments can roll out without downtime, then run `tsx src/scripts/encrypt-account-cookies.ts` with `COOKIE_ENCRYPT_MIGRATE=true` to re-encrypt existing rows. Requires `ENCRYPTION_KEY` to be set (already required for TOTP secrets and login-job passwords).
 - **Magic-link console fallback disabled outside development** (#60, closes #5). When SMTP delivery is unconfigured or fails, the service now throws `ServiceUnavailableException` (503) instead of logging the sign-in URL to stdout. Console fallback remains in `development`, `test`, `local`, and unset `NODE_ENV` for local debugging.
 
 ### Added
