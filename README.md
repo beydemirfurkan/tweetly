@@ -478,6 +478,24 @@ If you skip steps 2–4, you must instead force every user through a reconnect (
 
 ---
 
+### Trust proxy (`TRUST_PROXY`)
+
+The backend's IP-based rate limits — `/auth/request-link` (5/min, anti-mail-bomb) and `/oauth/register` (10/hr, anti-DCR-spam) — rely on Express's `req.ip` being the real client. Behind a reverse proxy or load balancer, `req.ip` defaults to the proxy's loopback address and `X-Forwarded-For` is **not** trusted, so the throttler effectively rate-limits the proxy, not the caller.
+
+Set `TRUST_PROXY` to tell Express which upstream hops to trust. The right value depends on the deployment shape:
+
+| Layout | `TRUST_PROXY` | Notes |
+|---|---|---|
+| Local dev, no proxy | unset (defaults to `loopback`) | safe default |
+| nginx / Coolify, single host | `loopback,linklocal,uniquelocal` | trust the proxy on the same network |
+| Cloudflare in front of origin | `loopback,linklocal,uniquelocal` | CF rewrites the IP into `X-Forwarded-For`; trust the immediate upstream |
+| AWS ALB / Vercel / Fly.io | `1` | trust exactly one upstream hop (the platform load balancer) |
+| Two-tier (CDN → ALB → app) | `2` | trust two hops |
+
+If you forget to set this, the symptom is `X-Forwarded-For: 1.1.1.<random>` letting an attacker bypass the magic-link limit (see [issue #3](https://github.com/beydemirfurkan/tweetly/issues/3) for the curl repro). The fix is one env var.
+
+---
+
 ## Deploy
 
 ### Docker Compose

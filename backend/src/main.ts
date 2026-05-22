@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import type { Express } from 'express';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
@@ -73,6 +74,13 @@ async function bootstrap(): Promise<void> {
   // pre-date this faz) through pino. Buffer above ensures bootstrap-time logs
   // emitted before this line are flushed via the structured logger.
   app.useLogger(app.get(PinoLogger));
+
+  // Express trust-proxy. Required so req.ip reflects the real client IP
+  // behind a reverse proxy / load balancer, otherwise IP-based throttlers
+  // (magic-link, OAuth DCR) become spoofable via X-Forwarded-For.
+  // Default 'loopback' = only trust 127.0.0.1 / ::1; safe out of the box.
+  const expressInstance = app.getHttpAdapter().getInstance() as Express;
+  expressInstance.set('trust proxy', process.env.TRUST_PROXY ?? 'loopback');
 
   app.enableShutdownHooks();
   app.enableCors(buildCorsOptions(isProd));
