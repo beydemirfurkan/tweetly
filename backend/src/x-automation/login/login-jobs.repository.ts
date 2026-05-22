@@ -119,9 +119,16 @@ export class LoginJobsRepository {
   }
 
   /**
-   * Atomically promote one queued job to 'running' under a row-level lock.
-   * `FOR UPDATE SKIP LOCKED` ensures multiple instances never claim the same
-   * row even when their tick coincides.
+   * Atomically promote one queued — OR ORPHANED RUNNING — job to 'running'
+   * under a row-level lock. `FOR UPDATE SKIP LOCKED` ensures multiple
+   * instances never claim the same row even when their tick coincides.
+   *
+   * A row with status='running' whose `locked_until` has elapsed signals a
+   * worker that died mid-login (kill -9, container OOM, host reboot). We
+   * reclaim those here instead of leaving them stranded forever. The
+   * upstream LoginWorker should re-issue a heartbeat on a slower cadence
+   * than `lockTtlSec` to keep the lock alive while it works (see
+   * `extendLock`).
    */
   async claimNext(lockTtlSec: number): Promise<ClaimedJob | null> {
     // TypeORM's `query()` for UPDATE…RETURNING returns the tuple
@@ -130,8 +137,11 @@ export class LoginJobsRepository {
     const raw = await this.dataSource.query(
       `WITH next AS (
          SELECT id FROM account_login_jobs
-          WHERE status = 'queued'
-            AND (locked_until IS NULL OR locked_until < now())
+          WHERE (
+                  (status = 'queued' AND (locked_until IS NULL OR locked_until < now()))
+                  OR
+                  (status = 'running' AND locked_until IS NOT NULL AND locked_until < now())
+                )
           ORDER BY created_at
           LIMIT 1
           FOR UPDATE SKIP LOCKED
@@ -173,6 +183,40 @@ export class LoginJobsRepository {
       saveTotpSecret: r.save_totp_secret,
       proxyCountry: r.proxy_country,
     };
+  }
+
+  /**
+   * Heartbeat call from a worker that is still actively processing job `id`.
+   * Pushes `locked_until` forward so another instance does not steal the row
+   * if the login overruns the original TTL. Affects only rows still in the
+   * 'running' state we own.
+   */
+  async extendLock(id: string, lockTtlSec: number): Promise<void> {
+    await this.dataSource.query(
+      `UPDATE account_login_jobs
+          SET locked_until = now() + ($2 || ' seconds')::interval
+        WHERE id = $1 AND status = 'running'`,
+      [id, lockTtlSec],
+    );
+  }
+
+  /**
+   * Boot-time recovery for crashed workers. Demotes any 'running' job whose
+   * lock has already expired back to 'queued' so the next tick reclaims it
+   * via the normal path. Idempotent; safe to run from every instance.
+   */
+  async resetStaleRunningJobs(): Promise<number> {
+    const raw = (await this.dataSource.query(
+      `UPDATE account_login_jobs
+          SET status = 'queued',
+              locked_until = NULL
+        WHERE status = 'running'
+          AND locked_until IS NOT NULL
+          AND locked_until < now()
+        RETURNING id`,
+    )) as Array<{ id: string }> | [Array<{ id: string }>, number];
+    const rows = Array.isArray(raw) && Array.isArray(raw[0]) ? (raw[0] as Array<{ id: string }>) : (raw as Array<{ id: string }>);
+    return rows.length;
   }
 
   async markSuccess(id: string, opts: {

@@ -55,6 +55,8 @@ function makeWorker(opts: {
   const jobs = {
     markFailure: jest.fn().mockResolvedValue(undefined),
     markSuccess: jest.fn().mockResolvedValue(undefined),
+    extendLock: jest.fn().mockResolvedValue(undefined),
+    resetStaleRunningJobs: jest.fn().mockResolvedValue(0),
   } as unknown as jest.Mocked<LoginJobsRepository>;
 
   const cipher = {
@@ -99,6 +101,40 @@ function makeWorker(opts: {
 }
 
 describe('LoginWorker.process', () => {
+  it('process() schedules a heartbeat that calls extendLock periodically and stops on completion', async () => {
+    jest.useFakeTimers();
+    try {
+      const { worker, jobs } = makeWorker({ loginResult: successResult() });
+      // Make login.run hang until we advance timers so the heartbeat fires.
+      let resolveLogin: (() => void) | null = null;
+      (worker as any).login = {
+        run: jest.fn(async () => {
+          await new Promise<void>((resolve) => {
+            resolveLogin = resolve;
+          });
+          return successResult();
+        }),
+      };
+
+      const p = worker.process(makeJob());
+      // Advance past the heartbeat interval (TTL/3 = 100s at default lockTtl).
+      // Two firings prove the interval is repeating, not a one-shot setTimeout.
+      jest.advanceTimersByTime(120_000);
+      jest.advanceTimersByTime(120_000);
+      resolveLogin!();
+      await p;
+
+      // process() finished → heartbeat must be cleared (jobs.extendLock is
+      // called for our job id and never after process resolves).
+      expect((jobs.extendLock as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
+      for (const call of (jobs.extendLock as jest.Mock).mock.calls) {
+        expect(call[0]).toBe('job-1');
+      }
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('marks failure with detail when password decryption fails', async () => {
     const cipherDecrypt = jest.fn().mockImplementation(() => {
       throw new Error('boom');
