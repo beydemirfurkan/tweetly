@@ -86,6 +86,10 @@ export class LoginJobsRepository {
   }
 
   async findActiveCooldown(userId: string, username: string): Promise<LoginCooldownView | null> {
+    // Window of 5 lets a `2 fail + 1 success + 2 fail` pattern still trip
+    // the level-3 (24h, manual review) cooldown — see countConsecutiveFailures
+    // for the cumulative semantic. A success last in the window still clears
+    // the gate (caller below).
     const rows = (await this.dataSource.query(
       `SELECT status, finished_at
          FROM account_login_jobs
@@ -94,7 +98,7 @@ export class LoginJobsRepository {
           AND status IN ('success','failed')
           AND finished_at IS NOT NULL
         ORDER BY finished_at DESC
-        LIMIT 3`,
+        LIMIT 5`,
       [userId, username],
     )) as Array<{ status: LoginJobStatus; finished_at: Date }>;
 
@@ -289,13 +293,14 @@ export class LoginJobsRepository {
   }
 }
 
+// Cumulative across the recent window — one intervening success does NOT
+// reset the cooldown ladder, so `2 fail + 1 success + 2 fail` still trips
+// the level-4 (manual-review) cooldown instead of dropping to level-2.
+// This matches user expectation that "X is flagging this account" survives
+// one lucky retry. Window size is governed by the LIMIT in
+// findActiveCooldown (currently 3 — to widen, bump both).
 function countConsecutiveFailures(rows: Array<{ status: LoginJobStatus }>): number {
-  let count = 0;
-  for (const row of rows) {
-    if (row.status === 'success') return count;
-    if (row.status === 'failed') count += 1;
-  }
-  return count;
+  return rows.filter((r) => r.status === 'failed').length;
 }
 
 export type { AccountLoginJobEntity };
