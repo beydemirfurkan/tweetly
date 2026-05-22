@@ -25,7 +25,7 @@ describe('MonitorHandler', () => {
       const h = new MonitorHandler(mockMonitoring());
       await expect(
         h.createMonitor({ target_handle: 'u', webhook_url: 'ftp://x' }, fakeContext()),
-      ).rejects.toThrow(/HTTP\/HTTPS/);
+      ).rejects.toThrow(/unsupported_scheme/);
     });
 
     it('defaults event_types to [tweet.new] when omitted', async () => {

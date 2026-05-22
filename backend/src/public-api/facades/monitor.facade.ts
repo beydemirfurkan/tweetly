@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
 import { redactMonitor } from '@/monitoring/monitor-redactor';
+import { checkWebhookUrl } from '@/monitoring/webhook-url-validator';
 import { AccountFacade } from './account.facade';
 import type { MonitorCreateDto } from '../dto/monitor.dto';
 
@@ -28,8 +29,16 @@ export class MonitorFacade {
 
   async create(userId: string, body: MonitorCreateDto) {
     if (!body.targetHandle) throw new BadRequestException('targetHandle is required');
-    if (!body.webhookUrl?.startsWith('http')) {
-      throw new BadRequestException('webhookUrl must be a valid HTTP/HTTPS URL');
+    if (!body.webhookUrl) {
+      throw new BadRequestException('webhookUrl is required');
+    }
+    const urlCheck = await checkWebhookUrl(body.webhookUrl);
+    if (!urlCheck.ok) {
+      throw new BadRequestException({
+        message: 'webhookUrl rejected',
+        code: urlCheck.reason,
+        detail: urlCheck.detail,
+      });
     }
     const accountId = await this.accounts.resolveAccountId(userId, body.accountId);
     const monitor = await this.monitoring.create({

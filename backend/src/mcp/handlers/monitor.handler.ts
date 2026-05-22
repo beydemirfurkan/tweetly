@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
 import { redactMonitor } from '@/monitoring/monitor-redactor';
+import { checkWebhookUrl } from '@/monitoring/webhook-url-validator';
 import { BaseMcpHandler } from './base.handler';
 import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
 
@@ -19,7 +20,13 @@ export class MonitorHandler extends BaseMcpHandler {
     const targetHandle = args.target_handle as string;
     const webhookUrl = args.webhook_url as string;
     if (!targetHandle) throw new Error('target_handle is required');
-    if (!webhookUrl?.startsWith('http')) throw new Error('webhook_url must be a valid HTTP/HTTPS URL');
+    if (!webhookUrl) throw new Error('webhook_url is required');
+    const urlCheck = await checkWebhookUrl(webhookUrl);
+    if (!urlCheck.ok) {
+      throw new Error(
+        `webhook_url rejected (${urlCheck.reason})${urlCheck.detail ? `: ${urlCheck.detail}` : ''}`,
+      );
+    }
     const accountId = await ctx.resolveAccountId(args.account_id as string | undefined);
     const monitor = await this.monitoring.create({
       accountId, targetHandle, webhookUrl,
