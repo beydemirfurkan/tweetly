@@ -2,7 +2,14 @@ import { CircuitBreakerService } from './circuit-breaker.service';
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 
 function makeService() {
-  const dataSource = { query: jest.fn() };
+  const query = jest.fn();
+  // ControlStateRepository.upsert now wraps batch writes in a transaction;
+  // route manager.query back to the same mock so existing assertions on the
+  // ON CONFLICT path keep working without rewriting the spec.
+  const transaction = jest.fn(async (fn: (m: { query: jest.Mock }) => Promise<unknown>) =>
+    fn({ query }),
+  );
+  const dataSource = { query, transaction };
   const state = new ControlStateRepository(dataSource as any);
   const service = new CircuitBreakerService(state);
   return { service, dataSource };

@@ -71,19 +71,51 @@ export class ControlStateRepository {
   }
 
   /**
-   * Idempotent upsert of a (key, value) batch for a single account. Issues
-   * one INSERT … ON CONFLICT per entry — fine for the small batches both
-   * callers use today; if a hot path appears, add a multi-row VALUES form.
+   * Idempotent upsert of a (key, value) batch for a single account. Now
+   * wraps the per-entry writes in a transaction so a kill mid-loop leaves
+   * either all-applied or all-rolled-back — partial writes used to be
+   * possible (issue #13).
+   *
+   * Multi-row VALUES form would be nice if a hot path appears.
    */
   async upsert(accountId: string, entries: Array<[key: string, value: string]>): Promise<void> {
-    for (const [key, value] of entries) {
-      await this.dataSource.query(
-        `INSERT INTO control_state (key, account_id, value)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (key, account_id) DO UPDATE SET value = EXCLUDED.value`,
-        [key, accountId, value],
-      );
-    }
+    if (entries.length === 0) return;
+    await this.dataSource.transaction(async (manager) => {
+      for (const [key, value] of entries) {
+        await manager.query(
+          `INSERT INTO control_state (key, account_id, value)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (key, account_id) DO UPDATE SET value = EXCLUDED.value`,
+          [key, accountId, value],
+        );
+      }
+    });
+  }
+
+  /**
+   * Atomic counter increment for (account_id, key) with a single SQL round
+   * trip. Returns the new integer value. The previous JS-side read-modify-
+   * write pattern lost increments under concurrent failure paths
+   * (issue #13) — never reintroduce it.
+   *
+   * If the existing value is not a valid integer it is treated as 0 so an
+   * accidental wrong-type write does not poison the counter forever.
+   */
+  async incrementCounter(accountId: string, key: string): Promise<number> {
+    const rows = (await this.dataSource.query(
+      `INSERT INTO control_state (key, account_id, value)
+       VALUES ($1, $2, '1')
+       ON CONFLICT (key, account_id) DO UPDATE
+         SET value = (
+           CASE WHEN control_state.value ~ '^-?\\d+$'
+                THEN control_state.value::bigint + 1
+                ELSE 1
+           END
+         )::text
+       RETURNING value`,
+      [key, accountId],
+    )) as Array<{ value: string }>;
+    return parseInt(rows[0].value, 10);
   }
 
   async deleteKeys(accountId: string, keys: string[]): Promise<void> {

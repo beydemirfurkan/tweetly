@@ -8,6 +8,7 @@ describe('AccountsService', () => {
     service: AccountsService;
     repo: jest.Mocked<Pick<Repository<AccountEntity>, 'findOne' | 'find' | 'save' | 'update'>>;
     query: jest.Mock;
+    managerQuery: jest.Mock;
   } {
     const repo = {
       findOne: jest.fn(),
@@ -16,29 +17,37 @@ describe('AccountsService', () => {
       update: jest.fn(),
     };
     const query = jest.fn();
-    const dataSource = { query } as unknown as DataSource;
+    // Transactions inside recordSessionFailure: forward `manager.query` to a
+    // dedicated mock so we can drive the increment's RETURNING payload.
+    const managerQuery = jest.fn().mockResolvedValue([]);
+    const transaction = jest.fn(async (fn: (m: { query: jest.Mock }) => Promise<unknown>) =>
+      fn({ query: managerQuery }),
+    );
+    const dataSource = { query, transaction } as unknown as DataSource;
     const state = new ControlStateRepository(dataSource);
     return {
       service: new AccountsService(repo as unknown as Repository<AccountEntity>, dataSource, state),
       repo,
       query,
+      managerQuery,
     };
   }
 
   it('records successful session health and resets auth failure count', async () => {
-    const { service, repo, query } = createService();
+    const { service, repo, managerQuery } = createService();
     repo.update.mockResolvedValue({ affected: 1, raw: {}, generatedMaps: [] });
-    query.mockResolvedValue([]);
 
     await service.recordSessionSuccess('test-account');
 
     expect(repo.update).toHaveBeenCalledWith({ id: 'test-account' }, { lastUsedAt: expect.any(Date) });
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO control_state'), [
+    // recordSessionSuccess still goes through ControlStateRepository.upsert,
+    // which now wraps writes in a transaction → asserted via managerQuery.
+    expect(managerQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO control_state'), [
       'session.health',
       'test-account',
       'healthy',
     ]);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO control_state'), [
+    expect(managerQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO control_state'), [
       'session.auth_failure_count',
       'test-account',
       '0',
@@ -46,27 +55,51 @@ describe('AccountsService', () => {
   });
 
   it('pauses account after repeated auth failures', async () => {
-    const { service, repo, query } = createService();
+    const { service, repo, managerQuery } = createService();
     repo.update.mockResolvedValue({ affected: 1, raw: {}, generatedMaps: [] });
-    query.mockImplementation((sql: string) => {
-      if (sql.includes('SELECT value')) return Promise.resolve([{ value: '2' }]);
+    // First call inside the transaction is the atomic INSERT-RETURNING that
+    // bumps session.auth_failure_count to the new total. Rest of the writes
+    // (metadata + paused flip) just need to resolve.
+    managerQuery.mockImplementation((sql: string) => {
+      if (sql.includes('RETURNING value')) return Promise.resolve([{ value: '3' }]);
       return Promise.resolve([]);
     });
 
     const failures = await service.recordSessionFailure('test-account', 'logged out');
 
     expect(failures).toBe(3);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO control_state'), [
+    // The increment ran exactly once (no read-modify-write).
+    const incrementCalls = managerQuery.mock.calls.filter(([sql]) => sql.includes('RETURNING value'));
+    expect(incrementCalls).toHaveLength(1);
+    expect(incrementCalls[0][1]).toEqual(['test-account']);
+    // Metadata writes are inside the same transaction (manager.query) — not
+    // the loose dataSource.query path the old code used.
+    expect(managerQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO control_state'), [
       'session.health',
       'test-account',
       'unhealthy',
     ]);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO control_state'), [
-      'session.auth_failure_count',
-      'test-account',
-      '3',
-    ]);
-    expect(repo.update).toHaveBeenCalledWith({ id: 'test-account' }, { status: 'paused' });
+    // Pause is applied via the transactional manager too so the status flip
+    // and the counter bump are atomic together.
+    expect(managerQuery).toHaveBeenCalledWith(
+      expect.stringMatching(/UPDATE accounts SET status = 'paused'/),
+      ['test-account'],
+    );
+  });
+
+  it('returns the increment value from the atomic SQL — does NOT pre-read the prior count', async () => {
+    const { service, repo, managerQuery, query } = createService();
+    repo.update.mockResolvedValue({ affected: 1, raw: {}, generatedMaps: [] });
+    managerQuery.mockImplementation((sql: string) => {
+      if (sql.includes('RETURNING value')) return Promise.resolve([{ value: '1' }]);
+      return Promise.resolve([]);
+    });
+
+    await service.recordSessionFailure('acc', 'reason');
+
+    // No SELECT auth_failure_count round-trip is issued any more — the
+    // increment happens inside the same INSERT-ON-CONFLICT statement.
+    expect(query).not.toHaveBeenCalledWith(expect.stringMatching(/SELECT value.*auth_failure_count/i));
   });
 
   it('creates a new account with auth token stored in database', async () => {
