@@ -182,22 +182,52 @@ export class AccountsService {
   }
 
   async recordSessionFailure(id: string, reason: string): Promise<number> {
+    // Atomic increment + co-located metadata writes + paused-status flip,
+    // all in one transaction so a kill mid-call cannot leave the account
+    // half-marked-unhealthy with a stale counter. The increment is done
+    // in SQL (ON CONFLICT DO UPDATE) so two concurrent failure paths can
+    // no longer both read prior=2 and both write 3 (issue #13).
     const now = new Date().toISOString();
-    const prior = parseInt((await this.state.findValue(id, 'session.auth_failure_count')) ?? '0', 10);
-    const failures = (Number.isFinite(prior) ? prior : 0) + 1;
-    await this.state.upsert(id, [
-      ['session.health', 'unhealthy'],
-      ['session.last_check_at', now],
-      ['session.last_failure_at', now],
-      ['session.last_failure_reason', reason.slice(0, 500)],
-      ['session.auth_failure_count', String(failures)],
-    ]);
+    return this.dataSource.transaction(async (manager) => {
+      const rows = (await manager.query(
+        `INSERT INTO control_state (key, account_id, value)
+         VALUES ('session.auth_failure_count', $1, '1')
+         ON CONFLICT (key, account_id) DO UPDATE
+           SET value = (
+             CASE WHEN control_state.value ~ '^-?\\d+$'
+                  THEN control_state.value::bigint + 1
+                  ELSE 1
+             END
+           )::text
+         RETURNING value`,
+        [id],
+      )) as Array<{ value: string }>;
+      const failures = parseInt(rows[0].value, 10);
 
-    if (failures >= AUTH_FAILURE_PAUSE_THRESHOLD) {
-      await this.repo.update({ id }, { status: 'paused' });
-    }
+      const metadata: Array<[string, string]> = [
+        ['session.health', 'unhealthy'],
+        ['session.last_check_at', now],
+        ['session.last_failure_at', now],
+        ['session.last_failure_reason', reason.slice(0, 500)],
+      ];
+      for (const [key, value] of metadata) {
+        await manager.query(
+          `INSERT INTO control_state (key, account_id, value)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (key, account_id) DO UPDATE SET value = EXCLUDED.value`,
+          [key, id, value],
+        );
+      }
 
-    return failures;
+      if (failures >= AUTH_FAILURE_PAUSE_THRESHOLD) {
+        await manager.query(
+          `UPDATE accounts SET status = 'paused' WHERE id = $1`,
+          [id],
+        );
+      }
+
+      return failures;
+    });
   }
 
 }
