@@ -1,6 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { createTransport, type Transporter } from 'nodemailer';
 import { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
@@ -50,12 +50,19 @@ export class MagicLinkService {
   async consume(token: string): Promise<string | null> {
     if (!token) return null;
     const tokenHash = sha256(token);
-    const row = await this.repo.findOne({ where: { tokenHash, consumedAt: IsNull() } });
-    if (!row) return null;
-    if (row.expiresAt.getTime() < Date.now()) return null;
-
-    await this.repo.update(row.id, { consumedAt: new Date() });
-    return row.userId;
+    // Single atomic CAS: only the first concurrent caller for a given token
+    // observes a row in the RETURNING set. A second parallel consume() with
+    // the same token sees zero rows and gets null — no parallel session can
+    // be minted from one observation of the token.
+    const result = (await this.repo
+      .createQueryBuilder()
+      .update()
+      .set({ consumedAt: () => 'now()' })
+      .where('token_hash = :tokenHash AND consumed_at IS NULL AND expires_at > now()', { tokenHash })
+      .returning(['user_id'])
+      .execute()) as { raw: Array<{ user_id: string }> };
+    const row = result.raw[0];
+    return row ? row.user_id : null;
   }
 
   private async deliver(email: string, token: string): Promise<void> {
