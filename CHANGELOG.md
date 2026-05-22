@@ -14,6 +14,10 @@ All notable changes to this project. Dates are ISO (YYYY-MM-DD).
   secrets are unchanged, and clients with cached secrets keep working until the
   next rotation.
 
+### Fixed
+
+- **Login worker now reclaims orphaned `running` jobs and heartbeats the lock while a login is in flight** (closes #11). `claimNext` was only picking up `status='queued'` rows, so a worker crash (kill -9, container OOM) left the user's connect_x_account job stuck in `running` forever with no recovery path other than DB surgery. The SQL now also reclaims `status='running'` rows whose `locked_until` has elapsed. The worker also runs `resetStaleRunningJobs()` on bootstrap as faster recovery, and `process()` now fires a `setInterval` heartbeat (TTL/3) that calls `extendLock()` so a real long-running login can't be stolen mid-flight by another instance.
+
 ### Security
 
 - **X session cookies (`auth_token`, `ct0`, `auth_multi`, `twid`) are now encrypted at rest** (closes #1). All writes through `AccountEntity` flow through a TypeORM transformer that wraps the value in the existing `CredentialCipherService` envelope (AES-256-GCM with HKDF-derived key, `v1:` version prefix). Legacy plaintext rows are still readable (backward-compat) so live deployments can roll out without downtime, then run `tsx src/scripts/encrypt-account-cookies.ts` with `COOKIE_ENCRYPT_MIGRATE=true` to re-encrypt existing rows. Requires `ENCRYPTION_KEY` to be set (already required for TOTP secrets and login-job passwords).

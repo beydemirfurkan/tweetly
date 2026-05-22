@@ -75,6 +75,19 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       this.log.log('LoginWorker disabled (LOGIN_WORKER_DISABLED=true).');
       return;
     }
+    // Recover from previous-instance crashes: any 'running' row whose lock
+    // already expired before this worker came up is demoted to 'queued' so
+    // the normal tick picks it back up. Idempotent across multi-replica
+    // boots — claimNext also re-handles orphans, this is just faster.
+    try {
+      const recovered = await this.jobs.resetStaleRunningJobs();
+      if (recovered > 0) {
+        this.log.warn(`Recovered ${recovered} orphaned 'running' login job(s) from a prior worker crash.`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.error(`resetStaleRunningJobs failed: ${msg}`);
+    }
     this.log.log(
       `LoginWorker started: id=${this.workerId} poll=${this.options.pollIntervalMs}ms lock=${this.options.lockTtlSec}s`,
     );
@@ -135,6 +148,25 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
   async process(job: ClaimedJob): Promise<void> {
     this.log.log(`process job=${job.id} kind=${job.kind} username=${job.username}`);
 
+    // Keep the lock alive while we work. Cadence is TTL/3 so two heartbeats
+    // are expected before another instance would consider the row orphaned.
+    const heartbeatMs = Math.max(15_000, Math.floor((this.options.lockTtlSec * 1000) / 3));
+    const heartbeat = setInterval(() => {
+      this.jobs.extendLock(job.id, this.options.lockTtlSec).catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.log.warn(`heartbeat extendLock failed job=${job.id}: ${msg}`);
+      });
+    }, heartbeatMs);
+    heartbeat.unref();
+
+    try {
+      await this.processInternal(job);
+    } finally {
+      clearInterval(heartbeat);
+    }
+  }
+
+  private async processInternal(job: ClaimedJob): Promise<void> {
     let creds: XLoginInput;
     try {
       creds = {
