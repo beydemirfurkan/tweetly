@@ -13,6 +13,23 @@ function createService() {
   return { service, repo, settings };
 }
 
+/**
+ * Builds a fake QueryBuilder that mirrors the real chain used in
+ * MagicLinkService.consume. `executeImpl` lets a test return a different
+ * { raw } payload on each call to simulate concurrent winners/losers.
+ */
+function stubQueryBuilder(repo: jest.Mocked<any>, executeImpl: jest.Mock) {
+  const qb: any = {
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    returning: jest.fn().mockReturnThis(),
+    execute: executeImpl,
+  };
+  repo.createQueryBuilder = jest.fn().mockReturnValue(qb);
+  return qb;
+}
+
 describe('MagicLinkService', () => {
   const originalNodeEnv = process.env.NODE_ENV;
   let logSpy: jest.SpyInstance;
@@ -57,6 +74,57 @@ describe('MagicLinkService', () => {
     expect(logged).not.toContain('[MAGIC_LINK]');
     expect(logged).not.toContain('/auth/verify?token=');
     expect(warned).toContain('Magic-link console fallback disabled');
+  });
+
+  describe('consume()', () => {
+    it('returns null for an empty token without touching the repo', async () => {
+      const { service, repo } = createService();
+      const created = stubQueryBuilder(
+        repo as unknown as jest.Mocked<any>,
+        jest.fn().mockResolvedValue({ raw: [] }),
+      );
+      await expect(service.consume('')).resolves.toBeNull();
+      expect(created.execute).not.toHaveBeenCalled();
+    });
+
+    it('returns the user_id when the atomic CAS hits exactly one row', async () => {
+      const { service, repo } = createService();
+      stubQueryBuilder(
+        repo as unknown as jest.Mocked<any>,
+        jest.fn().mockResolvedValue({ raw: [{ user_id: 'user-1' }] }),
+      );
+      await expect(service.consume('token-abc')).resolves.toBe('user-1');
+    });
+
+    it('two parallel consume() calls with the same token: exactly one returns userId, the other null', async () => {
+      const { service, repo } = createService();
+      // First execute returns a winner row (the row was unconsumed); second
+      // execute simulates the DB-side CAS missing because `consumed_at IS NULL`
+      // no longer matches.
+      const execute = jest
+        .fn()
+        .mockResolvedValueOnce({ raw: [{ user_id: 'user-1' }] })
+        .mockResolvedValueOnce({ raw: [] });
+      stubQueryBuilder(repo as unknown as jest.Mocked<any>, execute);
+
+      const [a, b] = await Promise.all([
+        service.consume('same-token'),
+        service.consume('same-token'),
+      ]);
+
+      const results = [a, b].sort((x, y) => (x ?? '').localeCompare(y ?? ''));
+      expect(results).toEqual([null, 'user-1']);
+      expect(execute).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns null when the CAS misses (expired, already consumed, or unknown token)', async () => {
+      const { service, repo } = createService();
+      stubQueryBuilder(
+        repo as unknown as jest.Mocked<any>,
+        jest.fn().mockResolvedValue({ raw: [] }),
+      );
+      await expect(service.consume('expired-or-used')).resolves.toBeNull();
+    });
   });
 
   it('does not log the magic-link URL in production when SMTP delivery fails', async () => {
