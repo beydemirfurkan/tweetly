@@ -45,6 +45,7 @@ function makeWorker(opts: {
   loginResult: XLoginResult | XLoginResult[] | Error;
   cipherDecrypt?: jest.Mock;
   existingAccount?: Array<{ id: string; user_id: string; status: string; totp_secret_encrypted: string | null; proxy_country: string | null }>;
+  findActiveCooldown?: jest.Mock;
 }): {
   worker: LoginWorker;
   jobs: jest.Mocked<LoginJobsRepository>;
@@ -57,6 +58,7 @@ function makeWorker(opts: {
     markSuccess: jest.fn().mockResolvedValue(undefined),
     extendLock: jest.fn().mockResolvedValue(undefined),
     resetStaleRunningJobs: jest.fn().mockResolvedValue(0),
+    findActiveCooldown: opts.findActiveCooldown ?? jest.fn().mockResolvedValue(null),
   } as unknown as jest.Mocked<LoginJobsRepository>;
 
   const cipher = {
@@ -248,8 +250,11 @@ describe('LoginWorker.process', () => {
         loginResult: [
           {
             ok: false,
-            reason: 'login_cooldown',
-            detail: 'X onboarding rejected login temporarily; try again later',
+            // home_not_reached is the canonical "X served the login page but
+            // we never got to /home" case where rotating egress legitimately
+            // helps; login_cooldown is now explicitly excluded.
+            reason: 'home_not_reached',
+            detail: 'password field never appeared',
             durationMs: 100,
           },
           successResult('alice'),
@@ -261,6 +266,90 @@ describe('LoginWorker.process', () => {
 
       expect(login.run).toHaveBeenNthCalledWith(2, expect.objectContaining({ proxyCountry: 'US' }));
       expect(jobs.markSuccess).toHaveBeenCalledWith('job-1', { targetAccountId: 'alice', keepEncryptedTotp: false });
+    } finally {
+      if (previousProxy === undefined) delete process.env.LOGIN_PROXY_US;
+      else process.env.LOGIN_PROXY_US = previousProxy;
+      if (previousFallbacks === undefined) delete process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+      else process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = previousFallbacks;
+    }
+  });
+
+  it('does NOT retry with a proxy fallback when reason is login_cooldown', async () => {
+    const previousProxy = process.env.LOGIN_PROXY_US;
+    const previousFallbacks = process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+    process.env.LOGIN_PROXY_US = 'http://us.proxy.example:9000';
+    process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = 'US';
+    try {
+      const { worker, jobs, login } = makeWorker({
+        loginResult: {
+          ok: false,
+          reason: 'login_cooldown',
+          detail: 'X onboarding rejected login temporarily; try again later',
+          durationMs: 100,
+        },
+      });
+
+      await worker.process(makeJob());
+
+      expect(login.run).toHaveBeenCalledTimes(1);
+      expect(jobs.markFailure).toHaveBeenCalledWith('job-1', 'login_cooldown', expect.stringContaining('try again later'));
+    } finally {
+      if (previousProxy === undefined) delete process.env.LOGIN_PROXY_US;
+      else process.env.LOGIN_PROXY_US = previousProxy;
+      if (previousFallbacks === undefined) delete process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+      else process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = previousFallbacks;
+    }
+  });
+
+  it('skips the transient retry when findActiveCooldown returns an active cooldown', async () => {
+    const { worker, jobs, login } = makeWorker({
+      loginResult: [
+        { ok: false, reason: 'unknown', detail: 'step navigate: net::ERR_TIMED_OUT', durationMs: 30000 },
+      ],
+      findActiveCooldown: jest.fn().mockResolvedValue({
+        username: 'alice',
+        failureCount: 2,
+        retryAfterSec: 1500,
+        retryAt: new Date(Date.now() + 1500_000).toISOString(),
+        manualReviewRequired: false,
+      }),
+    });
+
+    await worker.process(makeJob());
+
+    // login.run fired once (the original attempt); the transient retry was
+    // skipped because the cooldown gate said "no".
+    expect(login.run).toHaveBeenCalledTimes(1);
+    expect(jobs.findActiveCooldown).toHaveBeenCalledWith('user-1', 'alice');
+    expect(jobs.markFailure).toHaveBeenCalled();
+  });
+
+  it('skips the proxy fallback retry when findActiveCooldown trips between attempts', async () => {
+    const previousProxy = process.env.LOGIN_PROXY_US;
+    const previousFallbacks = process.env.LOGIN_FALLBACK_PROXY_COUNTRIES;
+    process.env.LOGIN_PROXY_US = 'http://us.proxy.example:9000';
+    process.env.LOGIN_FALLBACK_PROXY_COUNTRIES = 'US';
+    try {
+      const { worker, jobs, login } = makeWorker({
+        loginResult: {
+          ok: false,
+          reason: 'home_not_reached',
+          detail: 'password field never appeared',
+          durationMs: 100,
+        },
+        findActiveCooldown: jest.fn().mockResolvedValue({
+          username: 'alice',
+          failureCount: 3,
+          retryAfterSec: 3600,
+          retryAt: new Date(Date.now() + 3600_000).toISOString(),
+          manualReviewRequired: true,
+        }),
+      });
+
+      await worker.process(makeJob());
+
+      expect(login.run).toHaveBeenCalledTimes(1);
+      expect(jobs.markFailure).toHaveBeenCalledWith('job-1', 'home_not_reached', expect.any(String));
     } finally {
       if (previousProxy === undefined) delete process.env.LOGIN_PROXY_US;
       else process.env.LOGIN_PROXY_US = previousProxy;
@@ -348,11 +437,13 @@ describe('fallback proxy helpers', () => {
   });
 
   it('retries only egress-shaped policy failures with fallback proxy', () => {
+    // login_cooldown is an account-level signal — changing egress IP doesn't
+    // lift the limit and signals more strongly to X's anti-abuse. Always skip.
     expect(
       shouldRetryWithFallbackProxy(
         fail('login_cooldown', 'X onboarding rejected login temporarily; try again later'),
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldRetryWithFallbackProxy(fail('home_not_reached', 'username step did not advance. url=https://x.com/i/flow/login')),
     ).toBe(true);

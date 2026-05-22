@@ -192,7 +192,7 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     // timeout that didn't reach the login URL). User-side failures
     // (invalid_credentials, captcha_required, account_locked, …) bypass the
     // retry — re-trying those just burns the cooldown counter.
-    if (!result.ok && isTransientFailure(result)) {
+    if (!result.ok && isTransientFailure(result) && (await this.cooldownClearOrSkip(job, 'transient retry'))) {
       this.log.warn(
         `transient login failure job=${job.id} reason=${result.reason} ` +
           `detail=${truncateForLog(result.detail, 120)} — retrying once after ${RETRY_DELAY_MS}ms`,
@@ -207,7 +207,12 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     const fallbackProxyCountry = !result.ok ? chooseFallbackProxyCountry(creds.proxyCountry) : null;
-    if (!result.ok && fallbackProxyCountry && shouldRetryWithFallbackProxy(result)) {
+    if (
+      !result.ok &&
+      fallbackProxyCountry &&
+      shouldRetryWithFallbackProxy(result) &&
+      (await this.cooldownClearOrSkip(job, 'proxy fallback'))
+    ) {
       this.log.warn(
         `login failed on current egress job=${job.id} reason=${result.reason} ` +
           `— retrying once with proxyCountry=${fallbackProxyCountry}`,
@@ -258,6 +263,33 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     this.profileCache.refreshInBackground(accountId);
 
     this.log.log(`success job=${job.id} accountId=${accountId} duration=${result.durationMs}ms`);
+  }
+
+  /**
+   * Returns true when an in-process retry is still allowed. Returns false
+   * (and logs) when the per-user/username cooldown has just kicked in
+   * between the original attempt and the retry — the worker must NOT
+   * dogpile more attempts in the same process() window, because that
+   * violates the same cooldown the API enforced at job creation.
+   */
+  private async cooldownClearOrSkip(job: ClaimedJob, retryKind: string): Promise<boolean> {
+    try {
+      const cooldown = await this.jobs.findActiveCooldown(job.userId, job.username);
+      if (cooldown) {
+        this.log.warn(
+          `skipping ${retryKind} for job=${job.id}: cooldown active ` +
+            `(failureCount=${cooldown.failureCount}, retryAfterSec=${cooldown.retryAfterSec})`,
+        );
+        return false;
+      }
+      return true;
+    } catch (err) {
+      // Fail open — the worst case is one extra retry, which is far less
+      // damaging than swallowing an actual transient failure forever.
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn(`findActiveCooldown check failed for job=${job.id}, allowing retry: ${msg}`);
+      return true;
+    }
   }
 
   /**
@@ -326,9 +358,9 @@ export function chooseFallbackProxyCountry(current: string | null | undefined): 
 }
 
 export function shouldRetryWithFallbackProxy(result: Extract<XLoginResult, { ok: false }>): boolean {
-  if (result.reason === 'login_cooldown') {
-    return /onboarding rejected login temporarily|could not log you in now|try again later/i.test(result.detail);
-  }
+  // login_cooldown is an account-level signal from X — changing egress IP
+  // does not lift it, it only makes us look more suspicious to anti-abuse.
+  if (result.reason === 'login_cooldown') return false;
   if (result.reason === 'home_not_reached') {
     return /retryable login page before username input|username step did not advance|password field never appeared|did not reach \/home/i.test(result.detail);
   }

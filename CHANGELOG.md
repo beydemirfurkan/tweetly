@@ -17,6 +17,7 @@ All notable changes to this project. Dates are ISO (YYYY-MM-DD).
 ### Fixed
 
 - **Login worker now reclaims orphaned `running` jobs and heartbeats the lock while a login is in flight** (closes #11). `claimNext` was only picking up `status='queued'` rows, so a worker crash (kill -9, container OOM) left the user's connect_x_account job stuck in `running` forever with no recovery path other than DB surgery. The SQL now also reclaims `status='running'` rows whose `locked_until` has elapsed. The worker also runs `resetStaleRunningJobs()` on bootstrap as faster recovery, and `process()` now fires a `setInterval` heartbeat (TTL/3) that calls `extendLock()` so a real long-running login can't be stolen mid-flight by another instance.
+- **Login worker no longer bypasses the API cooldown ladder during in-process retries** (closes #12). `LoginWorker.process()` now calls `findActiveCooldown` before both the transient retry and the proxy fallback retry, so a freshly-tripped cooldown halts the dogpile instead of burning three attempts in 30 s. `shouldRetryWithFallbackProxy` returns `false` for `reason === 'login_cooldown'` (rotating egress doesn't lift an account-level limit, it just signals harder to X anti-abuse). `countConsecutiveFailures` now uses cumulative semantics within the recent window (widened from 3 to 5 rows), so `2 fail + 1 success + 2 fail` still trips the level-3 (24h, manual review) cooldown.
 
 ### Security
 
