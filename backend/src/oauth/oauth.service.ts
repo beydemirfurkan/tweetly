@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createHash, randomBytes } from 'crypto';
+import * as crypto from 'crypto';
 import { OAuthClientEntity } from '@persistence/entities/oauth-client.entity';
 import { OAuthCodeStore, type AuthCodeRecord } from './oauth-code-store.service';
 
@@ -49,8 +49,8 @@ export class OAuthService {
       }
     }
 
-    const clientId = `oauth_${randomBytes(16).toString('hex')}`;
-    const clientSecret = randomBytes(32).toString('hex');
+    const clientId = `oauth_${crypto.randomBytes(16).toString('hex')}`;
+    const clientSecret = crypto.randomBytes(32).toString('hex');
     const clientSecretHash = sha256(clientSecret);
 
     const saved = await this.clients.save(
@@ -78,13 +78,13 @@ export class OAuthService {
   async verifyClientSecret(clientId: string, clientSecret: string): Promise<OAuthClientEntity | null> {
     const client = await this.findClient(clientId);
     if (!client) return null;
-    return sha256(clientSecret) === client.clientSecretHash ? client : null;
+    return timingSafeEqual(sha256(clientSecret), client.clientSecretHash) ? client : null;
   }
 
   // ── Authorization codes ───────────────────────────────────────────────────
 
   async issueAuthCode(input: AuthCodeRecord): Promise<string> {
-    const code = randomBytes(32).toString('hex');
+    const code = crypto.randomBytes(32).toString('hex');
     await this.codes.put(code, input);
     return code;
   }
@@ -97,7 +97,7 @@ export class OAuthService {
 
   verifyPkce(verifier: string, challenge: string): boolean {
     if (!verifier || !challenge) return false;
-    const computed = createHash('sha256').update(verifier).digest('base64url');
+    const computed = crypto.createHash('sha256').update(verifier).digest('base64url');
     return timingSafeEqual(computed, challenge);
   }
 
@@ -125,12 +125,13 @@ export class OAuthService {
 }
 
 function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
+  return crypto.createHash('sha256').update(value).digest('hex');
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+  if (aBuffer.length !== bBuffer.length) return false;
+
+  return crypto.timingSafeEqual(aBuffer, bBuffer);
 }
