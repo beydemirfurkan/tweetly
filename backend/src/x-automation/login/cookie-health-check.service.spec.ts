@@ -38,11 +38,17 @@ describe('CookieHealthCheckService', () => {
   let svc: CookieHealthCheckService;
 
   beforeEach(() => {
+    // Disable the 401/403 retry in tests so each assertion still
+    // corresponds to a single fetch call (the retry behaviour itself
+    // gets its own dedicated test below).
+    process.env.COOKIE_HEALTH_AUTH_RETRY = '0';
     svc = new CookieHealthCheckService();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    delete process.env.COOKIE_HEALTH_AUTH_RETRY;
+    delete process.env.COOKIE_HEALTH_AUTH_RETRY_DELAY_MS;
   });
 
   it('rejects when authToken or ct0 is missing without hitting the network', async () => {
@@ -145,6 +151,39 @@ describe('CookieHealthCheckService', () => {
 
     const result = await svc.check(VALID_INPUT);
     expect(result).toEqual({ ok: true, screenName: 'alice', status: 200 });
+  });
+
+  it('retries a transient 401 once before declaring rejected_by_x', async () => {
+    process.env.COOKIE_HEALTH_AUTH_RETRY = '1';
+    process.env.COOKIE_HEALTH_AUTH_RETRY_DELAY_MS = '0';
+    const spy = jest.spyOn(global, 'fetch');
+    spy.mockResolvedValueOnce(makeResponse({ status: 401 }) as Response);
+    spy.mockResolvedValueOnce(
+      makeResponse({ status: 200, jsonBody: { screen_name: 'alice' } }) as Response,
+    );
+
+    const result = await svc.check(VALID_INPUT);
+    expect(result).toEqual({ ok: true, screenName: 'alice', status: 200 });
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('exhausts retries and returns rejected_by_x when 401/403 persists', async () => {
+    process.env.COOKIE_HEALTH_AUTH_RETRY = '1';
+    process.env.COOKIE_HEALTH_AUTH_RETRY_DELAY_MS = '0';
+    const spy = jest.spyOn(global, 'fetch');
+    spy.mockResolvedValueOnce(makeResponse({ status: 403 }) as Response);
+    spy.mockResolvedValueOnce(makeResponse({ status: 403 }) as Response);
+
+    const result = await svc.check(VALID_INPUT);
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: false,
+        reason: 'rejected_by_x',
+        status: 403,
+        detail: expect.stringContaining('after retries'),
+      }),
+    );
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 
   it('sends the cookie + csrf headers built from the input', async () => {

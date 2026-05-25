@@ -90,25 +90,70 @@ export function resolveLoginProfileDir(
   return path.join(DATA_ROOT, 'user-data', safe);
 }
 
+export interface OnboardingErrorLog {
+  /**
+   * Most recent error whose receive-time is at or after `sinceMs`. Returns
+   * undefined when the window has been quiet — letting callers fall
+   * through to a DOM-side classification instead of reading a stale
+   * telemetry error from a previous step.
+   */
+  lastSince(sinceMs: number): string | undefined;
+  /** Current entry count — exposed for tests. */
+  size(): number;
+}
+
+// Cap the in-memory entry count so a login that loops through many
+// retries doesn't accumulate hundreds of telemetry payloads in the
+// closure. `lastSince` is the only consumer; older entries can never
+// be picked again once the step boundary has passed.
+const ONBOARDING_ERROR_BUFFER_CAP = 20;
+
 /**
- * Attach a network listener that captures X onboarding error bodies. The
- * returned array is populated lazily as `/1.1/onboarding/task.json` responses
- * come back with status ≥ 400 — callers inspect the most recent entry when
- * the username step fails to advance.
+ * Storage primitive for the onboarding-error log. Pulled out of
+ * `collectOnboardingErrors` so unit tests can drive `push` directly
+ * without standing up a fake Page. `push` is exposed on the returned
+ * object but excluded from the public `OnboardingErrorLog` interface —
+ * consumers only ever read from it.
  */
-export function collectOnboardingErrors(page: Page): string[] {
-  const errors: string[] = [];
+export function createOnboardingErrorLog(): OnboardingErrorLog & { push(body: string): void } {
+  const entries: Array<{ at: number; body: string }> = [];
+  return {
+    push(body: string): void {
+      entries.push({ at: Date.now(), body: truncate(body, 500) });
+      if (entries.length > ONBOARDING_ERROR_BUFFER_CAP) entries.shift();
+    },
+    lastSince(sinceMs: number): string | undefined {
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].at >= sinceMs) return entries[i].body;
+      }
+      return undefined;
+    },
+    size(): number {
+      return entries.length;
+    },
+  };
+}
+
+/**
+ * Attach a network listener that captures X onboarding error bodies for
+ * `/1.1/onboarding/task.json` responses with status ≥ 400. The returned
+ * log is bounded and timestamped so callers can scope classification to
+ * the current step window — a stale 500 from a telemetry endpoint
+ * landing after the real login error no longer flips the classification.
+ */
+export function collectOnboardingErrors(page: Page): OnboardingErrorLog {
+  const log = createOnboardingErrorLog();
   page.on('response', (response) => {
     const url = response.url();
     if (!url.includes('/1.1/onboarding/task.json') || response.status() < 400) return;
 
     void response
       .text()
-      .then((body) => errors.push(truncate(body, 500)))
+      .then((body) => log.push(body))
       .catch((err: unknown) => {
         const detail = err instanceof Error ? err.message : String(err);
-        errors.push(truncate(detail, 200));
+        log.push(detail);
       });
   });
-  return errors;
+  return log;
 }

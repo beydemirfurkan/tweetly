@@ -209,9 +209,42 @@ export async function extractCookies(context: BrowserContext): Promise<XLoginCoo
   return { authToken, ct0, twid };
 }
 
+/**
+ * Confirms the page belongs to the logged-in `username`. Uses two stable
+ * X side-nav anchors — never a full-body substring match. A full-body
+ * search returned true for any tweet mentioning the handle, the
+ * "Welcome back, @alice" toast, or a substring overlap (e.g. `@bob`
+ * inside `@bobsmith42`), which silently let stale or wrong cookies
+ * pass `tryPreLoginSession` and `verifyAuthenticatedSession`.
+ *
+ * Signals checked, in order:
+ *  1. The profile-tab link's `href` — `/<handle>` — points at the
+ *     active account's profile and changes when the user switches.
+ *  2. The account-switcher button's `@handle` text, with a word-boundary
+ *     regex so `@bob` does not match `@bobsmith42`.
+ */
 export async function isLoggedInAs(page: Page, username: string): Promise<boolean> {
-  const bodyText = (await page.locator('body').innerText().catch(() => '')).toLowerCase();
-  return bodyText.includes(`@${username.toLowerCase()}`);
+  const handle = username.toLowerCase().replace(/^@/, '');
+  if (!handle) return false;
+  const expected = `/${handle}`;
+
+  // Signal 1: profile-link href.
+  const profileHref = await page
+    .locator('a[data-testid="AppTabBar_Profile_Link"]')
+    .first()
+    .getAttribute('href')
+    .catch(() => null);
+  if (profileHref && profileHref.toLowerCase() === expected) return true;
+
+  // Signal 2: account-switcher chip text, word-boundary anchored.
+  const switcher = page.locator('[data-testid="SideNav_AccountSwitcher_Button"]');
+  if ((await switcher.count().catch(() => 0)) > 0) {
+    const text = (await switcher.first().innerText().catch(() => '')).toLowerCase();
+    const re = new RegExp(`@${escapeRegExp(handle)}(?![a-z0-9_])`);
+    if (re.test(text)) return true;
+  }
+
+  return false;
 }
 
 function escapeRegExp(s: string): string {
