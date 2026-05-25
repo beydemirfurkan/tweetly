@@ -56,6 +56,8 @@ function makeWorker(opts: {
   const jobs = {
     markFailure: jest.fn().mockResolvedValue(undefined),
     markSuccess: jest.fn().mockResolvedValue(undefined),
+    markCancelled: jest.fn().mockResolvedValue(undefined),
+    isCancelled: jest.fn().mockResolvedValue(false),
     extendLock: jest.fn().mockResolvedValue(undefined),
     resetStaleRunningJobs: jest.fn().mockResolvedValue(0),
     findActiveCooldown: opts.findActiveCooldown ?? jest.fn().mockResolvedValue(null),
@@ -452,5 +454,45 @@ describe('fallback proxy helpers', () => {
     ).toBe(true);
     expect(shouldRetryWithFallbackProxy(fail('invalid_credentials', 'password rejected'))).toBe(false);
     expect(shouldRetryWithFallbackProxy(fail('captcha_required', 'arkose iframe visible'))).toBe(false);
+  });
+});
+
+describe('LoginWorker cancellation', () => {
+  it("XLogin returns reason='cancelled' → worker calls markCancelled instead of markFailure", async () => {
+    const { worker, jobs, accounts } = makeWorker({
+      loginResult: { ok: false, reason: 'cancelled', detail: 'login cancelled by user', durationMs: 800 },
+    });
+    await worker.process(makeJob());
+    expect(jobs.markCancelled).toHaveBeenCalledWith('job-1', 'login cancelled by user');
+    expect(jobs.markFailure).not.toHaveBeenCalled();
+    // Cancelled jobs are not failures from X's POV — the session-failure
+    // counter on the account row must NOT be bumped even for reauth kind.
+    expect(accounts.recordSessionFailure).not.toHaveBeenCalled();
+  });
+
+  it('reauth cancellation skips session-failure bump on the target account', async () => {
+    const { worker, jobs, accounts } = makeWorker({
+      loginResult: { ok: false, reason: 'cancelled', detail: 'login aborted (shutdown signal)', durationMs: 1500 },
+    });
+    await worker.process(makeJob({ kind: 'reauth', targetAccountId: 'alice' }));
+    expect(jobs.markCancelled).toHaveBeenCalledWith('job-1', 'login aborted (shutdown signal)');
+    expect(accounts.recordSessionFailure).not.toHaveBeenCalled();
+  });
+
+  it('forwards isCancelled probe + AbortSignal into XLogin so the service can poll cancel between steps', async () => {
+    const { worker, login } = makeWorker({ loginResult: successResult() });
+    await worker.process(makeJob());
+    const arg = (login.run as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+    expect(typeof arg.isCancelled).toBe('function');
+    expect(arg.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('worker isCancelled probe queries the repository for the live cancel state', async () => {
+    const { worker, jobs, login } = makeWorker({ loginResult: successResult() });
+    (jobs.isCancelled as jest.Mock).mockResolvedValueOnce(true);
+    await worker.process(makeJob());
+    const arg = (login.run as jest.Mock).mock.calls[0][0] as { isCancelled: () => Promise<boolean> };
+    await expect(arg.isCancelled()).resolves.toBe(true);
+    expect(jobs.isCancelled).toHaveBeenCalledWith('job-1');
   });
 });

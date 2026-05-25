@@ -283,6 +283,31 @@ export class AccountFacade {
     };
   }
 
+  /**
+   * User-initiated cancellation. Flips a queued/running job to 'cancelled' if
+   * it belongs to the calling user. Returns the prior status so callers can
+   * tell whether the worker was already executing the row (useful for
+   * client-side messaging — "stopped before pickup" vs "interrupting login").
+   * Throws NotFound when the row doesn't exist or isn't yours. Throws 409
+   * when the row is already in a terminal state (success/failed/cancelled).
+   */
+  async cancelLoginJob(
+    userId: string,
+    jobId: string,
+  ): Promise<{ ok: true; status: 'cancelled'; priorStatus: 'queued' | 'running' }> {
+    const result = await this.loginJobs.cancelForUser(jobId, userId);
+    if ('reason' in result) {
+      if (result.reason === 'not_found') {
+        throw new NotFoundException(`Login job ${jobId} not found`);
+      }
+      throw new HttpException(
+        { message: `Login job ${jobId} is already in a terminal state.`, code: 'login_job_already_terminal' },
+        HttpStatus.CONFLICT,
+      );
+    }
+    return { ok: true, status: 'cancelled', priorStatus: result.priorStatus as 'queued' | 'running' };
+  }
+
   private async assertLoginCooldownIsClear(userId: string, username: string): Promise<void> {
     const cooldown = await this.loginJobs.findActiveCooldown(userId, username);
     if (!cooldown) return;

@@ -134,6 +134,12 @@
     "cooldownBody": "Tekrar denemek için {countdown} kadar bekleyin.",
     "cooldownManualTitle": "Çok fazla başarısız deneme — manuel inceleme gerekiyor",
     "cooldownManualBody": "Üst üste {count} başarısız deneme. En az {countdown} bekleyin; sorun devam ederse destekten manuel inceleme isteyin.",
+    "cancelLogin": "Girişi iptal et",
+    "cancelling": "İptal ediliyor...",
+    "cancellingHint": "Worker'a durması söyleniyor. Genelde birkaç saniye içinde tamamlanır.",
+    "cancelledTitle": "Giriş iptal edildi",
+    "cancelledBody": "Giriş denemesi durduruldu. Hesapta bir değişiklik yapılmadı.",
+    "close": "Kapat",
     "failureReasons": {
       "invalid_credentials": "Kullanıcı adı veya şifre hatalı. X panelinden giriş yapabildiğinizi doğrulayın, sonra tekrar deneyin.",
       "captcha_required": "X captcha doğrulaması istedi. x.com üzerinde hesabı doğrulayın veya biraz bekleyip tekrar deneyin.",
@@ -145,6 +151,7 @@
       "home_not_reached": "Şifre gönderildi ama X ana sayfasına geçilemedi. X ek doğrulama veya geçici blok istemiş olabilir.",
       "account_locked": "X bu hesabı kilitledi. Doğrudan x.com'da giriş yapıp ekrandaki adımları (telefon doğrulama, e-posta onayı vb.) tamamlayın, sonra tekrar deneyin.",
       "phone_verification_required": "X telefon numarasıyla doğrulama istiyor. x.com'a girip telefon doğrulamasını tamamlayın, sonra yeniden deneyin.",
+      "cancelled": "Giriş denemesi iptal edildi.",
       "unknown": "Beklenmeyen bir hata oluştu. Biraz bekleyip yeniden deneyin; sorun devam ederse destekten manuel inceleme isteyin."
     }
   },

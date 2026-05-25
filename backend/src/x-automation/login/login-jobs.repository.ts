@@ -257,6 +257,91 @@ export class LoginJobsRepository {
     );
   }
 
+  /**
+   * Terminal cancelled state — worker calls this when it observes the row was
+   * cancelled (DB-driven via `cancelForUser`) or when shutdown aborted the
+   * in-flight login. Distinct from `markFailure` so the UI can render a
+   * neutral "cancelled" outcome instead of an error panel, and so the
+   * cooldown ladder does not count cancellations as failures.
+   */
+  async markCancelled(id: string, detail: string): Promise<void> {
+    await this.dataSource.query(
+      `UPDATE account_login_jobs
+          SET status = 'cancelled',
+              failure_reason = NULL,
+              failure_detail = $2,
+              encrypted_password = NULL,
+              encrypted_totp_secret = NULL,
+              locked_until = NULL,
+              finished_at = COALESCE(finished_at, now())
+        WHERE id = $1`,
+      [id, detail.slice(0, 500)],
+    );
+  }
+
+  /**
+   * User-initiated cancel: flip the row to 'cancelled' if it's still
+   * queued/running AND belongs to the calling user. Returns the prior
+   * status when the cancel actually happened, so the caller can return a
+   * meaningful HTTP code (e.g. 200 vs 409-already-terminal).
+   *
+   * For a row in 'running' we leave the lock alive — the worker that owns
+   * it polls cancellation between steps and will release cleanly.
+   */
+  async cancelForUser(
+    id: string,
+    userId: string,
+  ): Promise<{ priorStatus: LoginJobStatus } | { reason: 'not_found' | 'already_terminal' }> {
+    const rows = (await this.dataSource.query(
+      `SELECT status FROM account_login_jobs WHERE id = $1 AND user_id = $2`,
+      [id, userId],
+    )) as Array<{ status: LoginJobStatus }>;
+    if (rows.length === 0) return { reason: 'not_found' };
+    const priorStatus = rows[0].status;
+    if (priorStatus !== 'queued' && priorStatus !== 'running') {
+      return { reason: 'already_terminal' };
+    }
+
+    const detail =
+      priorStatus === 'running'
+        ? 'cancelled by user (worker will abort at next step)'
+        : 'cancelled by user before pickup';
+
+    const raw = await this.dataSource.query(
+      `UPDATE account_login_jobs
+          SET status = 'cancelled',
+              failure_detail = $3,
+              encrypted_password = NULL,
+              encrypted_totp_secret = NULL,
+              finished_at = CASE WHEN status = 'queued' THEN now() ELSE finished_at END
+        WHERE id = $1
+          AND user_id = $2
+          AND status IN ('queued','running')
+        RETURNING id`,
+      [id, userId, detail],
+    );
+    const updatedRows =
+      Array.isArray(raw) && Array.isArray(raw[0]) ? (raw[0] as unknown[]) : (raw as unknown[]);
+    if (updatedRows.length === 0) {
+      // Raced with the worker (or another DELETE): re-read to classify.
+      return { reason: 'already_terminal' };
+    }
+    return { priorStatus };
+  }
+
+  /**
+   * Fast read used by XLoginService.step() between login steps. We only
+   * need to know if the row flipped to 'cancelled' since claim; any other
+   * concurrent mutation (heartbeat lock extension etc.) is irrelevant.
+   */
+  async isCancelled(id: string): Promise<boolean> {
+    const rows = (await this.dataSource.query(
+      `SELECT 1 FROM account_login_jobs WHERE id = $1 AND status = 'cancelled' LIMIT 1`,
+      [id],
+    )) as unknown[];
+    return rows.length > 0;
+  }
+
   async findByIdForUser(id: string, userId: string): Promise<JobStatusView | null> {
     const rows = (await this.dataSource.query(
       `SELECT id, user_id, kind, status, target_account_id,

@@ -134,6 +134,12 @@
     "cooldownBody": "Wait {countdown} before trying again.",
     "cooldownManualTitle": "Too many recent failures — manual review needed",
     "cooldownManualBody": "{count} failed attempts in a row. Wait at least {countdown}; if it keeps failing, ask support for manual review.",
+    "cancelLogin": "Cancel login",
+    "cancelling": "Cancelling...",
+    "cancellingHint": "Asking the worker to stop. This usually completes within a few seconds.",
+    "cancelledTitle": "Login cancelled",
+    "cancelledBody": "The login attempt was stopped. No account changes were made.",
+    "close": "Close",
     "failureReasons": {
       "invalid_credentials": "Wrong username or password. Confirm you can sign in to x.com manually, then try again.",
       "captcha_required": "X showed a captcha challenge. Verify the account on x.com or wait a bit, then try again.",
@@ -145,6 +151,7 @@
       "home_not_reached": "We submitted the password but X didn't take us to the home page. It likely asked for extra verification or applied a soft block.",
       "account_locked": "X has locked this account. Sign in to x.com directly, complete the on-screen steps (phone verify, email confirm, etc.), then try again.",
       "phone_verification_required": "X requires phone verification. Complete it on x.com, then try connecting again.",
+      "cancelled": "The login attempt was cancelled.",
       "unknown": "Unexpected error. Wait a moment and retry; if it persists, ask support for manual review."
     }
   },

@@ -72,8 +72,8 @@ export class LoginJobResponseDto {
   @ApiProperty({ enum: ['connect', 'reauth'] })
   kind!: 'connect' | 'reauth';
 
-  @ApiProperty({ enum: ['queued', 'running', 'success', 'failed'] })
-  status!: 'queued' | 'running' | 'success' | 'failed';
+  @ApiProperty({ enum: ['queued', 'running', 'success', 'failed', 'cancelled'] })
+  status!: 'queued' | 'running' | 'success' | 'failed' | 'cancelled';
 
   @ApiProperty({
     type: String,
@@ -96,6 +96,7 @@ export class LoginJobResponseDto {
       'home_not_reached',
       'account_locked',
       'phone_verification_required',
+      'cancelled',
       'unknown',
     ],
   })

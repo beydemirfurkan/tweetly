@@ -51,6 +51,10 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
   private stopped = false;
   private inflight: Promise<unknown> | null = null;
+  // Abort signal sources for the currently-processing job. Held as a Set so
+  // `onModuleDestroy` can fan out a shutdown abort without caring which
+  // controller is active. Cleaned up in `process()` finally.
+  private readonly activeAborts = new Set<AbortController>();
   private readonly options: WorkerOptions;
 
   constructor(
@@ -101,6 +105,17 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       this.timer = null;
     }
     if (this.inflight) {
+      // Fire shutdown aborts first — the login service polls the signal at
+      // every step boundary, so the inflight promise should resolve in
+      // seconds instead of waiting up to 30s for Patchright teardown.
+      if (this.activeAborts.size > 0) {
+        this.log.log(`Aborting ${this.activeAborts.size} in-flight login(s) for shutdown.`);
+        for (const c of this.activeAborts) {
+          try {
+            c.abort();
+          } catch {}
+        }
+      }
       this.log.log('Waiting for in-flight login to finish...');
       await Promise.race([
         this.inflight.catch(() => undefined),
@@ -159,14 +174,39 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     }, heartbeatMs);
     heartbeat.unref();
 
+    // Per-job abort controller — `onModuleDestroy` fires it during shutdown
+    // so the in-flight Patchright session unwinds via LoginFlowError at the
+    // next step boundary instead of running to completion.
+    const abort = new AbortController();
+    this.activeAborts.add(abort);
+
     try {
-      await this.processInternal(job);
+      await this.processInternal(job, abort.signal);
     } finally {
       clearInterval(heartbeat);
+      this.activeAborts.delete(abort);
     }
   }
 
-  private async processInternal(job: ClaimedJob): Promise<void> {
+  private async processInternal(job: ClaimedJob, signal: AbortSignal): Promise<void> {
+    // DB-driven cancellation probe used by XLoginService between every step.
+    // We cap it at one query per step so a long flow doesn't dogpile the
+    // table. The signal short-circuits this — shutdown aborts don't need a
+    // DB roundtrip to be effective.
+    const isCancelled = async (): Promise<boolean> => {
+      if (signal.aborted) return true;
+      try {
+        return await this.jobs.isCancelled(job.id);
+      } catch (err) {
+        // Failing open is fine — the worst case is one extra step before we
+        // realise the row was cancelled. Surface the error to logs but don't
+        // turn a DB blip into a spurious 'cancelled' result.
+        const msg = err instanceof Error ? err.message : String(err);
+        this.log.warn(`isCancelled probe failed job=${job.id}: ${msg}`);
+        return false;
+      }
+    };
+
     let creds: XLoginInput;
     try {
       creds = {
@@ -179,6 +219,8 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
         // browser across login + tool calls. Connect leaves it null and the
         // service falls back to a username-keyed staging dir.
         targetAccountId: job.kind === 'reauth' ? job.targetAccountId : null,
+        isCancelled,
+        signal,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -186,43 +228,15 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
-    let result: XLoginResult = await this.login.run(creds);
+    const result: XLoginResult = await this.runWithRetries(job, creds);
 
-    // Auto-retry once for transient infra hiccups (network drop, navigation
-    // timeout that didn't reach the login URL). User-side failures
-    // (invalid_credentials, captcha_required, account_locked, …) bypass the
-    // retry — re-trying those just burns the cooldown counter.
-    if (!result.ok && isTransientFailure(result) && (await this.cooldownClearOrSkip(job, 'transient retry'))) {
-      this.log.warn(
-        `transient login failure job=${job.id} reason=${result.reason} ` +
-          `detail=${truncateForLog(result.detail, 120)} — retrying once after ${RETRY_DELAY_MS}ms`,
-      );
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-      const retry: XLoginResult = await this.login.run(creds);
-      this.log.log(
-        `retry result job=${job.id} ok=${retry.ok} ` +
-          `reason=${retry.ok ? '-' : retry.reason} duration=${retry.durationMs}ms`,
-      );
-      result = retry;
-    }
-
-    const fallbackProxyCountry = !result.ok ? chooseFallbackProxyCountry(creds.proxyCountry) : null;
-    if (
-      !result.ok &&
-      fallbackProxyCountry &&
-      shouldRetryWithFallbackProxy(result) &&
-      (await this.cooldownClearOrSkip(job, 'proxy fallback'))
-    ) {
-      this.log.warn(
-        `login failed on current egress job=${job.id} reason=${result.reason} ` +
-          `— retrying once with proxyCountry=${fallbackProxyCountry}`,
-      );
-      const retry: XLoginResult = await this.login.run({ ...creds, proxyCountry: fallbackProxyCountry });
-      this.log.log(
-        `proxy retry result job=${job.id} ok=${retry.ok} ` +
-          `reason=${retry.ok ? '-' : retry.reason} duration=${retry.durationMs}ms`,
-      );
-      result = retry;
+    // Cancellation is terminal — no retries, no proxy fallback, no session
+    // failure counters. The service may have flipped to cancelled mid-flow
+    // OR the row was already cancelled before the worker picked it (e.g.
+    // between claim and process). Either way: mark and return.
+    if (!result.ok && result.reason === 'cancelled') {
+      await this.jobs.markCancelled(job.id, result.detail);
+      return;
     }
 
     if (!result.ok) {
@@ -263,6 +277,57 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     this.profileCache.refreshInBackground(accountId);
 
     this.log.log(`success job=${job.id} accountId=${accountId} duration=${result.durationMs}ms`);
+  }
+
+  /**
+   * Initial login attempt plus optional in-process retries (transient
+   * infra hiccup + proxy fallback). Each retry is gated on the per-user
+   * cooldown and short-circuits as soon as the result is `ok`, `cancelled`,
+   * or no further retry applies. Pulled out of `processInternal` to keep
+   * each function within the lint cap and to give the retry policy a
+   * single test surface.
+   */
+  private async runWithRetries(job: ClaimedJob, creds: XLoginInput): Promise<XLoginResult> {
+    let result: XLoginResult = await this.login.run(creds);
+
+    if (result.ok || (!result.ok && result.reason === 'cancelled')) return result;
+
+    // Auto-retry once for transient infra hiccups (network drop, navigation
+    // timeout that didn't reach the login URL). User-side failures
+    // (invalid_credentials, captcha_required, account_locked, …) bypass the
+    // retry — re-trying those just burns the cooldown counter.
+    if (isTransientFailure(result) && (await this.cooldownClearOrSkip(job, 'transient retry'))) {
+      this.log.warn(
+        `transient login failure job=${job.id} reason=${result.reason} ` +
+          `detail=${truncateForLog(result.detail, 120)} — retrying once after ${RETRY_DELAY_MS}ms`,
+      );
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      result = await this.login.run(creds);
+      this.log.log(
+        `retry result job=${job.id} ok=${result.ok} ` +
+          `reason=${result.ok ? '-' : result.reason} duration=${result.durationMs}ms`,
+      );
+      if (result.ok || result.reason === 'cancelled') return result;
+    }
+
+    const fallbackProxyCountry = chooseFallbackProxyCountry(creds.proxyCountry);
+    if (
+      fallbackProxyCountry &&
+      shouldRetryWithFallbackProxy(result) &&
+      (await this.cooldownClearOrSkip(job, 'proxy fallback'))
+    ) {
+      this.log.warn(
+        `login failed on current egress job=${job.id} reason=${result.reason} ` +
+          `— retrying once with proxyCountry=${fallbackProxyCountry}`,
+      );
+      result = await this.login.run({ ...creds, proxyCountry: fallbackProxyCountry });
+      this.log.log(
+        `proxy retry result job=${job.id} ok=${result.ok} ` +
+          `reason=${result.ok ? '-' : result.reason} duration=${result.durationMs}ms`,
+      );
+    }
+
+    return result;
   }
 
   /**

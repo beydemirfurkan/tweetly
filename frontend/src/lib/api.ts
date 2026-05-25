@@ -273,7 +273,7 @@ export interface AccountReauthBody {
   proxyCountry?: string | null;
 }
 
-export type LoginJobStatus = 'queued' | 'running' | 'success' | 'failed';
+export type LoginJobStatus = 'queued' | 'running' | 'success' | 'failed' | 'cancelled';
 export type LoginJobFailureReason =
   | 'invalid_credentials'
   | 'captcha_required'
@@ -285,7 +285,14 @@ export type LoginJobFailureReason =
   | 'home_not_reached'
   | 'account_locked'
   | 'phone_verification_required'
+  | 'cancelled'
   | 'unknown';
+
+export interface LoginJobCancelResponse {
+  ok: true;
+  status: 'cancelled';
+  priorStatus: 'queued' | 'running';
+}
 
 export interface LoginJobAccepted {
   jobId: string;
