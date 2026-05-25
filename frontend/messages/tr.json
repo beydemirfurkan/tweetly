@@ -155,6 +155,20 @@
       "unknown": "Beklenmeyen bir hata oluştu. Biraz bekleyip yeniden deneyin; sorun devam ederse destekten manuel inceleme isteyin."
     }
   },
+  "errorBoundaries": {
+    "auth": {
+      "title": "Giriş hatası",
+      "description": "Giriş sırasında bir sorun oluştu. Magic link süresi dolmuş veya zaten kullanılmış olabilir."
+    },
+    "oauth": {
+      "title": "Yetkilendirme başarısız",
+      "description": "OAuth akışı tamamlanamadı. İstemci uygulamasındaki bağlantıyı yeniden açıp tekrar deneyin."
+    },
+    "connect": {
+      "title": "Bağlantı hatası",
+      "description": "X hesabı bağlantısı tamamlanamadı. Kimlik bilgileriniz kaydedilmedi."
+    }
+  },
   "panel": {
     "loading": "Yükleniyor",
     "redirecting": "Yönlendiriliyor",
