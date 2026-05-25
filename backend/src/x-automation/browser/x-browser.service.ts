@@ -362,17 +362,21 @@ export class XBrowserService implements OnModuleDestroy {
   }
 
   async release(context: BrowserContext): Promise<void> {
-    this.active.delete(context);
+    // Keep `context` in `active` until close definitively settles —
+    // otherwise onModuleDestroy's Promise.allSettled cleanup loses
+    // visibility of a still-running close and a leaked subprocess
+    // survives a graceful shutdown. We delete in finally so both
+    // success and timeout paths converge.
     try {
-      const closePromise = context.close();
-      closePromise.catch(() => undefined);
       await this.withTimeout(
-        closePromise,
+        context.close(),
         this.cfg.releaseTimeoutMs,
         `Browser context close timed out after ${this.cfg.releaseTimeoutMs}ms`,
       );
     } catch (err) {
       this.log.warn(`Context close warning: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      this.active.delete(context);
     }
   }
 

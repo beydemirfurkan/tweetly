@@ -33,6 +33,7 @@ import { XLoginService } from './login/x-login.service';
 import { LoginJobsRepository } from './login/login-jobs.repository';
 import { LoginWorker } from './login/login-worker.service';
 import { CookieHealthCheckService } from './login/cookie-health-check.service';
+import { LoginProfileCleanupService } from './login/login-profile-cleanup.service';
 
 /**
  * X automation adapter module.
@@ -94,6 +95,7 @@ import { CookieHealthCheckService } from './login/cookie-health-check.service';
     LoginJobsRepository,
     LoginWorker,
     CookieHealthCheckService,
+    LoginProfileCleanupService,
   ],
   exports: [
     XDirectReadService,
