@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { X_PUBLIC_BEARER } from './x-public-bearer';
 
 export interface CookieHealthInput {
   authToken: string;
@@ -21,12 +22,6 @@ export interface CookieHealthResult {
 }
 
 const SETTINGS_URL = 'https://api.x.com/1.1/account/settings.json';
-// Public iOS-app bearer used by the unauthenticated X API; same token the
-// browser surface and most third-party tools use for cookie-authenticated
-// calls. Pinned here because the response only validates the *cookie* —
-// the bearer is just a transport courtesy header.
-const X_PUBLIC_BEARER =
-  'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 
 /**
  * Probe X's authenticated settings endpoint with a candidate cookie set to

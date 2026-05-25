@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import { createHmac } from 'crypto';
 import * as path from 'path';
 
 import * as dotenv from 'dotenv';
@@ -13,6 +12,9 @@ import {
   moveMouseRandomly,
   randomViewport,
 } from '../x-automation/login/login-humanize';
+import { generateTotp } from '../x-automation/login/totp';
+import { classifyOnboardingError } from '../x-automation/login/login-classifiers';
+import { X_PUBLIC_BEARER } from '../x-automation/login/x-public-bearer';
 
 dotenv.config({ path: path.resolve(process.cwd(), '..', '.env'), override: false });
 dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: false });
@@ -47,11 +49,6 @@ interface ExtractedCookies {
   authToken: string;
   ct0: string;
   twid: string | null;
-}
-
-interface OnboardingFailure {
-  reason: string;
-  detail: string;
 }
 
 interface StandaloneLoginConfig {
@@ -385,21 +382,6 @@ async function hasRetryableLoginError(page: Page): Promise<boolean> {
   );
 }
 
-function classifyOnboardingError(raw: string | undefined): OnboardingFailure | null {
-  if (!raw) return null;
-  const text = raw.toLowerCase();
-  if (text.includes('could not log you in now') || text.includes('try again later')) {
-    return { reason: 'login_cooldown', detail: 'X onboarding rejected login temporarily; try again later' };
-  }
-  if (text.includes('could not authenticate') || text.includes('invalid') && text.includes('credential')) {
-    return { reason: 'invalid_credentials', detail: 'X onboarding rejected credentials' };
-  }
-  if (text.includes('captcha') || text.includes('arkose')) {
-    return { reason: 'captcha_required', detail: 'X requested captcha' };
-  }
-  return null;
-}
-
 async function extractCookies(context: BrowserContext): Promise<ExtractedCookies> {
   const cookies = await context.cookies(['https://x.com', 'https://twitter.com']);
   const byName = new Map(cookies.map((cookie) => [cookie.name, cookie.value]));
@@ -422,9 +404,7 @@ async function resolveScreenName(
 
   const response = await context.request.get('https://x.com/i/api/1.1/account/settings.json', {
     headers: {
-      authorization:
-        'Bearer AAAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCO7f2D9rVYlr5XXedg%3D' +
-        'fHQEkLq0Wrzvi4P7v1JpFbkZdTNMmwdRUUOZWeeQalhjfVEhW',
+      authorization: `Bearer ${X_PUBLIC_BEARER}`,
       'x-csrf-token': cookies.ct0,
       'x-twitter-active-user': 'yes',
       'x-twitter-auth-type': 'OAuth2Session',
@@ -470,42 +450,6 @@ function classifyError(err: unknown, onboardingErrors: string[]): string {
   const message = err instanceof Error ? err.message : String(err);
   const prefix = message.split(':', 1)[0];
   return prefix || 'unknown';
-}
-
-function generateTotp(secret: string, now = Date.now()): string {
-  const key = decodeBase32(secret);
-  const counter = Math.floor(now / 1000 / 30);
-  const buffer = Buffer.alloc(8);
-  buffer.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
-  buffer.writeUInt32BE(counter >>> 0, 4);
-
-  const digest = createHmac('sha1', key).update(buffer).digest();
-  const offset = digest[digest.length - 1] & 0x0f;
-  const code =
-    ((digest[offset] & 0x7f) << 24) |
-    ((digest[offset + 1] & 0xff) << 16) |
-    ((digest[offset + 2] & 0xff) << 8) |
-    (digest[offset + 3] & 0xff);
-  return String(code % 1_000_000).padStart(6, '0');
-}
-
-function decodeBase32(secret: string): Buffer {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const normalized = secret.toUpperCase().replace(/[^A-Z2-7]/g, '');
-  if (!normalized) throw new Error('invalid_totp_secret: empty base32 secret');
-
-  let bits = '';
-  for (const char of normalized) {
-    const value = alphabet.indexOf(char);
-    if (value === -1) throw new Error('invalid_totp_secret: non-base32 character');
-    bits += value.toString(2).padStart(5, '0');
-  }
-
-  const bytes: number[] = [];
-  for (let i = 0; i + 8 <= bits.length; i += 8) {
-    bytes.push(parseInt(bits.slice(i, i + 8), 2));
-  }
-  return Buffer.from(bytes);
 }
 
 function requiredEnv(name: string): string {
