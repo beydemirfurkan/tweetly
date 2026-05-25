@@ -251,8 +251,9 @@ npm test               # backend unit tests + frontend tests
 npm run lint           # backend + frontend lint
 npm run typecheck      # backend + frontend type-check
 
-npm run db:migrate         # apply pending migrations
-npm run db:migrate:revert  # revert the last migration
+npm run db:migrate                            # apply pending migrations
+npm run db:migrate:revert                     # revert the last migration
+npm --prefix backend run db:migrate:generate -- <Name>  # diff entities → src/persistence/migrations/<ts>-<Name>.ts
 ```
 
 ---

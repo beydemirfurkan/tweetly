@@ -54,6 +54,7 @@ Breaking changes: append `BREAKING CHANGE:` footer or use `feat!: ...`.
 - [ ] Branch is up-to-date with `main`
 - [ ] `npm run lint`, `npm run typecheck`, `npm test` all pass
 - [ ] New behavior has tests (unit at minimum; integration where it crosses module boundaries)
+- [ ] If you added or changed a TypeORM entity, generated a migration via `npm --prefix backend run db:migrate:generate -- <Name>` and committed it under `backend/src/persistence/migrations/`
 - [ ] If you touched the action engine, MCP tools, or auth: smoke-test with `npm run smoke:mcp` / `smoke:rest`
 - [ ] README / CHANGELOG updated when user-visible behavior changes
 - [ ] No personal data, real API keys, or production URLs in the diff
