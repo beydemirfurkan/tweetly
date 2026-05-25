@@ -40,4 +40,22 @@ describe('generateTotp', () => {
     const b = generateTotp(SECRET_BASE32, t + 30_000);
     expect(a).not.toBe(b);
   });
+
+  it('boundary: 100ms before vs 100ms after a 30s window changes the code', () => {
+    // Pick a timestamp that lands exactly on a 30s window boundary so we
+    // can probe ±100ms around it. The HOTP counter is floor(ms/1000/30),
+    // so any time in [t, t+30_000) is window N and t+30_000 starts N+1.
+    const windowEdge = Math.floor(1700000000 / 30) * 30 * 1000 + 30_000;
+
+    const justBefore = generateTotp(SECRET_BASE32, windowEdge - 100);
+    const justAfter = generateTotp(SECRET_BASE32, windowEdge + 100);
+
+    // ±100ms straddles the counter increment — the codes must differ.
+    expect(justBefore).not.toBe(justAfter);
+
+    // And both must still be on either side of the boundary, not the same
+    // window: probe two more samples deep inside each window to confirm.
+    expect(generateTotp(SECRET_BASE32, windowEdge - 5_000)).toBe(justBefore);
+    expect(generateTotp(SECRET_BASE32, windowEdge + 5_000)).toBe(justAfter);
+  });
 });

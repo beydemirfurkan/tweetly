@@ -1,6 +1,7 @@
 import * as path from 'path';
 
-import { classifyOnboardingError, resolveLoginProfileDir } from './x-login.service';
+import { buildCancelCheck, classifyOnboardingError, resolveLoginProfileDir } from './x-login.service';
+import { LoginFlowError } from './login-error';
 
 describe('classifyOnboardingError', () => {
   it('maps X onboarding temporary rejection to login_cooldown', () => {
@@ -33,5 +34,66 @@ describe('resolveLoginProfileDir', () => {
 
   it('sanitizes unsafe profile characters', () => {
     expect(path.basename(resolveLoginProfileDir(null, 'ali/ce', null))).toBe('login-ali_ce');
+  });
+});
+
+describe('buildCancelCheck', () => {
+  it('is a no-op closure when neither isCancelled nor signal is provided', async () => {
+    const check = buildCancelCheck({ username: 'a', password: 'b' });
+    await expect(check()).resolves.toBeUndefined();
+  });
+
+  it('throws LoginFlowError(cancelled, shutdown signal) when the AbortSignal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const check = buildCancelCheck({ username: 'a', password: 'b', signal: controller.signal });
+
+    await expect(check()).rejects.toBeInstanceOf(LoginFlowError);
+    await expect(check()).rejects.toMatchObject({ reason: 'cancelled', detail: expect.stringMatching(/shutdown/i) });
+  });
+
+  it('throws LoginFlowError(cancelled, by user) when isCancelled resolves true', async () => {
+    const check = buildCancelCheck({
+      username: 'a',
+      password: 'b',
+      isCancelled: async () => true,
+    });
+
+    await expect(check()).rejects.toMatchObject({ reason: 'cancelled', detail: expect.stringMatching(/user/i) });
+  });
+
+  it('returns without throwing when isCancelled resolves false', async () => {
+    const check = buildCancelCheck({
+      username: 'a',
+      password: 'b',
+      isCancelled: async () => false,
+    });
+    await expect(check()).resolves.toBeUndefined();
+  });
+
+  it('signal takes precedence over isCancelled — no DB roundtrip on shutdown', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const isCancelled = jest.fn(async () => false);
+    const check = buildCancelCheck({
+      username: 'a',
+      password: 'b',
+      signal: controller.signal,
+      isCancelled,
+    });
+
+    await expect(check()).rejects.toMatchObject({ reason: 'cancelled' });
+    expect(isCancelled).not.toHaveBeenCalled();
+  });
+
+  it('calls isCancelled lazily — once per check invocation', async () => {
+    const isCancelled = jest.fn(async () => false);
+    const check = buildCancelCheck({ username: 'a', password: 'b', isCancelled });
+
+    await check();
+    await check();
+    await check();
+
+    expect(isCancelled).toHaveBeenCalledTimes(3);
   });
 });

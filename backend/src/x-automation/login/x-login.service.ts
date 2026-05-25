@@ -40,6 +40,10 @@ import { tryPreLoginSession, verifyAuthenticatedSession } from './login-session-
 // scripts import these from x-login.service directly).
 export { classifyOnboardingError, resolveLoginProfileDir };
 
+// Exported for unit tests — pins the cancellation contract that the step()
+// loop relies on. Not part of the public service surface.
+export { buildCancelCheck };
+
 const USER_AGENT = process.env.LOGIN_USER_AGENT?.trim() || null;
 const STEP_TIMEOUT_MS = parseInt(process.env.LOGIN_STEP_TIMEOUT_MS ?? '20000', 10);
 const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10);
