@@ -12,6 +12,7 @@ import {
   type AccountReauthBody,
   type LoginCooldownPayload,
   type LoginJobAccepted,
+  type LoginJobCancelResponse,
   type LoginJobResponse,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ import {
   AlertTriangle,
   UserCheck,
   ArrowRight,
+  Ban,
 } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 2000;
@@ -73,9 +75,10 @@ interface AlreadyConnectedPayload {
 type Phase =
   | { kind: 'idle' }
   | { kind: 'submitting' }
-  | { kind: 'polling'; jobId: string; status: LoginJobResponse['status'] }
+  | { kind: 'polling'; jobId: string; status: LoginJobResponse['status']; cancelling: boolean }
   | { kind: 'success'; targetAccountId: string }
   | { kind: 'failed'; reason: NonNullable<LoginJobResponse['failureReason']>; detail: string | null }
+  | { kind: 'cancelled' }
   | { kind: 'cooldown'; payload: LoginCooldownPayload }
   | { kind: 'alreadyConnected'; existingAccountId: string };
 
@@ -115,7 +118,7 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
     try {
       const accepted = await sendRequest({ form, mode, targetAccountId, apiFetch });
       if (cancelledRef.current) return;
-      setPhase({ kind: 'polling', jobId: accepted.jobId, status: 'queued' });
+      setPhase({ kind: 'polling', jobId: accepted.jobId, status: 'queued', cancelling: false });
       pollLoop(accepted.jobId);
     } catch (err) {
       // 409: backend rejected because the same handle is already connected
@@ -162,8 +165,19 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
           });
           return;
         }
-        // queued | running — keep polling
-        setPhase({ kind: 'polling', jobId, status: job.status });
+        if (job.status === 'cancelled') {
+          setPhase({ kind: 'cancelled' });
+          return;
+        }
+        // queued | running — keep polling. Preserve the local `cancelling`
+        // flag if the user already clicked Cancel: the DELETE call may
+        // have returned before the worker observed it, so we keep the
+        // optimistic state until the next poll surfaces status=cancelled.
+        setPhase((prev) =>
+          prev.kind === 'polling'
+            ? { kind: 'polling', jobId, status: job.status, cancelling: prev.cancelling }
+            : { kind: 'polling', jobId, status: job.status, cancelling: false },
+        );
         setTimeout(tick, POLL_INTERVAL_MS);
       } catch (err) {
         if (cancelledRef.current) return;
@@ -172,6 +186,30 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
       }
     };
     setTimeout(tick, POLL_INTERVAL_MS);
+  };
+
+  const requestCancel = async (jobId: string) => {
+    // Optimistically flip the panel to "cancelling…" so the user gets feedback
+    // immediately. The poll loop keeps running and will pick up the terminal
+    // `cancelled` status from the worker on the next tick.
+    setPhase((prev) =>
+      prev.kind === 'polling'
+        ? { ...prev, cancelling: true }
+        : prev,
+    );
+    try {
+      await apiFetch<LoginJobCancelResponse>(`/api/v1/accounts/login-jobs/${jobId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      // 409 means the worker already finished — leave the poll loop to land
+      // on the actual terminal status. Any other error: surface as a failure
+      // panel rather than silently leaving the user stuck on "cancelling…".
+      if (err instanceof ApiError && err.status === 409) return;
+      if (cancelledRef.current) return;
+      const msg = err instanceof Error ? err.message : t('errorUnknown');
+      setPhase({ kind: 'failed', reason: 'unknown', detail: msg });
+    }
   };
 
   // Cooldown is informational, not in-flight; the existing isBusy gate
@@ -211,9 +249,17 @@ export function ConnectAccountDialog({ open, onOpenChange, mode, targetAccountId
             detail={phase.detail}
             onRetry={() => setPhase({ kind: 'idle' })}
           />
+        ) : phase.kind === 'cancelled' ? (
+          <CancelledPanel onClose={() => onOpenChange(false)} />
         ) : phase.kind === 'polling' || phase.kind === 'submitting' ? (
           <PollingPanel
             status={phase.kind === 'polling' ? phase.status : 'queued'}
+            cancelling={phase.kind === 'polling' && phase.cancelling}
+            onCancel={
+              phase.kind === 'polling' && !phase.cancelling
+                ? () => requestCancel(phase.jobId)
+                : undefined
+            }
           />
         ) : (
           <FormPanel
@@ -404,18 +450,61 @@ function PasswordLoginForm(props: {
   );
 }
 
-function PollingPanel({ status }: { status: LoginJobResponse['status'] }) {
+function PollingPanel({
+  status,
+  cancelling,
+  onCancel,
+}: {
+  status: LoginJobResponse['status'];
+  cancelling: boolean;
+  onCancel?: () => void;
+}) {
+  const t = useTranslations('connectDialog');
+  const headline = cancelling
+    ? t('cancelling')
+    : status === 'queued'
+      ? t('queued')
+      : t('running');
+  return (
+    <div className="space-y-3 pt-2">
+      <div className="space-y-3 text-center">
+        <div className="flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{headline}</p>
+          <p className="text-xs text-muted-foreground">
+            {cancelling ? t('cancellingHint') : t('durationHint')}
+          </p>
+        </div>
+      </div>
+      {onCancel && (
+        <div className="flex justify-center pt-1">
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            <Ban className="h-3.5 w-3.5" />
+            {t('cancelLogin')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CancelledPanel({ onClose }: { onClose: () => void }) {
   const t = useTranslations('connectDialog');
   return (
-    <div className="space-y-3 pt-2 text-center">
-      <div className="flex justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="space-y-3 pt-2">
+      <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+        <Ban className="mt-0.5 h-4 w-4 flex-shrink-0" />
+        <div className="space-y-1">
+          <p className="font-medium text-foreground">{t('cancelledTitle')}</p>
+          <p className="text-xs opacity-90">{t('cancelledBody')}</p>
+        </div>
       </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium">
-          {status === 'queued' ? t('queued') : t('running')}
-        </p>
-        <p className="text-xs text-muted-foreground">{t('durationHint')}</p>
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={onClose}>
+          {t('close')}
+        </Button>
       </div>
     </div>
   );

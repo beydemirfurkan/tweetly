@@ -46,6 +46,14 @@ const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10)
 const HEADFUL = (process.env.LOGIN_DEBUG_HEADFUL ?? 'false').toLowerCase() === 'true';
 const SLOWMO_MS = parseInt(process.env.LOGIN_DEBUG_SLOWMO_MS ?? '0', 10);
 
+/**
+ * Probe called between login steps. Throws `LoginFlowError('cancelled', …)`
+ * if the worker observed the row was cancelled by the user OR the shutdown
+ * abort signal fired. No-op for callers that didn't wire either source
+ * (e.g. smoke scripts) — they get the legacy "runs to completion" behavior.
+ */
+type CancelCheck = () => Promise<void>;
+
 @Injectable()
 export class XLoginService {
   private readonly log = new Logger(XLoginService.name);
@@ -64,6 +72,11 @@ export class XLoginService {
    * Returns a discriminated-union result; never throws on user-input errors
    * (wrong password, captcha, …) — those are mapped to `XLoginFailure`. Only
    * unexpected infrastructure errors propagate.
+   *
+   * `input.isCancelled` and `input.signal` are checked at every step boundary
+   * (see `buildCancelCheck`). When tripped, the login throws
+   * `LoginFlowError('cancelled', …)` which the worker maps to a terminal
+   * `status='cancelled'` row.
    */
   async run(input: XLoginInput): Promise<XLoginResult> {
     const t0 = Date.now();
@@ -75,10 +88,13 @@ export class XLoginService {
         `headful=${HEADFUL} proxy=${input.proxyCountry ?? 'none'}`,
     );
 
+    const checkCancel = buildCancelCheck(input);
+
     const proxy = resolveProxy(input.proxyCountry);
     let context: BrowserContext | null = null;
     let page: Page | null = null;
     try {
+      await checkCancel();
       const vp = randomViewport();
       context = await chromium.launchPersistentContext(profileDir, {
         headless: !HEADFUL,
@@ -104,6 +120,7 @@ export class XLoginService {
       page = context.pages()[0] ?? (await context.newPage());
       const onboardingErrors = collectOnboardingErrors(page);
 
+      await checkCancel();
       const preLogin = await tryPreLoginSession(context, page, username);
       if (preLogin) {
         const durationMs = Date.now() - t0;
@@ -111,7 +128,7 @@ export class XLoginService {
         return { ok: true, screenName: preLogin.screenName, userId: parseUserIdFromTwid(preLogin.cookies.twid) ?? null, cookies: preLogin.cookies, durationMs };
       }
 
-      await this.runFlow(page, { ...input, username }, onboardingErrors);
+      await this.runFlow(page, { ...input, username }, onboardingErrors, checkCancel);
       const cookies = await extractCookies(context);
       const screenName = await verifyAuthenticatedSession(context, page, username, cookies);
       const userId = parseUserIdFromTwid(cookies.twid) ?? null;
@@ -122,6 +139,13 @@ export class XLoginService {
     } catch (err) {
       const durationMs = Date.now() - t0;
       if (err instanceof LoginFlowError) {
+        // Cancellations are a terminal state, not a real failure — skip the
+        // debug-artifact dump so we don't leave one screenshot per user
+        // cancel sitting in the data dir.
+        if (err.reason === 'cancelled') {
+          this.log.log(`login cancelled username=${username} detail=${err.detail} duration=${durationMs}ms`);
+          return { ok: false, reason: 'cancelled', detail: err.detail, durationMs };
+        }
         const detail = await this.decorateFailureDetail(page, input, username, err, durationMs);
         this.log.warn(`login failed username=${username} reason=${err.reason} detail=${detail} duration=${durationMs}ms`);
         return { ok: false, reason: err.reason, detail, durationMs };
@@ -140,6 +164,7 @@ export class XLoginService {
     page: Page,
     input: XLoginInput & { username: string },
     onboardingErrors: string[],
+    checkCancel: CancelCheck,
   ): Promise<void> {
     // Warm-up: visit x.com root before the login flow so X sees the same
     // pattern a real user does (homepage → click "Sign in"). Skipped if the
@@ -155,15 +180,15 @@ export class XLoginService {
       await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
       await humanDelay(500, 1200);
       await moveMouseRandomly(page);
-    }, page);
+    }, page, checkCancel);
 
     await this.step('username', async () => {
-      const field = await this.waitForUsernameInput(page);
+      const field = await this.waitForUsernameInput(page, checkCancel);
       // X's React form ignores DOM-set values (fill() bypass): we must dispatch
       // real keyboard events. Click for focus, type per-char, then submit.
       await enterTextLikeUser(page, field, input.username);
       await this.submitUsernameStep(page, field, onboardingErrors);
-    }, page);
+    }, page, checkCancel);
 
     // X may now show:
     //  (a) password screen directly, or
@@ -178,7 +203,7 @@ export class XLoginService {
         await enterTextLikeUser(page, field, challengeValue);
         await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
         await waitForAdvance(page, SEL.challengeInput, 6000);
-      });
+      }, undefined, checkCancel);
     }
 
     await checkForCaptcha(page);
@@ -203,7 +228,7 @@ export class XLoginService {
       } else {
         await clickNamedButtonOrPressEnter(page, SEL.loginButtonTexts);
       }
-    });
+    }, undefined, checkCancel);
 
     if (await isVisibleSoon(page, SEL.totpInput, 5000)) {
       if (!input.totpSecret) {
@@ -214,13 +239,13 @@ export class XLoginService {
         const field = page.locator(SEL.totpInput).first();
         await enterTextLikeUser(page, field, code);
         await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
-      });
+      }, undefined, checkCancel);
     }
 
-    await this.verifyHome(page);
+    await this.verifyHome(page, checkCancel);
   }
 
-  private async verifyHome(page: Page): Promise<void> {
+  private async verifyHome(page: Page, checkCancel: CancelCheck): Promise<void> {
     await this.step('verify-home', async () => {
       try {
         await page.waitForURL((url) => url.toString().startsWith(HOME_URL_PREFIX), {
@@ -244,14 +269,21 @@ export class XLoginService {
         if (urlReason) throw new LoginFlowError(urlReason.reason, urlReason.detail);
         throw new LoginFlowError('home_not_reached', `did not reach /home (current=${page.url()})`);
       }
-    });
+    }, undefined, checkCancel);
   }
 
-  private async waitForUsernameInput(page: Page): Promise<import('patchright').Locator> {
+  private async waitForUsernameInput(
+    page: Page,
+    checkCancel: CancelCheck,
+  ): Promise<import('patchright').Locator> {
     const field = page.locator(SEL.usernameInput).first();
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Each retry attempt is a natural cancellation point — the retry loop
+      // can spend ~5s per attempt waiting on a retryable error page, and we
+      // don't want a user-cancel to sit through all of them.
+      await checkCancel();
       try {
         await field.waitFor({ state: 'visible' });
         return field;
@@ -309,7 +341,13 @@ export class XLoginService {
     throw new LoginFlowError('home_not_reached', `username step did not advance. ${ctx}`);
   }
 
-  private async step<T>(name: string, fn: () => Promise<T>, page?: Page): Promise<T> {
+  private async step<T>(
+    name: string,
+    fn: () => Promise<T>,
+    page?: Page,
+    checkCancel?: CancelCheck,
+  ): Promise<T> {
+    if (checkCancel) await checkCancel();
     const t = Date.now();
     try {
       const out = await fn();
@@ -365,4 +403,25 @@ export class XLoginService {
       return safeDetail;
     }
   }
+}
+
+/**
+ * Build the per-call cancel probe from the optional `isCancelled` and
+ * `signal` inputs. When neither is provided this is a no-op closure so the
+ * critical step path stays branch-free.
+ */
+function buildCancelCheck(input: XLoginInput): CancelCheck {
+  const signal = input.signal;
+  const isCancelled = input.isCancelled;
+  if (!signal && !isCancelled) {
+    return async () => {};
+  }
+  return async () => {
+    if (signal?.aborted) {
+      throw new LoginFlowError('cancelled', 'login aborted (shutdown signal)');
+    }
+    if (isCancelled && (await isCancelled())) {
+      throw new LoginFlowError('cancelled', 'login cancelled by user');
+    }
+  };
 }

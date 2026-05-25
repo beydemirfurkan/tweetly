@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -77,6 +78,29 @@ export class LoginController {
     @Param('jobId') jobId: string,
   ): Promise<LoginJobResponseDto> {
     return this.accounts.getLoginJob(getAuthContext(req).userId, jobId);
+  }
+
+  @Delete('accounts/login-jobs/:jobId')
+  @ApiTags('accounts')
+  @ApiOperation({
+    summary: 'Cancel a login job',
+    description:
+      'Flips a queued or running login job to status=cancelled. For a running ' +
+      'job the worker observes the flip between steps and unwinds the ' +
+      'Patchright session — typical latency 1–5s, never more than one step. ' +
+      'Already-terminal jobs (success/failed/cancelled) return 409.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cancellation accepted; priorStatus indicates whether the worker had picked it up.',
+  })
+  @ApiResponse({ status: 404, description: 'Job not found or not yours' })
+  @ApiResponse({ status: 409, description: 'Job is already terminal' })
+  async cancelLoginJob(
+    @Req() req: Request,
+    @Param('jobId') jobId: string,
+  ): Promise<{ ok: true; status: 'cancelled'; priorStatus: 'queued' | 'running' }> {
+    return this.accounts.cancelLoginJob(getAuthContext(req).userId, jobId);
   }
 
   @Post('accounts/:id/reauth')

@@ -1,7 +1,7 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 export type LoginJobKind = 'connect' | 'reauth';
-export type LoginJobStatus = 'queued' | 'running' | 'success' | 'failed';
+export type LoginJobStatus = 'queued' | 'running' | 'success' | 'failed' | 'cancelled';
 export type LoginJobFailureReason =
   | 'invalid_credentials'
   | 'captcha_required'
@@ -13,6 +13,10 @@ export type LoginJobFailureReason =
   | 'home_not_reached'
   | 'account_locked'
   | 'phone_verification_required'
+  // Terminal user/shutdown cancellation — surfaces as ok=false on the
+  // service path so the worker can persist a distinct status='cancelled'
+  // row instead of conflating it with a real failure.
+  | 'cancelled'
   | 'unknown';
 
 @Entity('account_login_jobs')

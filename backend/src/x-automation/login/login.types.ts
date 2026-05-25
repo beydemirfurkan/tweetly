@@ -15,6 +15,19 @@ export interface XLoginInput {
    * different "browsers" for the same account.
    */
   targetAccountId?: string | null;
+  /**
+   * Optional pre-step cancellation probe. The worker passes a callback that
+   * reads `LoginJobsRepository.isCancelled(jobId)` so a user DELETE on the
+   * row aborts the in-flight login at the next step boundary with
+   * `reason='cancelled'`. Undefined for non-worker callers (smoke scripts).
+   */
+  isCancelled?: () => Promise<boolean>;
+  /**
+   * Optional abort signal — driven by the worker's `onModuleDestroy` so a
+   * container restart aborts in-flight logins instead of waiting up to 30s
+   * for the Patchright session to teardown.
+   */
+  signal?: AbortSignal;
 }
 
 export interface XLoginCookies {

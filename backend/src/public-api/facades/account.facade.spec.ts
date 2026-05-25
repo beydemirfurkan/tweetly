@@ -290,3 +290,38 @@ describe('AccountFacade.upsertAccount', () => {
     });
   });
 });
+
+describe('AccountFacade.cancelLoginJob', () => {
+  it('returns priorStatus on a successful cancel', async () => {
+    const { facade, loginJobs } = makeFacade({
+      loginJobs: {
+        cancelForUser: jest.fn().mockResolvedValue({ priorStatus: 'queued' }),
+      },
+    });
+    const res = await facade.cancelLoginJob('user-1', 'job-1');
+    expect(res).toEqual({ ok: true, status: 'cancelled', priorStatus: 'queued' });
+    expect(loginJobs.cancelForUser).toHaveBeenCalledWith('job-1', 'user-1');
+  });
+
+  it('throws NotFound when the row does not exist or belongs to another user', async () => {
+    const { facade } = makeFacade({
+      loginJobs: {
+        cancelForUser: jest.fn().mockResolvedValue({ reason: 'not_found' }),
+      },
+    });
+    await expect(facade.cancelLoginJob('user-1', 'job-1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('throws 409 ConflictException when the row is already terminal', async () => {
+    const { facade } = makeFacade({
+      loginJobs: {
+        cancelForUser: jest.fn().mockResolvedValue({ reason: 'already_terminal' }),
+      },
+    });
+    await expect(facade.cancelLoginJob('user-1', 'job-1')).rejects.toMatchObject({
+      status: 409,
+    });
+    // Specifically an HttpException (not just any rejection)
+    await expect(facade.cancelLoginJob('user-1', 'job-1')).rejects.toBeInstanceOf(HttpException);
+  });
+});
