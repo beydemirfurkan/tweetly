@@ -1,11 +1,10 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable, Logger } from '@nestjs/common';
 import { chromium, type BrowserContext, type Page } from 'patchright';
 import { LoginFlowError } from './login-error';
 import { redactLoginDebugText, writeLoginDebugArtifact } from './login-debug-artifact';
 import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
-import type { XLoginCookies, XLoginInput, XLoginResult } from './login.types';
+import type { XLoginInput, XLoginResult } from './login.types';
 import { optionalBrowserChannel } from '@/x-automation/browser/browser-channel';
 import { clearStaleLocks } from '@/x-automation/browser/clear-stale-locks';
 import { LOGIN_INIT_SCRIPT } from './login-stealth';
@@ -20,20 +19,32 @@ import {
   didLeaveUsernameStep,
   enterTextLikeUser,
   extractCookies,
-  isLoggedInAs,
   hasRetryableLoginPageError,
   isVisibleSoon,
   clickVisibleNamedControl,
   matchesErrorText,
   waitForAdvance,
 } from './login-page.utils';
+import {
+  classifyByUrl,
+  classifyOnboardingError,
+  collectOnboardingErrors,
+  parseUserIdFromTwid,
+  resolveLoginProfileDir,
+  stripAt,
+  truncate,
+} from './login-classifiers';
+import { tryPreLoginSession, verifyAuthenticatedSession } from './login-session-check';
+
+// Re-exports preserved for backward compatibility with consumers (specs and
+// scripts import these from x-login.service directly).
+export { classifyOnboardingError, resolveLoginProfileDir };
 
 const USER_AGENT = process.env.LOGIN_USER_AGENT?.trim() || null;
 const STEP_TIMEOUT_MS = parseInt(process.env.LOGIN_STEP_TIMEOUT_MS ?? '20000', 10);
 const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10);
 const HEADFUL = (process.env.LOGIN_DEBUG_HEADFUL ?? 'false').toLowerCase() === 'true';
 const SLOWMO_MS = parseInt(process.env.LOGIN_DEBUG_SLOWMO_MS ?? '0', 10);
-const DATA_ROOT = process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data');
 
 @Injectable()
 export class XLoginService {
@@ -93,7 +104,7 @@ export class XLoginService {
       page = context.pages()[0] ?? (await context.newPage());
       const onboardingErrors = collectOnboardingErrors(page);
 
-      const preLogin = await this.tryPreLoginSession(context, page, username);
+      const preLogin = await tryPreLoginSession(context, page, username);
       if (preLogin) {
         const durationMs = Date.now() - t0;
         this.log.log(`login skipped (session valid) username=${username} screenName=${preLogin.screenName} duration=${durationMs}ms`);
@@ -102,7 +113,7 @@ export class XLoginService {
 
       await this.runFlow(page, { ...input, username }, onboardingErrors);
       const cookies = await extractCookies(context);
-      const screenName = await this.verifyAuthenticatedSession(context, page, username, cookies);
+      const screenName = await verifyAuthenticatedSession(context, page, username, cookies);
       const userId = parseUserIdFromTwid(cookies.twid) ?? null;
 
       const durationMs = Date.now() - t0;
@@ -354,159 +365,4 @@ export class XLoginService {
       return safeDetail;
     }
   }
-
-  private async verifyAuthenticatedSession(
-    context: BrowserContext,
-    page: Page,
-    typedUsername: string,
-    cookies: XLoginCookies,
-  ): Promise<string> {
-    if (await isLoggedInAs(page, typedUsername)) return typedUsername;
-
-    const urls = [
-      'https://api.x.com/1.1/account/settings.json',
-      'https://x.com/i/api/1.1/account/settings.json',
-    ];
-    let lastStatus: number | null = null;
-
-    for (const url of urls) {
-      try {
-        const res = await context.request.get(url, {
-          headers: {
-            'x-csrf-token': cookies.ct0,
-            'authorization':
-              'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-          },
-          timeout: 10_000,
-        });
-        lastStatus = res.status();
-        if (res.ok()) {
-          const body = (await res.json()) as { screen_name?: string };
-          if (body.screen_name) return body.screen_name;
-          throw new LoginFlowError('cookies_missing', 'authenticated settings response missing screen_name');
-        }
-
-        if (res.status() === 401 || res.status() === 403) {
-          throw new LoginFlowError('cookies_missing', `authenticated settings rejected session (status=${res.status()})`);
-        }
-      } catch (err) {
-        if (err instanceof LoginFlowError) throw err;
-        const detail = err instanceof Error ? err.message : String(err);
-        throw new LoginFlowError('home_not_reached', `authenticated settings check errored: ${truncate(detail, 160)}`);
-      }
-    }
-
-    throw new LoginFlowError('home_not_reached', `authenticated settings check failed (last_status=${lastStatus ?? '?'})`);
-  }
-
-  private async tryPreLoginSession(
-    context: BrowserContext,
-    page: Page,
-    username: string,
-  ): Promise<{ screenName: string; cookies: XLoginCookies } | null> {
-    try {
-      await page.goto(HOME_URL_PREFIX, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
-      await humanDelay(1000, 2000);
-      if (!page.url().startsWith(HOME_URL_PREFIX)) return null;
-      if (!(await isLoggedInAs(page, username))) return null;
-      const cookies = await extractCookies(context);
-      return { screenName: username, cookies };
-    } catch {
-      return null;
-    }
-  }
-}
-
-function stripAt(s: string): string {
-  return s.trim().replace(/^@+/, '');
-}
-
-function parseUserIdFromTwid(twid: string | null): string | null {
-  if (!twid) return null;
-  // twid cookie format: u%3D<userId>  (URL-encoded "u=<userId>")
-  const decoded = decodeURIComponent(twid);
-  const m = decoded.match(/^u=(\d+)/);
-  return m ? m[1] : null;
-}
-
-function truncate(s: string, max: number): string {
-  return s.length <= max ? s : `${s.slice(0, max)}…`;
-}
-
-function collectOnboardingErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('response', (response) => {
-    const url = response.url();
-    if (!url.includes('/1.1/onboarding/task.json') || response.status() < 400) return;
-
-    void response.text()
-      .then((body) => errors.push(truncate(body, 500)))
-      .catch((err: unknown) => {
-        const detail = err instanceof Error ? err.message : String(err);
-        errors.push(truncate(detail, 200));
-      });
-  });
-  return errors;
-}
-
-export function classifyOnboardingError(
-  raw: string | undefined,
-): { reason: import('./login.types').LoginJobFailureReason; detail: string } | null {
-  if (!raw) return null;
-  const normalized = raw.toLowerCase();
-  if (normalized.includes('could not log you in now') || normalized.includes('try again later')) {
-    return { reason: 'login_cooldown', detail: 'X onboarding rejected login temporarily; try again later' };
-  }
-  if (normalized.includes('could not authenticate') || normalized.includes('did not match our records')) {
-    return { reason: 'invalid_credentials', detail: 'X onboarding rejected credentials' };
-  }
-  return null;
-}
-
-/**
- * Classify a stuck-not-on-home URL into a specific failure_reason.
- * X parks blocked sessions at /account/access (locked), /account/access/
- * identity (phone challenge), and /login/error (bad creds) — all detectable
- * before any on-page text loads, which is faster + more reliable than
- * scraping the body.
- */
-function classifyByUrl(rawUrl: string): { reason: import('./login.types').LoginJobFailureReason; detail: string } | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return null;
-  }
-  const p = parsed.pathname.toLowerCase();
-  if (p.startsWith('/account/access/identity') || p.startsWith('/i/flow/login/identity')) {
-    return { reason: 'phone_verification_required', detail: `X requires phone verification (url=${p})` };
-  }
-  if (p.startsWith('/account/access')) {
-    return { reason: 'account_locked', detail: `X locked the account (url=${p})` };
-  }
-  if (p.startsWith('/login/error') || parsed.searchParams.has('error')) {
-    return { reason: 'invalid_credentials', detail: `X redirected to login error (url=${p})` };
-  }
-  if (p.startsWith('/i/flow/login') && parsed.searchParams.get('redirect_after_login_url')) {
-    return { reason: 'login_cooldown', detail: 'X bounced back to login URL with redirect_after_login_url' };
-  }
-  return null;
-}
-
-/**
- * Pick the user-data-dir for a login session. Reauth uses the existing
- * account's dir (same path XBrowserService.resolveProfileDir uses) so the
- * fingerprint stays consistent. Connect uses a username-keyed staging dir.
- */
-export function resolveLoginProfileDir(
-  targetAccountId: string | null | undefined,
-  username: string,
-  proxyCountry?: string | null,
-): string {
-  const proxySuffix = targetAccountId || !proxyCountry ? '' : `-${proxyCountry.toLowerCase()}`;
-  const safe = (targetAccountId ?? `login-${username.toLowerCase()}${proxySuffix}`).replace(
-    /[^A-Za-z0-9._-]/g,
-    '_',
-  );
-  return path.join(DATA_ROOT, 'user-data', safe);
 }
