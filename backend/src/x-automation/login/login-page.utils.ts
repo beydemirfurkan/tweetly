@@ -17,6 +17,20 @@ export async function matchesErrorText(page: Page, needles: readonly string[]): 
   return needles.some((n) => haystack.includes(n.toLowerCase()));
 }
 
+/**
+ * Read the visible-alert / toast banner contents. Returns lowercased
+ * concatenated text or null when no banner is rendered — callers should
+ * fall back to a full-body scan in that case (the banner has historically
+ * been gated by feature flags and isn't 100% reliable).
+ */
+async function readErrorBannerText(page: Page): Promise<string | null> {
+  const locator = page.locator(SEL.errorBanner);
+  if (!(await locator.first().isVisible().catch(() => false))) return null;
+  const texts = await locator.allInnerTexts().catch(() => [] as string[]);
+  if (texts.length === 0) return null;
+  return texts.join('\n').toLowerCase();
+}
+
 export async function classifyVisibleFailure(page: Page): Promise<LoginFlowError | null> {
   const mappings: Array<{ reason: LoginJobFailureReason; needles: readonly string[]; detail: string }> = [
     { reason: 'invalid_credentials', needles: ERROR_TEXT.invalidCredentials, detail: 'credentials rejected' },
@@ -25,6 +39,21 @@ export async function classifyVisibleFailure(page: Page): Promise<LoginFlowError
     { reason: 'suspicious_login_blocked', needles: ERROR_TEXT.suspiciousLogin, detail: 'X blocked this login as suspicious' },
   ];
 
+  // Banner-first: the visible alert/toast is where X actually surfaces
+  // login errors. Scoping the match here removes false positives from a
+  // sidebar tweet that happens to contain "wrong password" or a
+  // marketing banner with "too many attempts" copy.
+  const bannerText = await readErrorBannerText(page);
+  if (bannerText) {
+    for (const m of mappings) {
+      if (m.needles.some((n) => bannerText.includes(n.toLowerCase()))) {
+        return new LoginFlowError(m.reason, `${m.detail} (banner)`);
+      }
+    }
+  }
+
+  // Banner absent (older UI variants, or X hid it under a flag) — fall
+  // back to the historical full-body scan so we don't lose coverage.
   for (const m of mappings) {
     if (await matchesErrorText(page, m.needles)) {
       return new LoginFlowError(m.reason, m.detail);
