@@ -31,8 +31,12 @@ export const SEL = {
   passwordInput: 'input[name="password"], input[autocomplete="current-password"]',
   loginSubmit: '[data-testid="LoginForm_Login_Button"]',
 
-  // Step 3: 2FA TOTP code
-  totpInput: 'input[name="text"][autocomplete="one-time-code"], input[data-testid="ocfEnterTextTextInput"]',
+  // Step 3: 2FA TOTP code. `autocomplete="one-time-code"` is unique to
+  // the 2FA prompt — the `ocfEnterTextTextInput` testid that used to be
+  // a fallback collided with both `usernameInput` and `challengeInput`
+  // and produced false-positive `isVisibleSoon(totpInput, …)` hits at
+  // earlier steps.
+  totpInput: 'input[name="text"][autocomplete="one-time-code"]',
 
   // Generic "Next" button — text-based, locale-aware. Order matters (most
   // specific first) so Locator.first() picks the visible primary CTA.
