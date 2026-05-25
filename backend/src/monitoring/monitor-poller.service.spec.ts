@@ -155,6 +155,44 @@ describe('MonitorPollerService', () => {
 
       expect(monitoring.findEnabled).not.toHaveBeenCalled();
     });
+
+    it('skips polling when the advisory-lock query errors in production (no silent multi-leader fan-out)', async () => {
+      const { service, monitoring, webhook, dataSource } = createService();
+      // Real production: env var is NOT set, query throws (DB hiccup).
+      dataSource.query.mockImplementation((sql: string) => {
+        if (sql.includes('pg_try_advisory_lock')) {
+          return Promise.reject(new Error('connection terminated unexpectedly'));
+        }
+        return Promise.resolve([]);
+      });
+
+      await service.poll();
+
+      // Critical: no monitor list lookup, no webhook delivery. The next
+      // tick will retry — better to miss one poll than to fan out N
+      // duplicate deliveries from every replica simultaneously.
+      expect(monitoring.findEnabled).not.toHaveBeenCalled();
+      expect(webhook.deliver).not.toHaveBeenCalled();
+    });
+
+    it('bypasses the advisory-lock query entirely when MONITOR_LEADER_LOCK_DISABLED=true', async () => {
+      process.env.MONITOR_LEADER_LOCK_DISABLED = 'true';
+      try {
+        const { service, monitoring, dataSource } = createService();
+        monitoring.findEnabled.mockResolvedValue([]);
+
+        await service.poll();
+
+        // Service treated itself as leader without touching the DB lock.
+        const lockCalls = (dataSource.query as jest.Mock).mock.calls.filter((args: unknown[]) =>
+          typeof args[0] === 'string' && (args[0] as string).includes('pg_try_advisory_lock'),
+        );
+        expect(lockCalls).toHaveLength(0);
+        expect(monitoring.findEnabled).toHaveBeenCalled();
+      } finally {
+        delete process.env.MONITOR_LEADER_LOCK_DISABLED;
+      }
+    });
   });
 
   describe('lifecycle', () => {
