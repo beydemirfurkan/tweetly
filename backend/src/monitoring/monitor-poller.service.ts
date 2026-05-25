@@ -80,6 +80,11 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
   }
 
   private async tryAcquireLeaderLock(): Promise<boolean> {
+    // `MONITOR_LEADER_LOCK_DISABLED=true` is the explicit opt-out for test
+    // mocks / non-Postgres deployments. In production we MUST NOT silently
+    // treat a query failure as success — that turns a 30s DB hiccup into
+    // duplicate webhook deliveries from every replica simultaneously.
+    if (process.env.MONITOR_LEADER_LOCK_DISABLED === 'true') return true;
     try {
       const rows: Array<{ acquired: boolean }> = await this.dataSource.query(
         `SELECT pg_try_advisory_lock($1::bigint) AS acquired`,
@@ -87,10 +92,11 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
       );
       return rows[0]?.acquired === true;
     } catch (err) {
-      // If the underlying DB is non-Postgres (test-time mocks), treat as
-      // single-instance OK so behaviour matches pre-lock world.
+      // Real runtime error (DB outage, lost session). Skip this tick — the
+      // next interval will retry. Better to miss one poll than fan out N
+      // simultaneous webhook bursts to every customer's receiver.
       this.log.warn(`Advisory lock query failed: ${err instanceof Error ? err.message : err}`);
-      return true;
+      return false;
     }
   }
 
