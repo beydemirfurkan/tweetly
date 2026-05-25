@@ -31,6 +31,12 @@ export function classifyOnboardingError(
   if (normalized.includes('could not authenticate') || normalized.includes('did not match our records')) {
     return { reason: 'invalid_credentials', detail: 'X onboarding rejected credentials' };
   }
+  // Captcha can surface in the onboarding response body too — the DOM
+  // probe usually catches it first, but the API signal is a useful
+  // fallback when the iframe hasn't rendered yet.
+  if (normalized.includes('captcha') || normalized.includes('arkose')) {
+    return { reason: 'captcha_required', detail: 'X requested captcha' };
+  }
   return null;
 }
 

@@ -4,6 +4,7 @@ import { extractCookies, isLoggedInAs } from './login-page.utils';
 import { humanDelay } from './login-humanize';
 import { HOME_URL_PREFIX } from './login-selectors';
 import { truncate } from './login-classifiers';
+import { X_PUBLIC_BEARER } from './x-public-bearer';
 import type { XLoginCookies } from './login.types';
 
 const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10);
@@ -56,8 +57,7 @@ export async function verifyAuthenticatedSession(
       const res = await context.request.get(url, {
         headers: {
           'x-csrf-token': cookies.ct0,
-          'authorization':
-            'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+          'authorization': `Bearer ${X_PUBLIC_BEARER}`,
         },
         timeout: 10_000,
       });
