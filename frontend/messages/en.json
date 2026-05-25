@@ -162,6 +162,20 @@
     "errorDefaultMessage": "An unexpected error occurred. Please try again.",
     "errorBack": "Back"
   },
+  "errorBoundaries": {
+    "auth": {
+      "title": "Sign-in error",
+      "description": "Something went wrong while signing you in. The magic link may have expired or been used already."
+    },
+    "oauth": {
+      "title": "Authorization failed",
+      "description": "The OAuth flow could not complete. Re-open the link from the client app and try again."
+    },
+    "connect": {
+      "title": "Connection error",
+      "description": "We could not complete the X account connection. Your credentials were not saved."
+    }
+  },
   "common": {
     "refresh": "Refresh",
     "cancel": "Cancel",
