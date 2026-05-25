@@ -1,5 +1,7 @@
 // Flat ESLint config — rules act as the structural guard for the refactor.
-// max-lines / no-cycle currently `warn`; flip to `error` after Faz 2 + Faz 3 land.
+// max-lines / max-lines-per-function are now `error` (Faz 2-4 landed; the
+// remaining bulky files are CLI scripts and TypeORM migrations, both of
+// which are exempted below where the size is structurally unavoidable).
 import tseslint from 'typescript-eslint';
 import importPlugin from 'eslint-plugin-import';
 
@@ -31,13 +33,14 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Refactor guards — flip severity after the matching faz lands.
+      // Structural guards — kept at `error` so size regressions block CI
+      // instead of accumulating quietly.
       'max-lines': [
-        'warn',
+        'error',
         { max: 400, skipBlankLines: true, skipComments: true },
       ],
       'max-lines-per-function': [
-        'warn',
+        'error',
         { max: 80, skipBlankLines: true, skipComments: true, IIFEs: false },
       ],
       // Now an error: the accounts ↔ x-automation cycle was killed by the
@@ -57,6 +60,17 @@ export default tseslint.config(
   },
   {
     files: ['**/*.spec.ts', 'test/**/*.ts'],
+    rules: {
+      'max-lines': 'off',
+      'max-lines-per-function': 'off',
+    },
+  },
+  {
+    // CLI scripts (one-shot migration / smoke / standalone tools) and TypeORM
+    // migration files structurally outgrow the per-function and per-file caps:
+    // they're flat top-to-bottom procedural scripts, not modules. Exempt them
+    // rather than degrade the rule for everyone.
+    files: ['src/scripts/**/*.ts', 'src/persistence/migrations/**/*.ts'],
     rules: {
       'max-lines': 'off',
       'max-lines-per-function': 'off',
