@@ -33,6 +33,7 @@ import {
   resolveLoginProfileDir,
   stripAt,
   truncate,
+  type OnboardingErrorLog,
 } from './login-classifiers';
 import { tryPreLoginSession, verifyAuthenticatedSession } from './login-session-check';
 
@@ -167,7 +168,7 @@ export class XLoginService {
   private async runFlow(
     page: Page,
     input: XLoginInput & { username: string },
-    onboardingErrors: string[],
+    onboardingErrors: OnboardingErrorLog,
     checkCancel: CancelCheck,
   ): Promise<void> {
     // Warm-up: visit x.com root before the login flow so X sees the same
@@ -187,11 +188,15 @@ export class XLoginService {
     }, page, checkCancel);
 
     await this.step('username', async () => {
+      // Capture the step-start so classifyOnboardingError only sees errors
+      // that arrived inside *this* step's window — a stale 500 from a
+      // previous flow no longer flips the classification.
+      const stepStartedAt = Date.now();
       const field = await this.waitForUsernameInput(page, checkCancel);
       // X's React form ignores DOM-set values (fill() bypass): we must dispatch
       // real keyboard events. Click for focus, type per-char, then submit.
       await enterTextLikeUser(page, field, input.username);
-      await this.submitUsernameStep(page, field, onboardingErrors);
+      await this.submitUsernameStep(page, field, onboardingErrors, stepStartedAt);
     }, page, checkCancel);
 
     // X may now show:
@@ -325,7 +330,8 @@ export class XLoginService {
   private async submitUsernameStep(
     page: Page,
     field: import('patchright').Locator,
-    onboardingErrors: string[],
+    onboardingErrors: OnboardingErrorLog,
+    stepStartedAt: number,
   ): Promise<void> {
     await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
     if (await didLeaveUsernameStep(page, 4000)) return;
@@ -337,7 +343,10 @@ export class XLoginService {
     if (await didLeaveUsernameStep(page, 4000)) return;
 
     await checkForCaptcha(page);
-    const apiFailure = classifyOnboardingError(onboardingErrors[onboardingErrors.length - 1]);
+    // Only classify errors that arrived inside this step's window so a
+    // stale telemetry 500 from a previous flow can't shadow the real
+    // login error.
+    const apiFailure = classifyOnboardingError(onboardingErrors.lastSince(stepStartedAt));
     if (apiFailure) throw new LoginFlowError(apiFailure.reason, apiFailure.detail);
     const visibleFailure = await classifyVisibleFailure(page);
     if (visibleFailure) throw visibleFailure;
