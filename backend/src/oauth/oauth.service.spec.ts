@@ -1,5 +1,11 @@
+jest.mock('crypto', () => {
+  const actual = jest.requireActual<typeof import('crypto')>('crypto');
+  return { ...actual, timingSafeEqual: jest.fn(actual.timingSafeEqual) };
+});
+
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
+import * as crypto from 'crypto';
 import { OAuthService } from './oauth.service';
 import { OAuthCodeStore } from './oauth-code-store.service';
 import type { OAuthClientEntity } from '@persistence/entities/oauth-client.entity';
@@ -33,6 +39,10 @@ function makeService() {
   const svc = new OAuthService(repo as never, store);
   return { svc, repo, store };
 }
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
 
 describe('OAuthService.registerClient', () => {
   it('issues client_id + plaintext secret + persists hash', async () => {
@@ -69,13 +79,21 @@ describe('OAuthService.registerClient', () => {
 
 describe('OAuthService.verifyClientSecret', () => {
   it('returns the client when secret matches', async () => {
+    const timingSafeEqual = crypto.timingSafeEqual as jest.MockedFunction<typeof crypto.timingSafeEqual>;
     const { svc } = makeService();
     const reg = await svc.registerClient({
       clientName: 'app',
       redirectUris: ['http://localhost/cb'],
     });
+    const expectedHash = createHash('sha256').update(reg.clientSecret).digest('hex');
+
     const verified = await svc.verifyClientSecret(reg.clientId, reg.clientSecret);
+
     expect(verified?.clientId).toBe(reg.clientId);
+    expect(timingSafeEqual).toHaveBeenCalledWith(
+      Buffer.from(expectedHash),
+      Buffer.from(expectedHash),
+    );
   });
 
   it('returns null on wrong secret', async () => {
@@ -90,6 +108,19 @@ describe('OAuthService.verifyClientSecret', () => {
   it('returns null for unknown client', async () => {
     const { svc } = makeService();
     expect(await svc.verifyClientSecret('oauth_nope', 'whatever')).toBeNull();
+  });
+
+  it('guards hash length mismatches before calling timingSafeEqual', async () => {
+    const timingSafeEqual = crypto.timingSafeEqual as jest.MockedFunction<typeof crypto.timingSafeEqual>;
+    const { svc, repo } = makeService();
+    const reg = await svc.registerClient({
+      clientName: 'app',
+      redirectUris: ['http://localhost/cb'],
+    });
+    repo.rows.get(reg.clientId)!.clientSecretHash = 'short';
+
+    expect(await svc.verifyClientSecret(reg.clientId, reg.clientSecret)).toBeNull();
+    expect(timingSafeEqual).not.toHaveBeenCalled();
   });
 });
 
