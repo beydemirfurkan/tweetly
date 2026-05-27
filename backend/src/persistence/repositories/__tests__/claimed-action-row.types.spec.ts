@@ -1,5 +1,5 @@
 import { ACTION_TYPES, type ActionType } from '@domain/types/action.types';
-import { assertRowType, type ClaimedActionRow } from './claimed-action-row.types';
+import { assertRowType, type ClaimedActionRow } from '../claimed-action-row.types';
 
 function exhaustivePayloadFor(row: ClaimedActionRow): string {
   switch (row.type) {

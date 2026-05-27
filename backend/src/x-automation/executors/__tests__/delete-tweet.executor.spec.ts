@@ -1,5 +1,5 @@
-import { DeleteTweetExecutor } from './delete-tweet.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from './__tests__/test-helpers';
+import { DeleteTweetExecutor } from '../delete-tweet.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from '../__tests__/test-helpers';
 
 describe('DeleteTweetExecutor', () => {
   const url = 'https://x.com/u/status/1';

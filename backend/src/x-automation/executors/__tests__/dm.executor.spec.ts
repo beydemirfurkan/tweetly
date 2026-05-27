@@ -1,5 +1,5 @@
-import { DmExecutor } from './dm.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from './__tests__/test-helpers';
+import { DmExecutor } from '../dm.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from '../__tests__/test-helpers';
 
 describe('DmExecutor', () => {
   it('delegates to xDirect.sendDm on success', async () => {

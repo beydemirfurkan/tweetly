@@ -1,6 +1,6 @@
-import { ProfileTweetReaderService } from './profile-tweet-reader.service';
-import type { XBrowserService } from './x-browser.service';
-import type { SelectorRegistry } from './selector-registry';
+import { ProfileTweetReaderService } from '../profile-tweet-reader.service';
+import type { XBrowserService } from '../x-browser.service';
+import type { SelectorRegistry } from '../selector-registry';
 
 describe('ProfileTweetReaderService', () => {
   it('waits for profile tweet extraction before releasing the browser context', async () => {

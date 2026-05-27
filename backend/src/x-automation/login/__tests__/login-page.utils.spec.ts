@@ -1,4 +1,4 @@
-import { isRetryableLoginPageText } from './login-page.utils';
+import { isRetryableLoginPageText } from '../login-page.utils';
 
 describe('isRetryableLoginPageText', () => {
   it('matches the Turkish X reload error page', () => {

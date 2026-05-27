@@ -1,4 +1,4 @@
-import { CredentialCipherService, loadMasterKeyFromEnv } from './credential-cipher.service';
+import { CredentialCipherService, loadMasterKeyFromEnv } from '../credential-cipher.service';
 
 describe('CredentialCipherService', () => {
   const cipher = new CredentialCipherService();

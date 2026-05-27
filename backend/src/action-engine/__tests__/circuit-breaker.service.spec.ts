@@ -1,4 +1,4 @@
-import { CircuitBreakerService } from './circuit-breaker.service';
+import { CircuitBreakerService } from '../circuit-breaker.service';
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 
 function makeService() {

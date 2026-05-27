@@ -3,7 +3,7 @@ import {
   decryptCookieValue,
   encryptCookieValue,
   resetCookieCipherForTests,
-} from './cookie-cipher.transformer';
+} from '../cookie-cipher.transformer';
 
 describe('cookieCipherTransformer', () => {
   beforeEach(() => {

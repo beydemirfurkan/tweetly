@@ -1,4 +1,4 @@
-import { MonitoringService } from './monitoring.service';
+import { MonitoringService } from '../monitoring.service';
 import { mockRepository } from '@/test/mocks/repository.mock';
 import type { MonitorEntity } from '@persistence/entities/monitor.entity';
 

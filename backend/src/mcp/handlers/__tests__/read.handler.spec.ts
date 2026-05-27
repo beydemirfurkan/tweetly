@@ -1,5 +1,5 @@
-import { ReadHandler } from './read.handler';
-import { fakeContext } from './__tests__/test-helpers';
+import { ReadHandler } from '../read.handler';
+import { fakeContext } from '../__tests__/test-helpers';
 import type { XDirectReadService } from '@/x-automation/x-direct';
 import type { XBrowserService } from '@/x-automation/browser/x-browser.service';
 

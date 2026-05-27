@@ -1,4 +1,4 @@
-import { OpenRouterService } from './openrouter.service';
+import { OpenRouterService } from '../openrouter.service';
 import type { SettingsService } from '@/settings/settings.service';
 
 function mockFetchOnce(response: Partial<Response> | Error): jest.SpyInstance {

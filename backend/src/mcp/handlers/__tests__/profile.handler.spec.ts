@@ -1,5 +1,5 @@
-import { ProfileHandler } from './profile.handler';
-import { fakeContext } from './__tests__/test-helpers';
+import { ProfileHandler } from '../profile.handler';
+import { fakeContext } from '../__tests__/test-helpers';
 import type { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
 
 function mockEnqueue(): jest.Mocked<ActionEnqueueService> {

@@ -1,4 +1,4 @@
-import { MonitorPollerService } from './monitor-poller.service';
+import { MonitorPollerService } from '../monitor-poller.service';
 
 function createService() {
   const monitoring = {

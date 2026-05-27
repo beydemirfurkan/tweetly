@@ -7,7 +7,7 @@ import {
   parseControlStateKey,
   sha8,
   statusMap,
-} from './migration-helpers';
+} from '../migration-helpers';
 
 describe('migration-helpers', () => {
   it('sha8 returns first 8 hex chars', () => {

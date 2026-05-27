@@ -1,7 +1,7 @@
-import { ActionEnqueueService } from './action-enqueue.service';
-import type { ActionStrategyRegistry } from './strategies/action-strategy.registry';
+import { ActionEnqueueService } from '../action-enqueue.service';
+import type { ActionStrategyRegistry } from '../strategies/action-strategy.registry';
 import type { ActionRepositoryFactory } from '@persistence/repositories/action-repository.factory';
-import type { IActionStrategy } from './strategies/action-strategy.port';
+import type { IActionStrategy } from '../strategies/action-strategy.port';
 
 function buildStrategyMock(idempotencyKey: string, type: string, columns: Record<string, unknown>): IActionStrategy {
   return {

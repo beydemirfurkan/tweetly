@@ -1,5 +1,5 @@
-import { BannerUpdateExecutor } from './banner-update.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from './__tests__/test-helpers';
+import { BannerUpdateExecutor } from '../banner-update.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from '../__tests__/test-helpers';
 
 describe('BannerUpdateExecutor', () => {
   it('delegates to xDirect.updateBanner on success', async () => {

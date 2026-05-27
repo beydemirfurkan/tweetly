@@ -1,4 +1,4 @@
-import { inferTopic } from './topic-inference';
+import { inferTopic } from '../topic-inference';
 import type { TrendingRepo } from '@domain/types/content.types';
 
 function repo(description: string, owner = 'test', name = 'repo', language = ''): TrendingRepo {

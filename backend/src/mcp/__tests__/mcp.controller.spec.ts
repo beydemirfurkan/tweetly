@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 
-import { McpController } from './mcp.controller';
-import type { McpService } from './mcp.service';
+import { McpController } from '../mcp.controller';
+import type { McpService } from '../mcp.service';
 
 describe('McpController.messages', () => {
   it('passes the Nest-parsed body to the SSE transport', async () => {

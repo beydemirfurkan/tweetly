@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { HttpStatus } from '@nestjs/common';
-import { ZodValidationPipe } from './zod.pipe';
+import { ZodValidationPipe } from '../zod.pipe';
 import { ApplicationException } from '@common/exceptions';
 
 describe('ZodValidationPipe', () => {

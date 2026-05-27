@@ -1,5 +1,5 @@
-import { UnlikeExecutor } from './unlike.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from './__tests__/test-helpers';
+import { UnlikeExecutor } from '../unlike.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from '../__tests__/test-helpers';
 
 describe('UnlikeExecutor', () => {
   const url = 'https://x.com/u/status/1';

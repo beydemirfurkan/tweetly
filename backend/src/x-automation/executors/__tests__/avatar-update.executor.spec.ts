@@ -1,5 +1,5 @@
-import { AvatarUpdateExecutor } from './avatar-update.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from './__tests__/test-helpers';
+import { AvatarUpdateExecutor } from '../avatar-update.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from '../__tests__/test-helpers';
 
 describe('AvatarUpdateExecutor', () => {
   it('delegates to xDirect.updateAvatar on success', async () => {

@@ -1,4 +1,4 @@
-import { decodeBase32, generateTotp } from './totp';
+import { decodeBase32, generateTotp } from '../totp';
 
 describe('decodeBase32', () => {
   it('handles whitespace, lowercase, padding', () => {

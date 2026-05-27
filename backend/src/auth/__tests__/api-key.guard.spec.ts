@@ -1,6 +1,6 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ApiKeyGuard, getAuthContext } from './api-key.guard';
+import { ApiKeyGuard, getAuthContext } from '../api-key.guard';
 import { RequestContext } from '@common/context';
 import type { ApiKeyEntity } from '@persistence/entities/api-key.entity';
 

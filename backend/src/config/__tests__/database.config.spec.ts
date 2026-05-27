@@ -1,4 +1,4 @@
-import { readDatabaseEnv } from './database.config';
+import { readDatabaseEnv } from '../database.config';
 
 describe('readDatabaseEnv', () => {
   it('parses DATABASE_URL when provided', () => {

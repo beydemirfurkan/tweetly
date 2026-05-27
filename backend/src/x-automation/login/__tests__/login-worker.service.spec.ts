@@ -3,13 +3,13 @@ import {
   chooseFallbackProxyCountry,
   isTransientFailure,
   shouldRetryWithFallbackProxy,
-} from './login-worker.service';
-import type { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
-import type { XLoginService } from './x-login.service';
+} from '../login-worker.service';
+import type { ClaimedJob, LoginJobsRepository } from '../login-jobs.repository';
+import type { XLoginService } from '../x-login.service';
 import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import type { AccountsService } from '@/accounts/accounts.service';
 import type { DataSource, EntityManager } from 'typeorm';
-import type { XLoginResult } from './login.types';
+import type { XLoginResult } from '../login.types';
 import { WorkerOptionsFactory } from '@/common/workers';
 
 function makeJob(overrides: Partial<ClaimedJob> = {}): ClaimedJob {

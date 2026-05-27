@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { TOOL_DEFINITIONS } from './tool-definitions';
-import { TOOL_SCHEMAS } from './tool-schemas';
+import { TOOL_DEFINITIONS } from '../tool-definitions';
+import { TOOL_SCHEMAS } from '../tool-schemas';
 
 /**
  * Drift guard between the JSON Schemas exposed to MCP clients

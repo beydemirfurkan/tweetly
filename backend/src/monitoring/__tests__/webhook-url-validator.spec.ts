@@ -1,4 +1,4 @@
-import { checkWebhookUrl, isPrivateIp, normalizeIpLiteral } from './webhook-url-validator';
+import { checkWebhookUrl, isPrivateIp, normalizeIpLiteral } from '../webhook-url-validator';
 
 jest.mock('node:dns', () => {
   const lookup = jest.fn();

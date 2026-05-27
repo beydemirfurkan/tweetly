@@ -1,7 +1,7 @@
 import * as path from 'path';
 
-import { buildCancelCheck, classifyOnboardingError, resolveLoginProfileDir } from './x-login.service';
-import { LoginFlowError } from './login-error';
+import { buildCancelCheck, classifyOnboardingError, resolveLoginProfileDir } from '../x-login.service';
+import { LoginFlowError } from '../login-error';
 
 describe('classifyOnboardingError', () => {
   it('maps X onboarding temporary rejection to login_cooldown', () => {

@@ -1,5 +1,5 @@
-import type { XDirectReadService } from './x-direct-read.service';
-import { XDirectProfileFetcherAdapter } from './x-direct-profile-fetcher.adapter';
+import type { XDirectReadService } from '../x-direct-read.service';
+import { XDirectProfileFetcherAdapter } from '../x-direct-profile-fetcher.adapter';
 
 describe('XDirectProfileFetcherAdapter', () => {
   it('maps XDirectReadService.getUser into a ProfileSnapshot', async () => {

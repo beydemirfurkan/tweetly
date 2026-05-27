@@ -1,4 +1,4 @@
-import { redactLoginDebugText } from './login-debug-artifact';
+import { redactLoginDebugText } from '../login-debug-artifact';
 
 describe('redactLoginDebugText', () => {
   it('redacts known credentials and token-like values', () => {

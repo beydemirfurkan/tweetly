@@ -1,4 +1,4 @@
-import { ActionStateMachine, InvalidStateTransitionError } from './action-state-machine';
+import { ActionStateMachine, InvalidStateTransitionError } from '../action-state-machine';
 
 describe('ActionStateMachine', () => {
   const sm = new ActionStateMachine();

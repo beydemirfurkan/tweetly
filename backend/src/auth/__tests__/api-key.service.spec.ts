@@ -1,4 +1,4 @@
-import { ApiKeyService } from './api-key.service';
+import { ApiKeyService } from '../api-key.service';
 import type { ApiKeyEntity } from '@persistence/entities/api-key.entity';
 import { mockRepository } from '@/test/mocks/repository.mock';
 

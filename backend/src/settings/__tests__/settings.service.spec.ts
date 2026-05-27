@@ -1,4 +1,4 @@
-import { SettingsService } from './settings.service';
+import { SettingsService } from '../settings.service';
 import { mockRepository } from '@/test/mocks/repository.mock';
 import type { SettingEntity } from '@persistence/entities/setting.entity';
 

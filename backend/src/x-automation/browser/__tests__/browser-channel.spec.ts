@@ -1,4 +1,4 @@
-import { optionalBrowserChannel } from './browser-channel';
+import { optionalBrowserChannel } from '../browser-channel';
 
 describe('optionalBrowserChannel', () => {
   const original = process.env.PATCHRIGHT_BROWSER_CHANNEL;

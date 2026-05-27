@@ -1,5 +1,5 @@
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
-import { MagicLinkService } from './magic-link.service';
+import { MagicLinkService } from '../magic-link.service';
 import type { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
 import { mockRepository } from '@/test/mocks/repository.mock';
 

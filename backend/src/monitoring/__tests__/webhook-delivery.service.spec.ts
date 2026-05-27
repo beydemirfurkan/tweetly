@@ -1,5 +1,5 @@
 import { createHmac } from 'crypto';
-import { WebhookDeliveryService, SIGNATURE_HEADER } from './webhook-delivery.service';
+import { WebhookDeliveryService, SIGNATURE_HEADER } from '../webhook-delivery.service';
 
 function createService() {
   return new WebhookDeliveryService();

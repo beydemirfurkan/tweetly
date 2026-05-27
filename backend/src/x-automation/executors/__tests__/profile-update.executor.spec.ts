@@ -1,5 +1,5 @@
-import { ProfileUpdateExecutor } from './profile-update.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from './__tests__/test-helpers';
+import { ProfileUpdateExecutor } from '../profile-update.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectProfile } from '../__tests__/test-helpers';
 
 describe('ProfileUpdateExecutor', () => {
   it('delegates to xDirect.updateProfile with the parsed fields', async () => {

@@ -1,5 +1,5 @@
 import type { DataSource, Repository } from 'typeorm';
-import { AccountsService } from './accounts.service';
+import { AccountsService } from '../accounts.service';
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 import type { AccountEntity } from '@persistence/entities/account.entity';
 

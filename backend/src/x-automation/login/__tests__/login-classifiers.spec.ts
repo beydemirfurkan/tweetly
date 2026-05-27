@@ -1,4 +1,4 @@
-import { classifyOnboardingError, createOnboardingErrorLog } from './login-classifiers';
+import { classifyOnboardingError, createOnboardingErrorLog } from '../login-classifiers';
 
 describe('classifyOnboardingError (cancelled / captcha branches re-added in #25)', () => {
   it('maps captcha mentions in the onboarding body to captcha_required', () => {

@@ -1,4 +1,4 @@
-import { ContentMemoryService } from './content-memory.service';
+import { ContentMemoryService } from '../content-memory.service';
 
 function createMockQueryBuilder(rows: unknown[] = []) {
   const qb: any = {

@@ -3,8 +3,8 @@ import type { AccountsService } from '@/accounts/accounts.service';
 import { AccountOwnershipService } from '@/accounts/account-ownership.service';
 import type { ProfileCacheService } from '@/accounts/profile-cache.service';
 import type { CookieHealthCheckService } from '@/x-automation/login/cookie-health-check.service';
-import { AccountFacade } from './account.facade';
-import type { AccountSummaryService } from './account-summary.service';
+import { AccountFacade } from '../account.facade';
+import type { AccountSummaryService } from '../account-summary.service';
 
 function makeFacade(overrides: {
   accounts?: Partial<jest.Mocked<AccountsService>>;

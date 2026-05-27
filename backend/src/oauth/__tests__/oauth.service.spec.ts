@@ -6,8 +6,8 @@ jest.mock('crypto', () => {
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 import * as crypto from 'crypto';
-import { OAuthService } from './oauth.service';
-import { OAuthCodeStore } from './oauth-code-store.service';
+import { OAuthService } from '../oauth.service';
+import { OAuthCodeStore } from '../oauth-code-store.service';
 import type { OAuthClientEntity } from '@persistence/entities/oauth-client.entity';
 
 function makeStore(): OAuthCodeStore {

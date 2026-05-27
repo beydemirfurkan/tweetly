@@ -6,7 +6,7 @@ jest.mock('crypto', () => {
 import type { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { AdminTokenGuard } from './admin-token.guard';
+import { AdminTokenGuard } from '../admin-token.guard';
 import type { SettingsService } from '@/settings/settings.service';
 
 describe('AdminTokenGuard', () => {

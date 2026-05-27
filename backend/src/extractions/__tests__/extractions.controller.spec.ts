@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { ExtractionsController } from './extractions.controller';
-import type { ExtractionService } from './extraction.service';
+import { ExtractionsController } from '../extractions.controller';
+import type { ExtractionService } from '../extraction.service';
 import type { AccountFacade } from '@/public-api/facades/account.facade';
 
 jest.mock('fs', () => ({

@@ -53,7 +53,7 @@ describe('LoginProfileCleanupService.sweep', () => {
     // hermetic we re-require the module after env mutation by clearing
     // the cache.
     jest.resetModules();
-    const { LoginProfileCleanupService: Svc } = await import('./login-profile-cleanup.service');
+    const { LoginProfileCleanupService: Svc } = await import('../login-profile-cleanup.service');
 
     const oldDir = await makeProfileDir('login-alice-us', 30);
     const freshDir = await makeProfileDir('login-bob-us', 0);
@@ -68,7 +68,7 @@ describe('LoginProfileCleanupService.sweep', () => {
 
   it('leaves account-keyed (non-login-*) profile dirs alone even when very old', async () => {
     jest.resetModules();
-    const { LoginProfileCleanupService: Svc } = await import('./login-profile-cleanup.service');
+    const { LoginProfileCleanupService: Svc } = await import('../login-profile-cleanup.service');
 
     const reauthDir = await makeProfileDir('alice', 365);
     const svc = new Svc();
@@ -80,7 +80,7 @@ describe('LoginProfileCleanupService.sweep', () => {
 
   it('removes debug artifacts older than the retention window', async () => {
     jest.resetModules();
-    const { LoginProfileCleanupService: Svc } = await import('./login-profile-cleanup.service');
+    const { LoginProfileCleanupService: Svc } = await import('../login-profile-cleanup.service');
 
     const oldArtifact = await makeArtifact('2025-10-01-old.json', 30);
     const freshArtifact = await makeArtifact('2026-05-25-fresh.json', 0);
@@ -95,7 +95,7 @@ describe('LoginProfileCleanupService.sweep', () => {
 
   it('returns {0,0} cleanly when the data dir does not exist (fresh install)', async () => {
     jest.resetModules();
-    const { LoginProfileCleanupService: Svc } = await import('./login-profile-cleanup.service');
+    const { LoginProfileCleanupService: Svc } = await import('../login-profile-cleanup.service');
 
     const svc = new Svc();
     const result = await svc.sweep();

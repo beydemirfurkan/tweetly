@@ -1,6 +1,6 @@
-import { TieredThrottlerGuard } from './tiered-throttler.guard';
+import { TieredThrottlerGuard } from '../tiered-throttler.guard';
 import type { Request } from 'express';
-import type { AuthedRequest } from './api-key.guard';
+import type { AuthedRequest } from '../api-key.guard';
 
 // Subclass exposes the protected method for direct testing — same trick the
 // @nestjs/throttler test suite uses.

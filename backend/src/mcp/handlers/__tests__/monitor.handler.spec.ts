@@ -1,5 +1,5 @@
-import { MonitorHandler } from './monitor.handler';
-import { fakeContext } from './__tests__/test-helpers';
+import { MonitorHandler } from '../monitor.handler';
+import { fakeContext } from '../__tests__/test-helpers';
 import type { MonitoringService } from '@/monitoring/monitoring.service';
 import type { WebhookDeliveryHistoryService } from '@/monitoring/webhook-delivery-history.service';
 

@@ -1,4 +1,4 @@
-import { IdempotencyKeyService } from './idempotency-key';
+import { IdempotencyKeyService } from '../idempotency-key';
 
 describe('IdempotencyKeyService', () => {
   const k = new IdempotencyKeyService();

@@ -1,5 +1,5 @@
-import { ProfileAnalyzerService } from './profile-analyzer.service';
-import type { OpenRouterService } from './openrouter.service';
+import { ProfileAnalyzerService } from '../profile-analyzer.service';
+import type { OpenRouterService } from '../openrouter.service';
 import type { XDirectReadService } from '@/x-automation/x-direct/x-direct-read.service';
 import type { TweetResult, UserResult } from '@/x-automation/x-direct';
 

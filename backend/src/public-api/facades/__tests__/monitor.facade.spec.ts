@@ -1,6 +1,6 @@
-import { MonitorFacade } from './monitor.facade';
+import { MonitorFacade } from '../monitor.facade';
 import type { MonitoringService } from '@/monitoring/monitoring.service';
-import type { AccountFacade } from './account.facade';
+import type { AccountFacade } from '../account.facade';
 
 function mockMonitoring(): jest.Mocked<MonitoringService> {
   return {

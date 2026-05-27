@@ -1,5 +1,5 @@
 import { ForbiddenException, type ExecutionContext } from '@nestjs/common';
-import { AdminUserGuard } from './admin-user.guard';
+import { AdminUserGuard } from '../admin-user.guard';
 import type { UsersService } from '@/auth/users.service';
 
 function createGuard(opts: {

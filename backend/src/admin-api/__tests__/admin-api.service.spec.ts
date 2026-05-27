@@ -1,4 +1,4 @@
-import { AdminApiService } from './admin-api.service';
+import { AdminApiService } from '../admin-api.service';
 import { ActionAdminRepository } from '@persistence/repositories/action-admin.repository';
 
 jest.mock('@persistence/repositories/action-repository', () => ({

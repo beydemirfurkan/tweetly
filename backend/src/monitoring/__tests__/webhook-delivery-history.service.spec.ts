@@ -1,4 +1,4 @@
-import { WebhookDeliveryHistoryService } from './webhook-delivery-history.service';
+import { WebhookDeliveryHistoryService } from '../webhook-delivery-history.service';
 import { mockRepository } from '@/test/mocks/repository.mock';
 import type { WebhookDeliveryEntity } from '@persistence/entities/webhook-delivery.entity';
 

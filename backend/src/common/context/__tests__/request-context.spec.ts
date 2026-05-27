@@ -1,4 +1,4 @@
-import { RequestContext, newCorrelationId } from './request-context';
+import { RequestContext, newCorrelationId } from '../request-context';
 
 describe('RequestContext', () => {
   it('returns undefined outside any run() scope', () => {

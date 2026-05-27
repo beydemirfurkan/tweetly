@@ -1,5 +1,5 @@
-import { UnfollowExecutor } from './unfollow.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from './__tests__/test-helpers';
+import { UnfollowExecutor } from '../unfollow.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from '../__tests__/test-helpers';
 
 describe('UnfollowExecutor', () => {
   it('delegates to xDirect.unfollowAccount on success', async () => {

@@ -1,4 +1,4 @@
-import { CookieHealthCheckService, type CookieHealthInput } from './cookie-health-check.service';
+import { CookieHealthCheckService, type CookieHealthInput } from '../cookie-health-check.service';
 
 /**
  * Helper that fakes the global `fetch` for a single call. Restored

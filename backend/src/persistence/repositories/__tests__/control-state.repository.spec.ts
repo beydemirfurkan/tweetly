@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { ControlStateRepository } from './control-state.repository';
+import { ControlStateRepository } from '../control-state.repository';
 
 function makeRepo(): {
   repo: ControlStateRepository;

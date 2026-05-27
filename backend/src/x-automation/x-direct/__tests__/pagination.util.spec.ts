@@ -1,4 +1,4 @@
-import { decodeCursor, encodeCursor } from './pagination.util';
+import { decodeCursor, encodeCursor } from '../pagination.util';
 
 describe('pagination cursor', () => {
   it('round-trips the payload', () => {

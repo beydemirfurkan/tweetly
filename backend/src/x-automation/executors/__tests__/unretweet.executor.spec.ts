@@ -1,5 +1,5 @@
-import { UnretweetExecutor } from './unretweet.executor';
-import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from './__tests__/test-helpers';
+import { UnretweetExecutor } from '../unretweet.executor';
+import { authError, fakeAction, fakeRegistry, fakeSession, mockXDirectWrite } from '../__tests__/test-helpers';
 
 describe('UnretweetExecutor', () => {
   const url = 'https://x.com/u/status/1';

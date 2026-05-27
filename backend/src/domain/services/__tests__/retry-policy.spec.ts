@@ -1,4 +1,4 @@
-import { RetryPolicy } from './retry-policy';
+import { RetryPolicy } from '../retry-policy';
 
 describe('RetryPolicy', () => {
   const policy = new RetryPolicy();

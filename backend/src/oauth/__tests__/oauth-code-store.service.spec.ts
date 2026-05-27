@@ -1,4 +1,4 @@
-import { OAuthCodeStore } from './oauth-code-store.service';
+import { OAuthCodeStore } from '../oauth-code-store.service';
 
 function makeStore(): OAuthCodeStore {
   // Forces in-memory backend (REDIS_URL unset).

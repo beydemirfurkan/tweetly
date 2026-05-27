@@ -1,5 +1,5 @@
-import { ViralScorerService } from './viral-scorer.service';
-import type { OpenRouterService } from './openrouter.service';
+import { ViralScorerService } from '../viral-scorer.service';
+import type { OpenRouterService } from '../openrouter.service';
 
 function makeService(mockChat: jest.Mock): {
   svc: ViralScorerService;

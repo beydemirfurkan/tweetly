@@ -1,4 +1,4 @@
-import { hasLoginProxy, resolveProxy } from './proxy-resolver';
+import { hasLoginProxy, resolveProxy } from '../proxy-resolver';
 
 describe('resolveProxy', () => {
   const ORIGINAL = process.env;

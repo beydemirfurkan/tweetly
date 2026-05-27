@@ -1,11 +1,11 @@
 import * as os from 'os';
 import * as path from 'path';
-import { ExtractionWorker } from './extraction-worker.service';
+import { ExtractionWorker } from '../extraction-worker.service';
 import type {
   ClaimedExtraction,
   ExtractionJobsRepository,
-} from './extraction-jobs.repository';
-import type { ExtractionService } from './extraction.service';
+} from '../extraction-jobs.repository';
+import type { ExtractionService } from '../extraction.service';
 import type { PaginatedResult, XDirectReadService } from '@/x-automation/x-direct';
 import { WorkerOptionsFactory } from '@/common/workers';
 

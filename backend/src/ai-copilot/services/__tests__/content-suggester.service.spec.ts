@@ -1,6 +1,6 @@
-import { ContentSuggesterService } from './content-suggester.service';
-import type { OpenRouterService } from './openrouter.service';
-import type { StyleProfile } from '../types/style-profile.types';
+import { ContentSuggesterService } from '../content-suggester.service';
+import type { OpenRouterService } from '../openrouter.service';
+import type { StyleProfile } from '../../types/style-profile.types';
 
 function makeService(mockChat: jest.Mock): {
   svc: ContentSuggesterService;

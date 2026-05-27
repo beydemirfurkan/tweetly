@@ -1,4 +1,4 @@
-import { LoginJobsRepository } from './login-jobs.repository';
+import { LoginJobsRepository } from '../login-jobs.repository';
 import type { DataSource } from 'typeorm';
 
 function makeRepoWithMockedQuery(): { repo: LoginJobsRepository; query: jest.Mock } {

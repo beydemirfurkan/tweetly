@@ -1,5 +1,5 @@
-import { XBrowserService } from './x-browser.service';
-import type { BrowserConfigService } from './browser-config';
+import { XBrowserService } from '../x-browser.service';
+import type { BrowserConfigService } from '../browser-config';
 
 function makeConfig(releaseTimeoutMs: number): BrowserConfigService {
   return {

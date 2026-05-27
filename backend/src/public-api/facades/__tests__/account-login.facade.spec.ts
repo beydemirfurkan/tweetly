@@ -2,7 +2,7 @@ import { HttpException, NotFoundException } from '@nestjs/common';
 import type { AccountsService } from '@/accounts/accounts.service';
 import type { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
 import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
-import { AccountLoginFacade } from './account-login.facade';
+import { AccountLoginFacade } from '../account-login.facade';
 
 function makeFacade(overrides: {
   loginJobs?: Partial<jest.Mocked<LoginJobsRepository>>;

@@ -1,5 +1,5 @@
-import { AccountHandler } from './account.handler';
-import { fakeContext } from './__tests__/test-helpers';
+import { AccountHandler } from '../account.handler';
+import { fakeContext } from '../__tests__/test-helpers';
 import { NotFoundException } from '@nestjs/common';
 import type { AccountsService } from '@/accounts/accounts.service';
 import type { AdminApiService } from '@/admin-api/admin-api.service';
