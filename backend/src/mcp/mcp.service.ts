@@ -10,12 +10,7 @@ import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository'
 import { TOOL_DEFINITIONS } from './handlers/tool-definitions';
 import type { McpToolArgs, McpToolContext } from './handlers/mcp-tool.context';
 import { TOOL_SCHEMAS, type ToolName, formatZodError } from './handlers/tool-schemas';
-import { WriteHandler } from './handlers/write.handler';
-import { ProfileHandler } from './handlers/profile.handler';
-import { ReadHandler } from './handlers/read.handler';
-import { MonitorHandler } from './handlers/monitor.handler';
-import { AccountHandler } from './handlers/account.handler';
-import { ExtractionHandler } from './handlers/extraction.handler';
+import { McpRouter } from './mcp-router.service';
 
 @Injectable()
 export class McpService {
@@ -27,12 +22,7 @@ export class McpService {
     private readonly adminApi: AdminApiService,
     private readonly sessionRouter: McpSessionRouter,
     private readonly loginJobs: LoginJobsRepository,
-    private readonly writeHandler: WriteHandler,
-    private readonly profileHandler: ProfileHandler,
-    private readonly readHandler: ReadHandler,
-    private readonly monitorHandler: MonitorHandler,
-    private readonly accountHandler: AccountHandler,
-    private readonly extractionHandler: ExtractionHandler,
+    private readonly router: McpRouter,
   ) {}
 
   get instanceId(): string {
@@ -102,93 +92,9 @@ export class McpService {
     if (!parsed.success) {
       throw new Error(`Invalid arguments for ${name}: ${formatZodError(parsed.error)}`);
     }
-    // From here every handler receives a typed, validated args object —
-    // the `as never` widens the union back into the per-case type that
-    // each handler method declares. The drift spec keeps the two lists
-    // in sync at test time.
-    const args = parsed.data as never;
-    const ctx = this.buildContext(userId);
-    const w = this.writeHandler;
-    const p = this.profileHandler;
-    const r = this.readHandler;
-    const m = this.monitorHandler;
-    const a = this.accountHandler;
-    const e = this.extractionHandler;
-
-    switch (name) {
-      // Queue-backed writes
-      case 'post_tweet': return w.postTweet(args, ctx);
-      case 'reply_to_tweet': return w.replyToTweet(args, ctx);
-      case 'like_tweet': return w.likeTweet(args, ctx);
-      case 'retweet_tweet': return w.retweet(args, ctx);
-      case 'quote_tweet': return w.quoteTweet(args, ctx);
-      case 'bookmark_tweet': return w.bookmarkTweet(args, ctx);
-      case 'follow_account': return w.followAccount(args, ctx);
-      case 'post_thread': return w.postThread(args, ctx);
-
-      // Queue-backed writes (formerly synchronous via XDirectService).
-      // After the consistency sprint these all go through the action engine
-      // so retry / idempotency / observability match the other write tools.
-      case 'unlike_tweet': return p.unlikeTweet(args, ctx);
-      case 'unretweet_tweet': return p.unretweet(args, ctx);
-      case 'unfollow_account': return p.unfollowAccount(args, ctx);
-      case 'delete_tweet': return p.deleteTweet(args, ctx);
-      case 'send_dm': return p.sendDm(args, ctx);
-      case 'update_profile': return p.updateProfile(args, ctx);
-      case 'update_avatar': return p.updateAvatar(args, ctx);
-      case 'update_banner': return p.updateBanner(args, ctx);
-
-      // Reads
-      case 'search_tweets': return r.searchTweets(args, ctx);
-      case 'get_user': return r.getUser(args, ctx);
-      case 'get_tweet': return r.getTweet(args, ctx);
-      case 'get_user_tweets': return r.getUserTweets(args, ctx);
-      case 'search_users': return r.searchUsers(args, ctx);
-      case 'get_user_followers': return r.getUserFollowers(args, ctx);
-      case 'get_user_following': return r.getUserFollowing(args, ctx);
-      case 'get_tweet_retweeters': return r.getTweetRetweeters(args, ctx);
-      case 'get_tweet_quotes': return r.getTweetQuotes(args, ctx);
-      case 'get_tweet_replies': return r.getTweetReplies(args, ctx);
-      case 'get_user_mentions': return r.getUserMentions(args, ctx);
-      case 'get_x_trending': return r.getXTrending(args, ctx);
-      case 'get_user_likes': return r.getUserLikes(args, ctx);
-      case 'get_my_bookmarks': return r.getMyBookmarks(args, ctx);
-      case 'get_list_members': return r.getListMembers(args, ctx);
-      case 'get_mutual_followers': return r.getMutualFollowers(args, ctx);
-      case 'get_thread': return r.getThread(args, ctx);
-      case 'get_user_lists': return r.getUserLists(args, ctx);
-      case 'get_list': return r.getList(args, ctx);
-      case 'get_list_subscribers': return r.getListSubscribers(args, ctx);
-
-      // Monitors
-      case 'create_monitor': return m.createMonitor(args, ctx);
-      case 'list_monitors': return m.listMonitors(args, ctx);
-      case 'get_monitor': return m.getMonitor(args, ctx);
-      case 'rotate_secret': return m.rotateSecret(args, ctx);
-      case 'delete_monitor': return m.deleteMonitor(args, ctx);
-      case 'pause_monitor': return m.pauseMonitor(args, ctx);
-
-      // Extractions
-      case 'create_extraction': return e.createExtraction(args, ctx);
-      case 'get_extraction': return e.getExtraction(args, ctx);
-      case 'list_extractions': return e.listExtractions(args, ctx);
-      case 'cancel_extraction': return e.cancelExtraction(args, ctx);
-
-      // Accounts, login, action queue, settings
-      case 'get_accounts': return a.getAccounts(args, ctx);
-      case 'get_account_health': return a.getAccountHealth(args, ctx);
-      case 'connect_x_account': return a.connectXAccount(args, ctx);
-      case 'reauth_x_account': return a.reauthXAccount(args, ctx);
-      case 'get_x_login_job': return a.getXLoginJob(args, ctx);
-      case 'list_actions': return a.listActions(args, ctx);
-      case 'cancel_action': return a.cancelAction(args, ctx);
-      case 'replay_action': return a.replayAction(args, ctx);
-      case 'get_settings': return a.getSettings(args, ctx);
-      case 'update_settings': return a.updateSettings(args, ctx);
-
-      default:
-        throw new Error(`Unknown tool: ${name}`);
-    }
+    // The router holds tool-name → handler-method routes built at bootstrap
+    // by McpToolBindings (Record<ToolName, …> for build-time drift safety).
+    return this.router.dispatch(name, parsed.data as McpToolArgs, this.buildContext(userId));
   }
 
   private buildContext(userId: string): McpToolContext {

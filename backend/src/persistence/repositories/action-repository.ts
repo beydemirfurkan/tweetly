@@ -1,27 +1,23 @@
 import { DataSource } from 'typeorm';
-import type { ActionType, ActionStatus, ErrorClass } from '@domain/types/action.types';
+import type { ActionType, ErrorClass } from '@domain/types/action.types';
+import { type ClaimedActionRow } from './claimed-action-row.types';
 
-export interface ClaimedActionRow {
-  id: string;
-  status: ActionStatus;
-  account_id: string;
-  attempts: number;
-  max_attempts: number;
-  scheduled_at: Date;
-  metadata: Record<string, unknown>;
-  idempotency_key: string;
-  parent_action_ref: string | null;
-  text?: string;
-  media_path?: string | null;
-  media_paths?: string[] | null;
-  alt_texts?: string[] | null;
-  parent_tweet_url?: string;
-  target_tweet_url?: string;
-  target_handle?: string;
-  message?: string;
-  fields?: Record<string, unknown>;
-  file_path?: string;
-}
+export {
+  ClaimedActionRow,
+  BaseClaimedActionFields,
+  ClaimedPostRow,
+  ClaimedReplyRow,
+  ClaimedQuoteRow,
+  ClaimedTweetEngagementRow,
+  ClaimedFollowRow,
+  ClaimedDmRow,
+  ClaimedProfileUpdateRow,
+  ClaimedProfileImageRow,
+  TweetEngagementType,
+  FollowEngagementType,
+  ProfileImageType,
+  assertRowType,
+} from './claimed-action-row.types';
 
 export interface ActionTableConfig {
   type: ActionType;
@@ -87,10 +83,13 @@ export class GenericActionRepository {
     `;
     const result = (await this.dataSource.query(sql, [workerId, batchSize, lockTtlSec])) as unknown;
     // The TypeORM PG driver returns a [rows, count] tuple for some UPDATE..RETURNING flows.
-    if (Array.isArray(result) && result.length === 2 && Array.isArray(result[0])) {
-      return result[0] as ClaimedActionRow[];
-    }
-    return result as ClaimedActionRow[];
+    const rows = Array.isArray(result) && result.length === 2 && Array.isArray(result[0])
+      ? (result[0] as Array<Record<string, unknown>>)
+      : (result as Array<Record<string, unknown>>);
+    // Inject the discriminator from this repository's configured action type so
+    // downstream code can rely on row.type for narrowing. DB rows don't carry
+    // a `type` column — it's implicit per table.
+    return rows.map((r) => ({ ...r, type: this.cfg.type })) as unknown as ClaimedActionRow[];
   }
 
   async markRunning(id: string): Promise<void> {

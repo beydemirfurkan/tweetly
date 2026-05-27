@@ -1,5 +1,5 @@
 import * as fs from 'fs/promises';
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { XDirectReadService, type PaginatedResult } from '@/x-automation/x-direct';
 import type { ExtractionParams } from '@persistence/entities/extraction-job.entity';
 import {
@@ -7,15 +7,7 @@ import {
   type ClaimedExtraction,
 } from './extraction-jobs.repository';
 import { ExtractionService } from './extraction.service';
-
-interface WorkerOptions {
-  pollIntervalMs: number;
-  /** Per-page batch size driven into XDirectReadService.<type>(limit=batchSize). */
-  batchSize: number;
-  /** Refreshed every progress update so a crashed worker frees the row. */
-  lockTtlSec: number;
-  enabled: boolean;
-}
+import { PollingWorker, WorkerOptionsFactory, type WorkerLoopOptions } from '@/common/workers';
 
 /**
  * Background worker that drives a queued extraction job through the
@@ -28,68 +20,38 @@ interface WorkerOptions {
  * pick in parallel via SKIP LOCKED.
  */
 @Injectable()
-export class ExtractionWorker implements OnApplicationBootstrap, OnModuleDestroy {
-  private readonly log = new Logger(ExtractionWorker.name);
-  private readonly workerId = `extract-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  private timer: NodeJS.Timeout | null = null;
-  private stopped = false;
+export class ExtractionWorker extends PollingWorker {
   private inflight: Promise<unknown> | null = null;
-  private readonly options: WorkerOptions;
+  protected readonly options: WorkerLoopOptions & { batchSize: number };
 
   constructor(
     private readonly jobs: ExtractionJobsRepository,
     private readonly extractions: ExtractionService,
     private readonly reads: XDirectReadService,
+    private readonly optionsFactory: WorkerOptionsFactory,
   ) {
+    super('extract');
+    const base = this.optionsFactory.fromEnv('EXTRACTION_WORKER', { pollMs: 5000, lockTtlSec: 300 });
     this.options = {
-      pollIntervalMs: parseInt(process.env.EXTRACTION_WORKER_POLL_MS ?? '5000', 10),
-      batchSize: parseInt(process.env.EXTRACTION_WORKER_BATCH_SIZE ?? '50', 10),
-      lockTtlSec: parseInt(process.env.EXTRACTION_WORKER_LOCK_TTL_SEC ?? '300', 10),
-      enabled: process.env.EXTRACTION_WORKER_DISABLED !== 'true',
+      ...base,
+      batchSize: this.optionsFactory.intFromEnv('EXTRACTION_WORKER_BATCH_SIZE', 50),
     };
   }
 
-  async onApplicationBootstrap(): Promise<void> {
-    if (!this.options.enabled) {
-      this.log.log('ExtractionWorker disabled (EXTRACTION_WORKER_DISABLED=true).');
-      return;
-    }
+  protected async onPreStart(): Promise<void> {
     await this.extractions.ensureStorageDir();
-    this.log.log(
-      `ExtractionWorker started: id=${this.workerId} poll=${this.options.pollIntervalMs}ms ` +
-        `batch=${this.options.batchSize} lock=${this.options.lockTtlSec}s`,
-    );
-    this.scheduleNext();
   }
 
-  async onModuleDestroy(): Promise<void> {
-    this.stopped = true;
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
-    if (this.inflight) {
-      this.log.log('Waiting for in-flight extraction page to finish...');
-      await Promise.race([
-        this.inflight.catch(() => undefined),
-        new Promise((resolve) => setTimeout(resolve, 30_000).unref()),
-      ]);
-    }
-    this.log.log('ExtractionWorker stopped.');
+  protected async drainInflight(timeoutMs: number): Promise<void> {
+    if (!this.inflight) return;
+    this.log.log('Waiting for in-flight extraction page to finish...');
+    await Promise.race([
+      this.inflight.catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, timeoutMs).unref()),
+    ]);
   }
 
-  private scheduleNext(): void {
-    if (this.stopped) return;
-    this.timer = setTimeout(() => {
-      this.tick()
-        .catch((err) =>
-          this.log.error(`tick error: ${err instanceof Error ? err.message : String(err)}`),
-        )
-        .finally(() => this.scheduleNext());
-    }, this.options.pollIntervalMs);
-  }
-
-  private async tick(): Promise<void> {
+  protected async tick(): Promise<void> {
     if (this.inflight) return;
     const job = await this.jobs.claimNext(this.options.lockTtlSec);
     if (!job) return;

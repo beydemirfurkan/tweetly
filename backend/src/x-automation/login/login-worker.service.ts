@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { AccountsService } from '@/accounts/accounts.service';
@@ -7,12 +7,12 @@ import { ClaimedJob, LoginJobsRepository } from './login-jobs.repository';
 import { XLoginService } from './x-login.service';
 import type { XLoginInput, XLoginResult } from './login.types';
 import { hasLoginProxy } from './proxy-resolver';
-
-interface WorkerOptions {
-  pollIntervalMs: number;
-  lockTtlSec: number;
-  enabled: boolean;
-}
+import {
+  PollingWorker,
+  WorkerOptionsFactory,
+  startHeartbeat,
+  type WorkerLoopOptions,
+} from '@/common/workers';
 
 /** Wait between the first attempt and the auto-retry, in ms. */
 const RETRY_DELAY_MS = parseInt(process.env.LOGIN_WORKER_RETRY_DELAY_MS ?? '30000', 10);
@@ -45,17 +45,13 @@ function truncateForLog(s: string, max: number): string {
 }
 
 @Injectable()
-export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
-  private readonly log = new Logger(LoginWorker.name);
-  private readonly workerId = `login-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  private timer: NodeJS.Timeout | null = null;
-  private stopped = false;
+export class LoginWorker extends PollingWorker {
   private inflight: Promise<unknown> | null = null;
   // Abort signal sources for the currently-processing job. Held as a Set so
-  // `onModuleDestroy` can fan out a shutdown abort without caring which
+  // `onShutdownAbort` can fan out a shutdown abort without caring which
   // controller is active. Cleaned up in `process()` finally.
   private readonly activeAborts = new Set<AbortController>();
-  private readonly options: WorkerOptions;
+  protected readonly options: WorkerLoopOptions;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -64,21 +60,15 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly cipher: CredentialCipherService,
     private readonly accounts: AccountsService,
     private readonly profileCache: ProfileCacheService,
+    private readonly optionsFactory: WorkerOptionsFactory,
   ) {
-    this.options = {
-      pollIntervalMs: parseInt(process.env.LOGIN_WORKER_POLL_MS ?? '3000', 10),
-      // 5min: covers a slow login + 2FA + verify-home with margin. Past this
-      // the row reverts to claimable (we treat the prior worker as crashed).
-      lockTtlSec: parseInt(process.env.LOGIN_WORKER_LOCK_TTL_SEC ?? '300', 10),
-      enabled: process.env.LOGIN_WORKER_DISABLED !== 'true',
-    };
+    super('login');
+    // 5min lock: covers a slow login + 2FA + verify-home with margin. Past this
+    // the row reverts to claimable (we treat the prior worker as crashed).
+    this.options = this.optionsFactory.fromEnv('LOGIN_WORKER', { pollMs: 3000, lockTtlSec: 300 });
   }
 
-  async onApplicationBootstrap(): Promise<void> {
-    if (!this.options.enabled) {
-      this.log.log('LoginWorker disabled (LOGIN_WORKER_DISABLED=true).');
-      return;
-    }
+  protected async onPreStart(): Promise<void> {
     // Recover from previous-instance crashes: any 'running' row whose lock
     // already expired before this worker came up is demoted to 'queued' so
     // the normal tick picks it back up. Idempotent across multi-replica
@@ -92,51 +82,31 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
       const msg = err instanceof Error ? err.message : String(err);
       this.log.error(`resetStaleRunningJobs failed: ${msg}`);
     }
-    this.log.log(
-      `LoginWorker started: id=${this.workerId} poll=${this.options.pollIntervalMs}ms lock=${this.options.lockTtlSec}s`,
-    );
-    this.scheduleNext();
   }
 
-  async onModuleDestroy(): Promise<void> {
-    this.stopped = true;
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
+  protected onShutdownAbort(): void {
+    if (this.activeAborts.size === 0) return;
+    // Fire shutdown aborts first — the login service polls the signal at
+    // every step boundary, so the inflight promise resolves in seconds
+    // instead of waiting up to 30s for Patchright teardown.
+    this.log.log(`Aborting ${this.activeAborts.size} in-flight login(s) for shutdown.`);
+    for (const c of this.activeAborts) {
+      try {
+        c.abort();
+      } catch {}
     }
-    if (this.inflight) {
-      // Fire shutdown aborts first — the login service polls the signal at
-      // every step boundary, so the inflight promise should resolve in
-      // seconds instead of waiting up to 30s for Patchright teardown.
-      if (this.activeAborts.size > 0) {
-        this.log.log(`Aborting ${this.activeAborts.size} in-flight login(s) for shutdown.`);
-        for (const c of this.activeAborts) {
-          try {
-            c.abort();
-          } catch {}
-        }
-      }
-      this.log.log('Waiting for in-flight login to finish...');
-      await Promise.race([
-        this.inflight.catch(() => undefined),
-        new Promise((resolve) => setTimeout(resolve, 30_000).unref()),
-      ]);
-    }
-    this.log.log('LoginWorker stopped.');
   }
 
-  private scheduleNext(): void {
-    if (this.stopped) return;
-    this.timer = setTimeout(() => {
-      this.tick()
-        .catch((err) =>
-          this.log.error(`tick error: ${err instanceof Error ? err.message : String(err)}`),
-        )
-        .finally(() => this.scheduleNext());
-    }, this.options.pollIntervalMs);
+  protected async drainInflight(timeoutMs: number): Promise<void> {
+    if (!this.inflight) return;
+    this.log.log('Waiting for in-flight login to finish...');
+    await Promise.race([
+      this.inflight.catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, timeoutMs).unref()),
+    ]);
   }
 
-  private async tick(): Promise<void> {
+  protected async tick(): Promise<void> {
     // Single-job-per-tick: a login is heavy (browser + ~30s) and we don't want
     // one instance to monopolize the queue. Multiple replicas will pick in
     // parallel via SKIP LOCKED.
@@ -166,15 +136,14 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     // Keep the lock alive while we work. Cadence is TTL/3 so two heartbeats
     // are expected before another instance would consider the row orphaned.
     const heartbeatMs = Math.max(15_000, Math.floor((this.options.lockTtlSec * 1000) / 3));
-    const heartbeat = setInterval(() => {
-      this.jobs.extendLock(job.id, this.options.lockTtlSec).catch((err) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        this.log.warn(`heartbeat extendLock failed job=${job.id}: ${msg}`);
-      });
-    }, heartbeatMs);
-    heartbeat.unref();
+    const heartbeat = startHeartbeat({
+      extend: () => this.jobs.extendLock(job.id, this.options.lockTtlSec),
+      intervalMs: heartbeatMs,
+      log: this.log,
+      label: `job=${job.id}`,
+    });
 
-    // Per-job abort controller — `onModuleDestroy` fires it during shutdown
+    // Per-job abort controller — `onShutdownAbort` fires it during shutdown
     // so the in-flight Patchright session unwinds via LoginFlowError at the
     // next step boundary instead of running to completion.
     const abort = new AbortController();
@@ -183,7 +152,7 @@ export class LoginWorker implements OnApplicationBootstrap, OnModuleDestroy {
     try {
       await this.processInternal(job, abort.signal);
     } finally {
-      clearInterval(heartbeat);
+      heartbeat.stop();
       this.activeAborts.delete(abort);
     }
   }

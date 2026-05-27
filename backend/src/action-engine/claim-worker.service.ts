@@ -1,76 +1,44 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { Injectable } from '@nestjs/common';
 import { ExecutorRegistry } from './executor-registry.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { RetryPolicy } from '@domain/services/retry-policy';
-import { ACTION_TABLE_CONFIG, ClaimedActionRow, GenericActionRepository } from '@persistence/repositories/action-repository';
+import { ClaimedActionRow, GenericActionRepository } from '@persistence/repositories/action-repository';
+import { ActionRepositoryFactory } from '@persistence/repositories/action-repository.factory';
+import { ActionStrategyRegistry } from './strategies/action-strategy.registry';
 import type { ActionType } from '@domain/types/action.types';
 import type { ActionContext, ExecutionResult } from '@domain/ports/x-action-executor.port';
 import { AccountsService } from '@/accounts/accounts.service';
-
-interface WorkerOptions {
-  pollIntervalMs?: number;
-  batchSize?: number;
-  lockTtlSec?: number;
-  enabled?: boolean;
-}
+import { PollingWorker, WorkerOptionsFactory, type WorkerLoopOptions } from '@/common/workers';
 
 @Injectable()
-export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
-  private readonly log = new Logger(ClaimWorker.name);
-  private readonly workerId = `${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  private timer: NodeJS.Timeout | null = null;
-  private stopped = false;
+export class ClaimWorker extends PollingWorker {
   private readonly inflight = new Set<Promise<unknown>>();
-  private readonly options: Required<WorkerOptions>;
+  protected readonly options: WorkerLoopOptions & { batchSize: number };
 
   constructor(
-    private readonly dataSource: DataSource,
     private readonly registry: ExecutorRegistry,
     private readonly circuitBreaker: CircuitBreakerService,
     private readonly retry: RetryPolicy,
     private readonly accounts: AccountsService,
+    private readonly repoFactory: ActionRepositoryFactory,
+    private readonly strategies: ActionStrategyRegistry,
+    private readonly optionsFactory: WorkerOptionsFactory,
   ) {
+    super('worker');
+    const base = this.optionsFactory.fromEnv('WORKER', { pollMs: 3000, lockTtlSec: 300 });
     this.options = {
-      pollIntervalMs: parseInt(process.env.WORKER_POLL_MS ?? '3000', 10),
-      batchSize: parseInt(process.env.WORKER_BATCH_SIZE ?? '1', 10),
-      lockTtlSec: parseInt(process.env.WORKER_LOCK_TTL_SEC ?? '300', 10),
-      enabled: process.env.WORKER_DISABLED !== 'true',
+      ...base,
+      batchSize: this.optionsFactory.intFromEnv('WORKER_BATCH_SIZE', 1),
     };
   }
 
-  async onApplicationBootstrap(): Promise<void> {
-    if (!this.options.enabled) {
-      this.log.log('ClaimWorker disabled (WORKER_DISABLED=true).');
-      return;
-    }
-    this.log.log(`ClaimWorker started: id=${this.workerId} poll=${this.options.pollIntervalMs}ms batch=${this.options.batchSize}`);
-    this.scheduleNext();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    this.stopped = true;
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
-    if (this.inflight.size > 0) {
-      this.log.log(`Waiting for ${this.inflight.size} in-flight action(s) to complete...`);
-      await Promise.race([
-        Promise.allSettled([...this.inflight]),
-        new Promise((resolve) => setTimeout(resolve, 30_000).unref()),
-      ]);
-    }
-    this.log.log('ClaimWorker stopped.');
-  }
-
-  private scheduleNext(): void {
-    if (this.stopped) return;
-    this.timer = setTimeout(() => {
-      this.tick()
-        .catch((err) => this.log.error(`Tick error: ${err instanceof Error ? err.message : String(err)}`))
-        .finally(() => this.scheduleNext());
-    }, this.options.pollIntervalMs);
+  protected async drainInflight(timeoutMs: number): Promise<void> {
+    if (this.inflight.size === 0) return;
+    this.log.log(`Waiting for ${this.inflight.size} in-flight action(s) to complete...`);
+    await Promise.race([
+      Promise.allSettled([...this.inflight]),
+      new Promise((resolve) => setTimeout(resolve, timeoutMs).unref()),
+    ]);
   }
 
   /**
@@ -82,8 +50,7 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
   async tick(): Promise<void> {
     for (const type of this.registry.registered()) {
       if (this.stopped) return;
-      const cfg = ACTION_TABLE_CONFIG[type];
-      const repo = new GenericActionRepository(this.dataSource, cfg);
+      const repo = this.repoFactory.forType(type);
       const claimed = await repo.claimBatch(this.workerId, this.options.batchSize, this.options.lockTtlSec);
       for (const row of claimed) {
         const p = this.dispatch(type, row, repo).catch((err) =>
@@ -122,12 +89,13 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+    const strategy = this.strategies.forType(type);
     const ctx: ActionContext = {
       id: row.id,
       type,
       accountId: row.account_id,
       attempts: row.attempts,
-      payload: this.extractPayload(type, row),
+      payload: strategy.toPayload(row) as Record<string, unknown>,
       metadata: row.metadata ?? {},
     };
 
@@ -180,46 +148,6 @@ export class ClaimWorker implements OnApplicationBootstrap, OnModuleDestroy {
     await this.circuitBreaker.recordFailure(row.account_id, result.message);
     if (result.errorClass === 'auth') {
       await this.accounts.recordSessionFailure(row.account_id, result.message);
-    }
-  }
-
-  private extractPayload(type: ActionType, row: ClaimedActionRow): Record<string, unknown> {
-    switch (type) {
-      case 'post':
-        return {
-          text: row.text,
-          mediaPath: row.media_path,
-          mediaPaths: row.media_paths ?? null,
-          altTexts: row.alt_texts ?? null,
-        };
-      case 'reply':
-        return { text: row.text, parentTweetUrl: row.parent_tweet_url };
-      case 'quote':
-        return { text: row.text, targetTweetUrl: row.target_tweet_url };
-      case 'retweet':
-      case 'like':
-      case 'bookmark':
-        return { targetTweetUrl: row.target_tweet_url };
-      case 'follow':
-        return { targetHandle: row.target_handle };
-      // Queue-backed direct writes use snake_case payload keys to match how
-      // their executors read action.payload.X (executors were written against
-      // the DB column names rather than the camelCase used by older types).
-      case 'unlike':
-      case 'unretweet':
-      case 'delete_tweet':
-        return { target_tweet_url: row.target_tweet_url };
-      case 'unfollow':
-        return { target_handle: row.target_handle };
-      case 'dm':
-        return { target_handle: row.target_handle, message: row.message };
-      case 'profile_update':
-        return { fields: row.fields };
-      case 'avatar_update':
-      case 'banner_update':
-        return { file_path: row.file_path };
-      default:
-        return {};
     }
   }
 }

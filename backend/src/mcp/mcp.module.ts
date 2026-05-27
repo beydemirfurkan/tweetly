@@ -10,6 +10,8 @@ import { ExtractionsModule } from '@/extractions/extractions.module';
 import { McpController } from './mcp.controller';
 import { McpService } from './mcp.service';
 import { McpSessionRouter } from './mcp-session-router.service';
+import { McpRouter } from './mcp-router.service';
+import { McpToolBindings } from './mcp-tool-bindings';
 import { WriteHandler } from './handlers/write.handler';
 import { ProfileHandler } from './handlers/profile.handler';
 import { ReadHandler } from './handlers/read.handler';
@@ -32,6 +34,8 @@ import { ExtractionHandler } from './handlers/extraction.handler';
   providers: [
     McpService,
     McpSessionRouter,
+    McpRouter,
+    McpToolBindings,
     WriteHandler,
     ProfileHandler,
     ReadHandler,

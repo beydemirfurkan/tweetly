@@ -7,6 +7,7 @@ import type {
 } from './extraction-jobs.repository';
 import type { ExtractionService } from './extraction.service';
 import type { PaginatedResult, XDirectReadService } from '@/x-automation/x-direct';
+import { WorkerOptionsFactory } from '@/common/workers';
 
 // fs/promises.open is the only filesystem touch the worker makes; mock the
 // returned handle so process() doesn't actually write to disk during tests.
@@ -81,7 +82,12 @@ function makeWorker(opts: {
 
   if (opts.batchSize) process.env.EXTRACTION_WORKER_BATCH_SIZE = String(opts.batchSize);
 
-  const worker = new ExtractionWorker(jobs, extractions, reads);
+  const worker = new ExtractionWorker(
+    jobs,
+    extractions,
+    reads,
+    new WorkerOptionsFactory(),
+  );
   return { worker, jobs, reads, extractions };
 }
 

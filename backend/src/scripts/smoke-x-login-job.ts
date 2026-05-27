@@ -11,6 +11,7 @@ import { LoginJobsRepository, type ClaimedJob } from '@/x-automation/login/login
 import { LoginWorker } from '@/x-automation/login/login-worker.service';
 import { normalizeProxyCountry } from '@/x-automation/login/login-validation';
 import { XLoginService } from '@/x-automation/login/x-login.service';
+import { WorkerOptionsFactory } from '@/common/workers';
 
 dotenv.config();
 
@@ -36,7 +37,15 @@ async function main(): Promise<void> {
       dataSource,
       new ControlStateRepository(dataSource),
     );
-    const worker = new LoginWorker(dataSource, jobs, new XLoginService(), cipher, accounts, { refreshInBackground: async () => {} } as any);
+    const worker = new LoginWorker(
+      dataSource,
+      jobs,
+      new XLoginService(),
+      cipher,
+      accounts,
+      { refreshInBackground: async () => {} } as any,
+      new WorkerOptionsFactory(),
+    );
     const user = await findOrCreateUser(dataSource, tweetlyUserEmail);
 
     const { id } = await jobs.create({

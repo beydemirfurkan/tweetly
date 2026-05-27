@@ -1,109 +1,46 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-import { ACTION_TABLE_CONFIG, GenericActionRepository } from '@persistence/repositories/action-repository';
-import { IdempotencyKeyService } from '@domain/services/idempotency-key';
+import type { ActionType } from '@domain/types/action.types';
+import { ActionRepositoryFactory } from '@persistence/repositories/action-repository.factory';
+import { ActionStrategyRegistry } from './strategies/action-strategy.registry';
+import type { ActionEnqueueBase } from './strategies/action-strategy.port';
+import type {
+  EnqueueDmInput,
+  EnqueueEngagementInput,
+  EnqueueFollowInput,
+  EnqueuePostInput,
+  EnqueueProfileImageInput,
+  EnqueueProfileUpdateInput,
+  EnqueueQuoteInput,
+  EnqueueReplyInput,
+} from './strategies/enqueue-inputs';
 
-export interface EnqueuePostInput {
-  accountId: string;
-  text: string;
-  mediaPath?: string | null;
-  mediaPaths?: string[] | null;
-  altTexts?: string[] | null;
-  scheduledAt: Date;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
-}
+export type {
+  EnqueuePostInput,
+  EnqueueReplyInput,
+  EnqueueEngagementInput,
+  EnqueueFollowInput,
+  EnqueueQuoteInput,
+  EnqueueDmInput,
+  EnqueueProfileUpdateInput,
+  EnqueueProfileImageInput,
+};
 
-export interface EnqueueReplyInput {
-  accountId: string;
-  text: string;
-  parentTweetUrl: string;
-  scheduledAt: Date;
-  parentActionRef?: string | null;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
-}
-
-export interface EnqueueEngagementInput {
-  accountId: string;
-  targetTweetUrl: string;
-  scheduledAt: Date;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
-}
-
-export interface EnqueueFollowInput {
-  accountId: string;
-  targetHandle: string;
-  scheduledAt: Date;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
-}
-
-export interface EnqueueQuoteInput {
-  accountId: string;
-  text: string;
-  targetTweetUrl: string;
-  scheduledAt: Date;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
-}
-
-export interface EnqueueDmInput {
-  accountId: string;
-  targetHandle: string;
-  message: string;
-  scheduledAt: Date;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
-}
-
-export interface EnqueueProfileUpdateInput {
-  accountId: string;
-  fields: Record<string, unknown>;
-  scheduledAt: Date;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
-}
-
-export interface EnqueueProfileImageInput {
-  accountId: string;
-  filePath: string;
-  scheduledAt: Date;
-  metadata?: Record<string, unknown>;
-  maxAttempts?: number;
+export interface EnqueueResult {
+  id: string | null;
+  idempotencyKey: string;
 }
 
 @Injectable()
 export class ActionEnqueueService {
   constructor(
-    private readonly dataSource: DataSource,
-    private readonly keys: IdempotencyKeyService,
+    private readonly strategies: ActionStrategyRegistry,
+    private readonly repoFactory: ActionRepositoryFactory,
   ) {}
 
-  async enqueuePost(input: EnqueuePostInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.post);
-    const idempotencyKey = this.keys.forPost(input.accountId, input.text, input.scheduledAt);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: {
-        text: input.text,
-        media_path: input.mediaPath ?? (input.mediaPaths?.[0] ?? null),
-        media_paths: input.mediaPaths && input.mediaPaths.length > 0 ? input.mediaPaths : null,
-        alt_texts: input.altTexts && input.altTexts.length > 0 ? input.altTexts : null,
-      },
-    });
-    return { id, idempotencyKey };
-  }
-
-  async enqueueReply(input: EnqueueReplyInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.reply);
-    const parentTweetId = this.parseTweetId(input.parentTweetUrl);
-    const idempotencyKey = this.keys.forReply(input.accountId, parentTweetId, input.text);
+  async enqueue<TInput extends ActionEnqueueBase>(type: ActionType, input: TInput): Promise<EnqueueResult> {
+    const strategy = this.strategies.forType<TInput>(type);
+    const repo = this.repoFactory.for(strategy.tableConfig);
+    const idempotencyKey = strategy.idempotencyKey(input);
     const id = await repo.insertIfAbsent({
       idempotencyKey,
       accountId: input.accountId,
@@ -111,206 +48,68 @@ export class ActionEnqueueService {
       maxAttempts: input.maxAttempts,
       parentActionRef: input.parentActionRef ?? null,
       metadata: input.metadata,
-      typeSpecific: {
-        text: input.text,
-        parent_tweet_url: input.parentTweetUrl,
-      },
+      typeSpecific: strategy.toColumns(input),
     });
     return { id, idempotencyKey };
   }
 
-  async enqueueLike(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.like);
-    const tweetId = this.parseTweetId(input.targetTweetUrl);
-    const idempotencyKey = this.keys.forLike(input.accountId, tweetId);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
-    });
-    return { id, idempotencyKey };
+  enqueuePost(input: EnqueuePostInput): Promise<EnqueueResult> {
+    return this.enqueue('post', input);
   }
 
-  async enqueueBookmark(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.bookmark);
-    const tweetId = this.parseTweetId(input.targetTweetUrl);
-    const idempotencyKey = this.keys.forBookmark(input.accountId, tweetId);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
-    });
-    return { id, idempotencyKey };
+  enqueueReply(input: EnqueueReplyInput): Promise<EnqueueResult> {
+    return this.enqueue('reply', input);
   }
 
-  async enqueueRetweet(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.retweet);
-    const tweetId = this.parseTweetId(input.targetTweetUrl);
-    const idempotencyKey = this.keys.forRetweet(input.accountId, tweetId);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
-    });
-    return { id, idempotencyKey };
+  enqueueLike(input: EnqueueEngagementInput): Promise<EnqueueResult> {
+    return this.enqueue('like', input);
   }
 
-  async enqueueFollow(input: EnqueueFollowInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.follow);
-    const idempotencyKey = this.keys.forFollow(input.accountId, input.targetHandle);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_handle: input.targetHandle },
-    });
-    return { id, idempotencyKey };
+  enqueueBookmark(input: EnqueueEngagementInput): Promise<EnqueueResult> {
+    return this.enqueue('bookmark', input);
   }
 
-  async enqueueQuote(input: EnqueueQuoteInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.quote);
-    const tweetId = this.parseTweetId(input.targetTweetUrl);
-    const idempotencyKey = this.keys.forQuote(input.accountId, tweetId, input.text);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { text: input.text, target_tweet_url: input.targetTweetUrl },
-    });
-    return { id, idempotencyKey };
+  enqueueRetweet(input: EnqueueEngagementInput): Promise<EnqueueResult> {
+    return this.enqueue('retweet', input);
   }
 
-  async enqueueUnlike(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.unlike);
-    const tweetId = this.parseTweetId(input.targetTweetUrl);
-    const idempotencyKey = this.keys.forUnlike(input.accountId, tweetId);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
-    });
-    return { id, idempotencyKey };
+  enqueueFollow(input: EnqueueFollowInput): Promise<EnqueueResult> {
+    return this.enqueue('follow', input);
   }
 
-  async enqueueUnretweet(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.unretweet);
-    const tweetId = this.parseTweetId(input.targetTweetUrl);
-    const idempotencyKey = this.keys.forUnretweet(input.accountId, tweetId);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
-    });
-    return { id, idempotencyKey };
+  enqueueQuote(input: EnqueueQuoteInput): Promise<EnqueueResult> {
+    return this.enqueue('quote', input);
   }
 
-  async enqueueUnfollow(input: EnqueueFollowInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.unfollow);
-    const idempotencyKey = this.keys.forUnfollow(input.accountId, input.targetHandle);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_handle: input.targetHandle },
-    });
-    return { id, idempotencyKey };
+  enqueueUnlike(input: EnqueueEngagementInput): Promise<EnqueueResult> {
+    return this.enqueue('unlike', input);
   }
 
-  async enqueueDeleteTweet(input: EnqueueEngagementInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.delete_tweet);
-    const tweetId = this.parseTweetId(input.targetTweetUrl);
-    const idempotencyKey = this.keys.forDeleteTweet(input.accountId, tweetId);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_tweet_url: input.targetTweetUrl, target_tweet_id: tweetId },
-    });
-    return { id, idempotencyKey };
+  enqueueUnretweet(input: EnqueueEngagementInput): Promise<EnqueueResult> {
+    return this.enqueue('unretweet', input);
   }
 
-  async enqueueDm(input: EnqueueDmInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.dm);
-    const idempotencyKey = this.keys.forDm(input.accountId, input.targetHandle, input.message, input.scheduledAt);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { target_handle: input.targetHandle, message: input.message },
-    });
-    return { id, idempotencyKey };
+  enqueueUnfollow(input: EnqueueFollowInput): Promise<EnqueueResult> {
+    return this.enqueue('unfollow', input);
   }
 
-  async enqueueProfileUpdate(input: EnqueueProfileUpdateInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.profile_update);
-    const idempotencyKey = this.keys.forProfileUpdate(input.accountId, input.fields);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { fields: JSON.stringify(input.fields) },
-    });
-    return { id, idempotencyKey };
+  enqueueDeleteTweet(input: EnqueueEngagementInput): Promise<EnqueueResult> {
+    return this.enqueue('delete_tweet', input);
   }
 
-  async enqueueAvatarUpdate(input: EnqueueProfileImageInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.avatar_update);
-    const idempotencyKey = this.keys.forAvatarUpdate(input.accountId, input.filePath);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { file_path: input.filePath },
-    });
-    return { id, idempotencyKey };
+  enqueueDm(input: EnqueueDmInput): Promise<EnqueueResult> {
+    return this.enqueue('dm', input);
   }
 
-  async enqueueBannerUpdate(input: EnqueueProfileImageInput): Promise<{ id: string | null; idempotencyKey: string }> {
-    const repo = new GenericActionRepository(this.dataSource, ACTION_TABLE_CONFIG.banner_update);
-    const idempotencyKey = this.keys.forBannerUpdate(input.accountId, input.filePath);
-    const id = await repo.insertIfAbsent({
-      idempotencyKey,
-      accountId: input.accountId,
-      scheduledAt: input.scheduledAt,
-      maxAttempts: input.maxAttempts,
-      metadata: input.metadata,
-      typeSpecific: { file_path: input.filePath },
-    });
-    return { id, idempotencyKey };
+  enqueueProfileUpdate(input: EnqueueProfileUpdateInput): Promise<EnqueueResult> {
+    return this.enqueue('profile_update', input);
   }
 
-  private parseTweetId(url: string): string {
-    const m = url.match(/\/status\/(\d+)/);
-    if (!m) throw new Error(`Invalid tweet URL: ${url}`);
-    return m[1];
+  enqueueAvatarUpdate(input: EnqueueProfileImageInput): Promise<EnqueueResult> {
+    return this.enqueue('avatar_update', input);
+  }
+
+  enqueueBannerUpdate(input: EnqueueProfileImageInput): Promise<EnqueueResult> {
+    return this.enqueue('banner_update', input);
   }
 }

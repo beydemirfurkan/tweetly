@@ -10,6 +10,7 @@ import type { CredentialCipherService } from '@common/crypto/credential-cipher.s
 import type { AccountsService } from '@/accounts/accounts.service';
 import type { DataSource, EntityManager } from 'typeorm';
 import type { XLoginResult } from './login.types';
+import { WorkerOptionsFactory } from '@/common/workers';
 
 function makeJob(overrides: Partial<ClaimedJob> = {}): ClaimedJob {
   return {
@@ -100,7 +101,15 @@ function makeWorker(opts: {
     refreshInBackground: jest.fn(),
   };
 
-  const worker = new LoginWorker(dataSource, jobs, login, cipher, accounts, profileCache as any);
+  const worker = new LoginWorker(
+    dataSource,
+    jobs,
+    login,
+    cipher,
+    accounts,
+    profileCache as any,
+    new WorkerOptionsFactory(),
+  );
   return { worker, jobs, login, accounts, manager };
 }
 
