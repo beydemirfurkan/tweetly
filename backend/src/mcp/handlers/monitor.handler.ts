@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
+import { WebhookDeliveryHistoryService } from '@/monitoring/webhook-delivery-history.service';
 import { redactMonitor } from '@/monitoring/monitor-redactor';
 import { checkWebhookUrl } from '@/monitoring/webhook-url-validator';
 import { BaseMcpHandler } from './base.handler';
@@ -12,7 +13,10 @@ import type { McpToolArgs, McpToolContext } from './mcp-tool.context';
  */
 @Injectable()
 export class MonitorHandler extends BaseMcpHandler {
-  constructor(private readonly monitoring: MonitoringService) {
+  constructor(
+    private readonly monitoring: MonitoringService,
+    private readonly deliveryHistory: WebhookDeliveryHistoryService,
+  ) {
     super();
   }
 
@@ -48,7 +52,7 @@ export class MonitorHandler extends BaseMcpHandler {
     const monitor = await this.monitoring.findById(id);
     if (!monitor) throw new Error(`Monitor ${id} not found`);
     await ctx.assertAccountOwnership(monitor.accountId);
-    const deliveries = await this.monitoring.listDeliveries(id, 10);
+    const deliveries = await this.deliveryHistory.list(id, 10);
     return { monitor: redactMonitor(monitor), recentDeliveries: deliveries };
   }
 

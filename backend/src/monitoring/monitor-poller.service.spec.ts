@@ -5,7 +5,9 @@ function createService() {
     findEnabled: jest.fn().mockResolvedValue([]),
     updateLastSeen: jest.fn().mockResolvedValue(null),
     updateLastCheck: jest.fn().mockResolvedValue(null),
-    recordDelivery: jest.fn().mockResolvedValue(null),
+  };
+  const deliveryHistory = {
+    record: jest.fn().mockResolvedValue(null),
   };
   const webhook = {
     deliver: jest.fn().mockResolvedValue({ ok: true }),
@@ -24,10 +26,11 @@ function createService() {
   const service = new MonitorPollerService(
     monitoring as any,
     webhook as any,
+    deliveryHistory as any,
     xDirect as any,
     dataSource as any,
   );
-  return { service, monitoring, webhook, xDirect, dataSource };
+  return { service, monitoring, deliveryHistory, webhook, xDirect, dataSource };
 }
 
 describe('MonitorPollerService', () => {
@@ -79,7 +82,7 @@ describe('MonitorPollerService', () => {
     });
 
     it('delivers webhook when new tweet detected', async () => {
-      const { service, monitoring, webhook, xDirect } = createService();
+      const { service, monitoring, deliveryHistory, webhook, xDirect } = createService();
       const newUrl = 'https://x.com/user/status/999';
       monitoring.findEnabled.mockResolvedValue([
         { id: 'mon-1', accountId: 'acc-1', targetHandle: 'user', webhookUrl: 'https://hook.test', lastTweetUrl: 'https://x.com/user/status/1', eventTypes: ['tweet.new'] },
@@ -90,7 +93,7 @@ describe('MonitorPollerService', () => {
         ],
         nextCursor: null,
       });
-      monitoring.recordDelivery.mockResolvedValue(null);
+      deliveryHistory.record.mockResolvedValue(null);
 
       await service.poll();
 

@@ -27,6 +27,11 @@ import { BannerUpdateExecutor } from './executors/banner-update.executor';
 import { XBrowserService } from './browser/x-browser.service';
 import { XPostFlowService } from './browser/x-post-flow.service';
 import { SelectorRegistry } from './browser/selector-registry';
+import { BrowserConfigService } from './browser/browser-config';
+import { CookieInjectorService } from './browser/cookie-injector.service';
+import { BrowserDiagnosticsService } from './browser/browser-diagnostics.service';
+import { BrowserProbeService } from './browser/browser-probe.service';
+import { ProfileTweetReaderService } from './browser/profile-tweet-reader.service';
 import { XDirectReadService, XDirectWriteService, XDirectProfileService } from './x-direct';
 import { XDirectProfileFetcherAdapter } from './x-direct/x-direct-profile-fetcher.adapter';
 import { XLoginService } from './login/x-login.service';
@@ -53,7 +58,12 @@ import { LoginProfileCleanupService } from './login/login-profile-cleanup.servic
   imports: [ActionEngineModule, AccountsModule],
   providers: [
     SelectorRegistry,
+    BrowserConfigService,
+    CookieInjectorService,
     XBrowserService,
+    BrowserDiagnosticsService,
+    BrowserProbeService,
+    ProfileTweetReaderService,
     XPostFlowService,
     // noop executors (dev/test)
     NoOpPostExecutor,
@@ -102,6 +112,9 @@ import { LoginProfileCleanupService } from './login/login-profile-cleanup.servic
     XDirectWriteService,
     XDirectProfileService,
     XBrowserService,
+    BrowserDiagnosticsService,
+    BrowserProbeService,
+    ProfileTweetReaderService,
     XLoginService,
     LoginJobsRepository,
     CookieHealthCheckService,

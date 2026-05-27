@@ -21,7 +21,8 @@ import { SettingsService } from '@/settings/settings.service';
 import { UsersService } from '@/auth/users.service';
 import { MagicLinkService } from '@/auth/magic-link.service';
 import { CircuitBreakerService } from '@/action-engine/circuit-breaker.service';
-import { XBrowserService } from '@/x-automation/browser/x-browser.service';
+import { BrowserDiagnosticsService } from '@/x-automation/browser/browser-diagnostics.service';
+import { BrowserProbeService } from '@/x-automation/browser/browser-probe.service';
 import { XDirectReadService } from '@/x-automation/x-direct';
 
 class SecretUpdateBody {
@@ -68,7 +69,8 @@ export class AdminApiController {
     private readonly users: UsersService,
     private readonly magicLinks: MagicLinkService,
     private readonly circuitBreaker: CircuitBreakerService,
-    private readonly browser: XBrowserService,
+    private readonly browserDiagnostics: BrowserDiagnosticsService,
+    private readonly browserProbe: BrowserProbeService,
     private readonly xDirect: XDirectReadService,
   ) {}
 
@@ -200,14 +202,14 @@ export class AdminApiController {
   @ApiOperation({ summary: 'Browser runtime diagnostics (no secrets, no browser launch)' })
   async getBrowserDiagnostics() {
     this.assertDebugEndpointsEnabled();
-    return this.browser.getDiagnostics();
+    return this.browserDiagnostics.getDiagnostics();
   }
 
   @Get('browser/probe')
   @ApiOperation({ summary: 'Probe Patchright launch/release without navigation' })
   async probeBrowser(@Query('account') accountId?: string) {
     this.assertDebugEndpointsEnabled();
-    return this.browser.probeLaunch(accountId?.trim() || undefined);
+    return this.browserProbe.probeLaunch(accountId?.trim() || undefined);
   }
 
   @Get('browser/navigate-probe')
@@ -225,7 +227,7 @@ export class AdminApiController {
       throw new BadRequestException('url must start with https://x.com/');
     }
 
-    return this.browser.probeNavigate(targetUrl, accountId?.trim() || undefined, {
+    return this.browserProbe.probeNavigate(targetUrl, accountId?.trim() || undefined, {
       waitMs: waitMs ? Number(waitMs) : undefined,
       selector,
       extractTweets: extractTweets === 'true',

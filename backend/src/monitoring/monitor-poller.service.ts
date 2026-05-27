@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } fro
 import { DataSource } from 'typeorm';
 import { MonitoringService } from './monitoring.service';
 import { WebhookDeliveryService } from './webhook-delivery.service';
+import { WebhookDeliveryHistoryService } from './webhook-delivery-history.service';
 import { XDirectReadService } from '@/x-automation/x-direct';
 
 const POLL_INTERVAL_MS = parseInt(process.env.MONITOR_POLL_INTERVAL_MS ?? '600000', 10); // 10 min default
@@ -20,6 +21,7 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
   constructor(
     private readonly monitoring: MonitoringService,
     private readonly webhook: WebhookDeliveryService,
+    private readonly deliveryHistory: WebhookDeliveryHistoryService,
     private readonly xDirect: XDirectReadService,
     private readonly dataSource: DataSource,
   ) {}
@@ -151,7 +153,7 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
     };
 
     const result = await this.webhook.deliver(webhookUrl, payload, webhookSecret);
-    await this.monitoring.recordDelivery(
+    await this.deliveryHistory.record(
       monitorId,
       'tweet.new',
       payload,

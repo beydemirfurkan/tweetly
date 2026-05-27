@@ -1,13 +1,11 @@
 import { MonitoringService } from './monitoring.service';
 import { mockRepository } from '@/test/mocks/repository.mock';
 import type { MonitorEntity } from '@persistence/entities/monitor.entity';
-import type { WebhookDeliveryEntity } from '@persistence/entities/webhook-delivery.entity';
 
 function createService() {
   const monitors = mockRepository<MonitorEntity>();
-  const deliveries = mockRepository<WebhookDeliveryEntity>();
-  const service = new MonitoringService(monitors as any, deliveries as any);
-  return { service, monitors, deliveries };
+  const service = new MonitoringService(monitors as any);
+  return { service, monitors };
 }
 
 describe('MonitoringService', () => {
@@ -133,19 +131,6 @@ describe('MonitoringService', () => {
         { id: 'mon-1' },
         expect.objectContaining({ lastTweetUrl: 'https://x.com/user/status/123' }),
       );
-    });
-  });
-
-  describe('recordDelivery', () => {
-    it('saves delivery record with delivered status', async () => {
-      const { service, deliveries } = createService();
-      const delivery = { id: 'del-1' };
-      deliveries.create.mockReturnValue(delivery as any);
-      deliveries.save.mockResolvedValue(delivery as any);
-
-      await service.recordDelivery('mon-1', 'tweet.new', { event: 'tweet.new' }, 'delivered');
-
-      expect(deliveries.save).toHaveBeenCalled();
     });
   });
 });

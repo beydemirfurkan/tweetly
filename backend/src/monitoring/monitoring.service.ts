@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { MonitorEntity } from '@persistence/entities/monitor.entity';
-import { WebhookDeliveryEntity } from '@persistence/entities/webhook-delivery.entity';
 
 export interface CreateMonitorInput {
   accountId: string;
@@ -17,8 +16,6 @@ export class MonitoringService {
   constructor(
     @InjectRepository(MonitorEntity)
     private readonly monitors: Repository<MonitorEntity>,
-    @InjectRepository(WebhookDeliveryEntity)
-    private readonly deliveries: Repository<WebhookDeliveryEntity>,
   ) {}
 
   async create(input: CreateMonitorInput): Promise<MonitorEntity> {
@@ -85,34 +82,6 @@ export class MonitoringService {
 
   async updateLastCheck(id: string): Promise<void> {
     await this.monitors.update({ id }, { lastCheckAt: new Date() });
-  }
-
-  async listDeliveries(monitorId: string, limit = 20): Promise<WebhookDeliveryEntity[]> {
-    return this.deliveries.find({
-      where: { monitorId },
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
-  }
-
-  async recordDelivery(
-    monitorId: string,
-    eventType: string,
-    payload: Record<string, unknown>,
-    status: 'delivered' | 'failed',
-    error?: string,
-  ): Promise<void> {
-    await this.deliveries.save(
-      this.deliveries.create({
-        monitorId,
-        eventType,
-        payload,
-        status,
-        attempts: 1,
-        lastError: error ?? null,
-        deliveredAt: status === 'delivered' ? new Date() : null,
-      }),
-    );
   }
 }
 

@@ -5,13 +5,14 @@ import { AccountProfileEntity } from '@persistence/entities/account-profile.enti
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
 import { AccountsService } from './accounts.service';
 import { ProfileCacheService } from './profile-cache.service';
+import { AccountOwnershipService } from './account-ownership.service';
 
 @Module({
   // No XAutomationModule import — ProfileCacheService consumes the
   // PROFILE_FETCHER port, whose implementation is provided in
   // XAutomationModule. The previous accounts ↔ x-automation cycle is gone.
   imports: [TypeOrmModule.forFeature([AccountEntity, AccountProfileEntity])],
-  providers: [AccountsService, ProfileCacheService, ControlStateRepository],
-  exports: [AccountsService, ProfileCacheService],
+  providers: [AccountsService, ProfileCacheService, ControlStateRepository, AccountOwnershipService],
+  exports: [AccountsService, ProfileCacheService, AccountOwnershipService],
 })
 export class AccountsModule {}

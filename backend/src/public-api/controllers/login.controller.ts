@@ -24,7 +24,7 @@ import {
   RateLimitRead,
   TieredThrottlerGuard,
 } from '@/auth/tiered-throttler.guard';
-import { AccountFacade } from '../facades/account.facade';
+import { AccountLoginFacade } from '../facades/account-login.facade';
 import {
   AccountConnectDto,
   AccountReauthDto,
@@ -37,7 +37,7 @@ import {
 @UseGuards(ApiKeyGuard, TieredThrottlerGuard)
 @RequiresScope('write')
 export class LoginController {
-  constructor(private readonly accounts: AccountFacade) {}
+  constructor(private readonly accounts: AccountLoginFacade) {}
 
   @Post('accounts/connect')
   @HttpCode(HttpStatus.ACCEPTED)

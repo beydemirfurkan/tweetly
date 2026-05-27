@@ -1,63 +1,30 @@
 import * as path from 'path';
 import { Injectable, Logger } from '@nestjs/common';
-import { chromium, type BrowserContext, type Page } from 'patchright';
+import { type BrowserContext, type Page } from 'patchright';
 import { LoginFlowError } from './login-error';
 import { redactLoginDebugText, writeLoginDebugArtifact } from './login-debug-artifact';
-import { ERROR_TEXT, HOME_URL_PREFIX, LOGIN_URL, SEL } from './login-selectors';
 import type { XLoginInput, XLoginResult } from './login.types';
-import { optionalBrowserChannel } from '@/x-automation/browser/browser-channel';
-import { clearStaleLocks } from '@/x-automation/browser/clear-stale-locks';
-import { LOGIN_INIT_SCRIPT } from './login-stealth';
-import { humanDelay, humanWarmup, moveMouseRandomly, randomViewport } from './login-humanize';
-import { resolveProxy } from './proxy-resolver';
-import { generateTotp } from './totp';
 import {
-  captureDebug,
-  checkForCaptcha,
-  classifyVisibleFailure,
-  clickNamedButtonOrPressEnter,
-  didLeaveUsernameStep,
-  enterTextLikeUser,
-  extractCookies,
-  hasRetryableLoginPageError,
-  isVisibleSoon,
-  clickVisibleNamedControl,
-  matchesErrorText,
-  waitForAdvance,
-} from './login-page.utils';
-import {
-  classifyByUrl,
   classifyOnboardingError,
   collectOnboardingErrors,
   parseUserIdFromTwid,
   resolveLoginProfileDir,
   stripAt,
   truncate,
-  type OnboardingErrorLog,
 } from './login-classifiers';
+import { extractCookies } from './login-page.utils';
 import { tryPreLoginSession, verifyAuthenticatedSession } from './login-session-check';
+import { buildCancelCheck } from './x-login-step';
+import { buildLoginContext, LOGIN_FLAGS } from './x-login-context.factory';
+import { runLoginFlow } from './x-login-flow.runner';
 
 // Re-exports preserved for backward compatibility with consumers (specs and
 // scripts import these from x-login.service directly).
 export { classifyOnboardingError, resolveLoginProfileDir };
 
-// Exported for unit tests — pins the cancellation contract that the step()
+// Exported for unit tests — pins the cancellation contract that the runStep
 // loop relies on. Not part of the public service surface.
 export { buildCancelCheck };
-
-const USER_AGENT = process.env.LOGIN_USER_AGENT?.trim() || null;
-const STEP_TIMEOUT_MS = parseInt(process.env.LOGIN_STEP_TIMEOUT_MS ?? '20000', 10);
-const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10);
-const HEADFUL = (process.env.LOGIN_DEBUG_HEADFUL ?? 'false').toLowerCase() === 'true';
-const SLOWMO_MS = parseInt(process.env.LOGIN_DEBUG_SLOWMO_MS ?? '0', 10);
-
-/**
- * Probe called between login steps. Throws `LoginFlowError('cancelled', …)`
- * if the worker observed the row was cancelled by the user OR the shutdown
- * abort signal fired. No-op for callers that didn't wire either source
- * (e.g. smoke scripts) — they get the legacy "runs to completion" behavior.
- */
-type CancelCheck = () => Promise<void>;
 
 @Injectable()
 export class XLoginService {
@@ -86,41 +53,22 @@ export class XLoginService {
   async run(input: XLoginInput): Promise<XLoginResult> {
     const t0 = Date.now();
     const username = stripAt(input.username);
-    const profileDir = resolveLoginProfileDir(input.targetAccountId, username, input.proxyCountry);
-    clearStaleLocks(profileDir);
-    this.log.log(
-      `login start username=${username} profile=${path.basename(profileDir)} ` +
-        `headful=${HEADFUL} proxy=${input.proxyCountry ?? 'none'}`,
-    );
-
     const checkCancel = buildCancelCheck(input);
 
-    const proxy = resolveProxy(input.proxyCountry);
     let context: BrowserContext | null = null;
     let page: Page | null = null;
     try {
       await checkCancel();
-      const vp = randomViewport();
-      context = await chromium.launchPersistentContext(profileDir, {
-        headless: !HEADFUL,
-        ...optionalBrowserChannel(),
-        slowMo: SLOWMO_MS || undefined,
-        proxy: proxy ?? undefined,
-        ...(USER_AGENT ? { userAgent: USER_AGENT } : {}),
-        locale: 'tr-TR',
-        timezoneId: 'Europe/Istanbul',
-        viewport: vp,
-        args: [
-          '--disable-blink-features=AutomationControlled',
-          '--disable-features=AutomationControlled',
-          '--no-sandbox',
-          '--disable-dev-shm-usage',
-          `--window-size=${vp.width + 16},${vp.height + 88}`,
-        ],
+      const ctxResult = await buildLoginContext({
+        targetAccountId: input.targetAccountId,
+        username,
+        proxyCountry: input.proxyCountry,
       });
-      context.setDefaultTimeout(STEP_TIMEOUT_MS);
-      context.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
-      await context.addInitScript(LOGIN_INIT_SCRIPT);
+      context = ctxResult.context;
+      this.log.log(
+        `login start username=${username} profile=${path.basename(ctxResult.profileDir)} ` +
+          `headful=${LOGIN_FLAGS.HEADFUL} proxy=${input.proxyCountry ?? 'none'}`,
+      );
 
       page = context.pages()[0] ?? (await context.newPage());
       const onboardingErrors = collectOnboardingErrors(page);
@@ -130,10 +78,22 @@ export class XLoginService {
       if (preLogin) {
         const durationMs = Date.now() - t0;
         this.log.log(`login skipped (session valid) username=${username} screenName=${preLogin.screenName} duration=${durationMs}ms`);
-        return { ok: true, screenName: preLogin.screenName, userId: parseUserIdFromTwid(preLogin.cookies.twid) ?? null, cookies: preLogin.cookies, durationMs };
+        return {
+          ok: true,
+          screenName: preLogin.screenName,
+          userId: parseUserIdFromTwid(preLogin.cookies.twid) ?? null,
+          cookies: preLogin.cookies,
+          durationMs,
+        };
       }
 
-      await this.runFlow(page, { ...input, username }, onboardingErrors, checkCancel);
+      await runLoginFlow({
+        log: this.log,
+        page,
+        input: { ...input, username },
+        onboardingErrors,
+        checkCancel,
+      });
       const cookies = await extractCookies(context);
       const screenName = await verifyAuthenticatedSession(context, page, username, cookies);
       const userId = parseUserIdFromTwid(cookies.twid) ?? null;
@@ -165,229 +125,6 @@ export class XLoginService {
     }
   }
 
-  private async runFlow(
-    page: Page,
-    input: XLoginInput & { username: string },
-    onboardingErrors: OnboardingErrorLog,
-    checkCancel: CancelCheck,
-  ): Promise<void> {
-    // Warm-up: visit x.com root before the login flow so X sees the same
-    // pattern a real user does (homepage → click "Sign in"). Skipped if the
-    // persistent profile already has cookies for the target account
-    // (reauth-on-warm-profile shouldn't double-fetch).
-    await this.step('navigate', async () => {
-      try {
-        await page.goto('https://x.com/', { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
-        await humanWarmup(page);
-      } catch {
-        // Best-effort warm-up; proceed to login URL even if root failed.
-      }
-      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
-      await humanDelay(500, 1200);
-      await moveMouseRandomly(page);
-    }, page, checkCancel);
-
-    await this.step('username', async () => {
-      // Capture the step-start so classifyOnboardingError only sees errors
-      // that arrived inside *this* step's window — a stale 500 from a
-      // previous flow no longer flips the classification.
-      const stepStartedAt = Date.now();
-      const field = await this.waitForUsernameInput(page, checkCancel);
-      // X's React form ignores DOM-set values (fill() bypass): we must dispatch
-      // real keyboard events. Click for focus, type per-char, then submit.
-      await enterTextLikeUser(page, field, input.username);
-      await this.submitUsernameStep(page, field, onboardingErrors, stepStartedAt);
-    }, page, checkCancel);
-
-    // X may now show:
-    //  (a) password screen directly, or
-    //  (b) "unusual login" challenge asking for email/handle, or
-    //  (c) Arkose captcha iframe
-    await checkForCaptcha(page);
-
-    if (await isVisibleSoon(page, SEL.challengeInput, 4000)) {
-      await this.step('challenge', async () => {
-        const challengeValue = (input.email ?? input.username).trim();
-        const field = page.locator(SEL.challengeInput).first();
-        await enterTextLikeUser(page, field, challengeValue);
-        await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
-        await waitForAdvance(page, SEL.challengeInput, 6000);
-      }, undefined, checkCancel);
-    }
-
-    await checkForCaptcha(page);
-
-    await this.step('password', async () => {
-      const field = page.locator(SEL.passwordInput).first();
-      try {
-        await field.waitFor({ state: 'visible' });
-      } catch {
-        if (await matchesErrorText(page, ERROR_TEXT.invalidCredentials)) {
-          throw new LoginFlowError('invalid_credentials', 'username rejected (account flagged or unknown)');
-        }
-        const visibleFailure = await classifyVisibleFailure(page);
-        if (visibleFailure) throw visibleFailure;
-        const ctx = await captureDebug(page);
-        throw new LoginFlowError('home_not_reached', `password field never appeared. ${ctx}`);
-      }
-      await enterTextLikeUser(page, field, input.password);
-      const submitBtn = page.locator(SEL.loginSubmit).first();
-      if (await submitBtn.isVisible().catch(() => false)) {
-        await submitBtn.click();
-      } else {
-        await clickNamedButtonOrPressEnter(page, SEL.loginButtonTexts);
-      }
-    }, undefined, checkCancel);
-
-    if (await isVisibleSoon(page, SEL.totpInput, 5000)) {
-      if (!input.totpSecret) {
-        throw new LoginFlowError('email_verification_required', 'X prompted for a verification code');
-      }
-      await this.step('2fa', async () => {
-        const code = generateTotp(input.totpSecret!);
-        const field = page.locator(SEL.totpInput).first();
-        await enterTextLikeUser(page, field, code);
-        await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
-      }, undefined, checkCancel);
-    }
-
-    await this.verifyHome(page, checkCancel);
-  }
-
-  private async verifyHome(page: Page, checkCancel: CancelCheck): Promise<void> {
-    await this.step('verify-home', async () => {
-      try {
-        await page.waitForURL((url) => url.toString().startsWith(HOME_URL_PREFIX), {
-          timeout: STEP_TIMEOUT_MS,
-        });
-      } catch {
-        if (await matchesErrorText(page, ERROR_TEXT.invalidCredentials)) {
-          throw new LoginFlowError('invalid_credentials', 'password rejected');
-        }
-        if (await matchesErrorText(page, ERROR_TEXT.cooldown)) {
-          throw new LoginFlowError('login_cooldown', 'X reports too many attempts');
-        }
-        if (await matchesErrorText(page, ERROR_TEXT.emailChallenge)) {
-          throw new LoginFlowError('email_verification_required', 'X requires email verification');
-        }
-        if (await matchesErrorText(page, ERROR_TEXT.suspiciousLogin)) {
-          throw new LoginFlowError('suspicious_login_blocked', 'X blocked this login as suspicious');
-        }
-        await checkForCaptcha(page);
-        const urlReason = classifyByUrl(page.url());
-        if (urlReason) throw new LoginFlowError(urlReason.reason, urlReason.detail);
-        throw new LoginFlowError('home_not_reached', `did not reach /home (current=${page.url()})`);
-      }
-    }, undefined, checkCancel);
-  }
-
-  private async waitForUsernameInput(
-    page: Page,
-    checkCancel: CancelCheck,
-  ): Promise<import('patchright').Locator> {
-    const field = page.locator(SEL.usernameInput).first();
-    const maxAttempts = 3;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      // Each retry attempt is a natural cancellation point — the retry loop
-      // can spend ~5s per attempt waiting on a retryable error page, and we
-      // don't want a user-cancel to sit through all of them.
-      await checkCancel();
-      try {
-        await field.waitFor({ state: 'visible' });
-        return field;
-      } catch (err) {
-        const retryableLoginPage = await hasRetryableLoginPageError(page);
-        if (!retryableLoginPage && await clickVisibleNamedControl(page, SEL.loginButtonTexts)) {
-          this.log.warn(
-            `X login rendered landing page before username input; clicking login entry point ` +
-              `attempt=${attempt}/${maxAttempts}.`,
-          );
-          await page.waitForTimeout(2_000);
-          continue;
-        }
-        if (!retryableLoginPage) throw err;
-      }
-
-      this.log.warn(
-        `X login rendered retryable error page before username input; ` +
-          `clicking retry button and reloading login flow attempt=${attempt}/${maxAttempts}.`,
-      );
-      await clickNamedButtonOrPressEnter(page, SEL.retryButtonTexts);
-      await page.waitForTimeout(2_000);
-      if (await field.isVisible().catch(() => false)) return field;
-      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
-      await page.waitForTimeout(1_000);
-    }
-
-    const ctx = await captureDebug(page);
-    throw new LoginFlowError(
-      'home_not_reached',
-      `retryable login page before username input after ${maxAttempts} attempts. ${ctx}`,
-    );
-  }
-
-  private async submitUsernameStep(
-    page: Page,
-    field: import('patchright').Locator,
-    onboardingErrors: OnboardingErrorLog,
-    stepStartedAt: number,
-  ): Promise<void> {
-    await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
-    if (await didLeaveUsernameStep(page, 4000)) return;
-
-    await field.press('Enter');
-    if (await didLeaveUsernameStep(page, 4000)) return;
-
-    await clickNamedButtonOrPressEnter(page, SEL.nextButtonTexts);
-    if (await didLeaveUsernameStep(page, 4000)) return;
-
-    await checkForCaptcha(page);
-    // Only classify errors that arrived inside this step's window so a
-    // stale telemetry 500 from a previous flow can't shadow the real
-    // login error.
-    const apiFailure = classifyOnboardingError(onboardingErrors.lastSince(stepStartedAt));
-    if (apiFailure) throw new LoginFlowError(apiFailure.reason, apiFailure.detail);
-    const visibleFailure = await classifyVisibleFailure(page);
-    if (visibleFailure) throw visibleFailure;
-    const ctx = await captureDebug(page);
-    throw new LoginFlowError('home_not_reached', `username step did not advance. ${ctx}`);
-  }
-
-  private async step<T>(
-    name: string,
-    fn: () => Promise<T>,
-    page?: Page,
-    checkCancel?: CancelCheck,
-  ): Promise<T> {
-    if (checkCancel) await checkCancel();
-    const t = Date.now();
-    try {
-      const out = await fn();
-      this.log.debug(`step=${name} ok duration=${Date.now() - t}ms`);
-      return out;
-    } catch (err) {
-      if (err instanceof LoginFlowError) throw err;
-      const msg = err instanceof Error ? err.message : String(err);
-      // Best-effort page-state snapshot so the failure detail surfaces a
-      // *reason* (e.g. "url=…/login/error", "captcha=arkose", visible alert
-      // text) instead of a bare 'Timeout exceeded'. Helpful when X drifts the
-      // login DOM and selectors need tuning. Only inspected if `page` was
-      // passed — keeps non-page steps lean.
-      let extra = '';
-      if (page) {
-        try {
-          const ctx = await captureDebug(page);
-          if (ctx) extra = ` ${ctx}`;
-        } catch {}
-      }
-      throw new LoginFlowError(
-        'unknown',
-        `step ${name}: ${truncate(msg, 160)}${extra}`,
-      );
-    }
-  }
-
   private async decorateFailureDetail(
     page: Page | null,
     input: XLoginInput,
@@ -416,25 +153,4 @@ export class XLoginService {
       return safeDetail;
     }
   }
-}
-
-/**
- * Build the per-call cancel probe from the optional `isCancelled` and
- * `signal` inputs. When neither is provided this is a no-op closure so the
- * critical step path stays branch-free.
- */
-function buildCancelCheck(input: XLoginInput): CancelCheck {
-  const signal = input.signal;
-  const isCancelled = input.isCancelled;
-  if (!signal && !isCancelled) {
-    return async () => {};
-  }
-  return async () => {
-    if (signal?.aborted) {
-      throw new LoginFlowError('cancelled', 'login aborted (shutdown signal)');
-    }
-    if (isCancelled && (await isCancelled())) {
-      throw new LoginFlowError('cancelled', 'login cancelled by user');
-    }
-  };
 }

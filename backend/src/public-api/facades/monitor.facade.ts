@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { MonitoringService } from '@/monitoring/monitoring.service';
+import { WebhookDeliveryHistoryService } from '@/monitoring/webhook-delivery-history.service';
 import { redactMonitor } from '@/monitoring/monitor-redactor';
 import { checkWebhookUrl } from '@/monitoring/webhook-url-validator';
 import { AccountFacade } from './account.facade';
@@ -18,6 +19,7 @@ export class MonitorFacade {
   constructor(
     private readonly monitoring: MonitoringService,
     private readonly accounts: AccountFacade,
+    private readonly deliveryHistory: WebhookDeliveryHistoryService,
   ) {}
 
   async listForUser(userId: string) {
@@ -56,7 +58,7 @@ export class MonitorFacade {
 
   async getOwnedMonitor(userId: string, id: string) {
     const monitor = await this.findOwned(userId, id);
-    const deliveries = await this.monitoring.listDeliveries(id, 20);
+    const deliveries = await this.deliveryHistory.list(id, 20);
     return { monitor: redactMonitor(monitor), recentDeliveries: deliveries };
   }
 

@@ -6,13 +6,14 @@ import { XAutomationModule } from '@/x-automation/x-automation.module';
 import { MonitoringService } from './monitoring.service';
 import { MonitorPollerService } from './monitor-poller.service';
 import { WebhookDeliveryService } from './webhook-delivery.service';
+import { WebhookDeliveryHistoryService } from './webhook-delivery-history.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([MonitorEntity, WebhookDeliveryEntity]),
     XAutomationModule,
   ],
-  providers: [MonitoringService, MonitorPollerService, WebhookDeliveryService],
-  exports: [MonitoringService],
+  providers: [MonitoringService, WebhookDeliveryHistoryService, MonitorPollerService, WebhookDeliveryService],
+  exports: [MonitoringService, WebhookDeliveryHistoryService],
 })
 export class MonitoringModule {}
