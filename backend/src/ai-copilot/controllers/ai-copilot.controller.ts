@@ -9,7 +9,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiKeyGuard, getAuthContext } from '@/auth/api-key.guard';
-import { AdminUserGuard } from '../guards/admin-user.guard';
 import { ProfileAnalyzerService } from '../services/profile-analyzer.service';
 import { ContentSuggesterService } from '../services/content-suggester.service';
 import { ViralScorerService } from '../services/viral-scorer.service';
@@ -25,7 +24,7 @@ import { TWEET_FORMATS } from '../types/content-format.types';
 import { RateLimitCopilot } from '@/auth/tiered-throttler.guard';
 
 @Controller('copilot')
-@UseGuards(ApiKeyGuard, AdminUserGuard)
+@UseGuards(ApiKeyGuard)
 @RateLimitCopilot()
 export class AiCopilotController {
   constructor(

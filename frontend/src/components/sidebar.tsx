@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Bird,
   BookOpen,
+  Bot,
   Brain,
   KeyRound,
   LayoutDashboard,
@@ -38,11 +39,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       | '/monitoring'
       | '/api-keys'
       | '/ai-copilot'
+      | '/agent'
       | '/guide';
     label: string;
     icon: React.ElementType;
   }> = [
     { href: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { href: '/agent', label: t('agent'), icon: Bot },
     { href: '/ai-copilot', label: t('copilot'), icon: Brain },
     { href: '/accounts', label: t('accounts'), icon: Users },
     { href: '/actions', label: t('actions'), icon: Zap },

@@ -32,5 +32,6 @@ import { CopilotAnalysisService } from './services/copilot-analysis.service';
     ViralScorerService,
     CopilotAnalysisService,
   ],
+  exports: [ProfileAnalyzerService, ContentSuggesterService, OpenRouterService],
 })
 export class AiCopilotModule {}

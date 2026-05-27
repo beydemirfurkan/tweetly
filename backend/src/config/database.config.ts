@@ -21,6 +21,10 @@ import {
   BookmarkActionEntity,
   MonitorEntity,
   WebhookDeliveryEntity,
+  CopilotAnalysisEntity,
+  AccountStyleProfileEntity,
+  AgentConfigEntity,
+  AgentDraftEntity,
 } from '@persistence/entities';
 
 export interface DatabaseEnv {
@@ -88,6 +92,10 @@ const ENTITY_LIST: MixedList<Function | string | EntitySchema<unknown>> = [
   BookmarkActionEntity,
   MonitorEntity,
   WebhookDeliveryEntity,
+  CopilotAnalysisEntity,
+  AccountStyleProfileEntity,
+  AgentConfigEntity,
+  AgentDraftEntity,
 ];
 
 export function buildDataSourceOptions(env: DatabaseEnv = readDatabaseEnv()): DataSourceOptions {

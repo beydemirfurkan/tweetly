@@ -77,6 +77,7 @@
     "apiKeys": "API Anahtarları",
     "guide": "Kılavuz",
     "copilot": "AI Copilot",
+    "agent": "Agent",
     "logout": "Çıkış"
   },
   "login": {
@@ -600,6 +601,82 @@
       "viral_score": "Viral Skor",
       "loadMore": "Daha fazla yukle",
       "noResults": "Sonuc bulunamadi"
+    }
+  },
+  "agent": {
+    "title": "Autonomous Agent",
+    "subtitle": "Hesapların için otomatik tweet üretimi ve yönetimi",
+    "configs": "Agent Konfigürasyonları",
+    "noConfigs": "Henüz agent konfigürasyonu yok.",
+    "createConfig": "Yeni Agent",
+    "drafts": "Draftlar",
+    "pending": "Bekleyen",
+    "approved": "Onaylanan",
+    "rejected": "Reddedilen",
+    "published": "Yayınlanan",
+    "stats": "İstatistikler",
+    "config": {
+      "title": "Agent Konfigürasyonu",
+      "account": "Hesap",
+      "selectAccount": "Hesap seçin",
+      "enabled": "Aktif",
+      "dailyTarget": "Günlük Tweet Hedefi",
+      "formats": "Format Tercihi",
+      "topics": "Konu Alanları",
+      "topicsPlaceholder": "tech, ai, startup...",
+      "topicsHint": "Virgülle ayırın",
+      "toneOverride": "Ton Yönlendirmesi",
+      "tonePlaceholder": "samimi ve esprili...",
+      "interval": "Üretim Aralığı",
+      "interval15": "15 dakika",
+      "interval30": "30 dakika",
+      "interval60": "1 saat",
+      "interval120": "2 saat",
+      "interval240": "4 saat",
+      "interval360": "6 saat",
+      "interval720": "12 saat",
+      "save": "Kaydet",
+      "saving": "Kaydediliyor...",
+      "delete": "Sil",
+      "deleteConfirm": "Bu agent konfigürasyonunu silmek istediğinizden emin misiniz?",
+      "trigger": "Manuel Tetikle",
+      "triggering": "Tetikleniyor..."
+    },
+    "style": {
+      "title": "Stil Profili",
+      "analyze": "Otomatik Analiz",
+      "analyzing": "Analiz ediliyor...",
+      "handleLabel": "Kullanıcı Adı",
+      "handlePlaceholder": "@kullaniciadi",
+      "customInstructions": "Özel Yönergeler",
+      "customPlaceholder": "Tweet stilini, konseptini ve tercihlerini buraya yaz...",
+      "language": "Tweet Dili",
+      "save": "Kaydet",
+      "saving": "Kaydediliyor..."
+    },
+    "draft": {
+      "title": "Draft İnceleme",
+      "empty": "Bekleyen draft yok.",
+      "approve": "Onayla",
+      "reject": "Reddet",
+      "edit": "Düzenle",
+      "editAndApprove": "Düzenle ve Onayla",
+      "scheduleNow": "Şimdi yayınla",
+      "scheduleLater": "Zamanla",
+      "score": "Skor",
+      "reasoning": "Gerekçe",
+      "topic": "Konu",
+      "format": "Format",
+      "createdAt": "Oluşturulma"
+    },
+    "dashboard": {
+      "title": "Agent Dashboard",
+      "activeAgents": "Aktif Agent",
+      "todayDrafts": "Bugünkü Draftlar",
+      "pendingReview": "İnceleme Bekleyen",
+      "quickActions": "Hızlı İşlemler",
+      "viewDrafts": "Draftları Gör",
+      "configureAgent": "Agent Ayarla"
     }
   }
 }
