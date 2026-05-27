@@ -34,7 +34,7 @@ export class AgentPipelineService {
       styleProfile: this.enrichStyleProfile(styleProfile, style.customInstructions, config, style.tweetLanguage),
     });
 
-    const drafts: CreateDraftInput[] = result.suggestions.map((suggestion) => ({
+    const drafts: CreateDraftInput[] = result.suggestions.slice(0, count).map((suggestion) => ({
       agentConfigId: config.id,
       accountId: config.accountId,
       text: suggestion.text,
@@ -70,7 +70,9 @@ export class AgentPipelineService {
   ): StyleProfile | undefined {
     if (!base && !customInstructions && !config.toneOverride) return undefined;
 
-    const profile: StyleProfile = base ?? {
+    const profile: StyleProfile = base
+      ? { ...base, tone: [...base.tone], topTopics: [...base.topTopics] }
+      : {
       tone: [],
       avgLength: 140,
       hashtagUsage: 0.1,

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '@/auth/auth.module';
+import { AccountsModule } from '@/accounts/accounts.module';
 import { ActionEngineModule } from '@/action-engine/action-engine.module';
 import { ContentMemoryModule } from '@/content-memory/content-memory.module';
 import { AiCopilotModule } from '@/ai-copilot/ai-copilot.module';
@@ -17,6 +18,7 @@ import { AgentSchedulerService } from './services/agent-scheduler.service';
 @Module({
   imports: [
     AuthModule,
+    AccountsModule,
     ActionEngineModule,
     ContentMemoryModule,
     AiCopilotModule,

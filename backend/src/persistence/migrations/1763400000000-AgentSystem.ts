@@ -18,7 +18,7 @@ export class AgentSystem1763400000000 implements MigrationInterface {
       CREATE TABLE agent_configs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL,
-        account_id TEXT NOT NULL,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
         enabled BOOLEAN NOT NULL DEFAULT false,
         daily_tweet_target INTEGER NOT NULL DEFAULT 3,
         format_preference TEXT[] NOT NULL DEFAULT ARRAY['punch', 'spark', 'hook'],
@@ -32,11 +32,12 @@ export class AgentSystem1763400000000 implements MigrationInterface {
 
       CREATE INDEX idx_agent_configs_user_id ON agent_configs (user_id);
       CREATE INDEX idx_agent_configs_account_id ON agent_configs (account_id);
+      CREATE UNIQUE INDEX idx_agent_configs_account_unique ON agent_configs (account_id);
 
       CREATE TABLE agent_drafts (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        agent_config_id UUID NOT NULL,
-        account_id TEXT NOT NULL,
+        agent_config_id UUID NOT NULL REFERENCES agent_configs(id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
         text TEXT NOT NULL,
         format TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',

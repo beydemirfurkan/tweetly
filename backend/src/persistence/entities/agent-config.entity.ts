@@ -3,6 +3,7 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Update
 @Entity('agent_configs')
 @Index('idx_agent_configs_user_id', ['userId'])
 @Index('idx_agent_configs_account_id', ['accountId'])
+@Index('idx_agent_configs_account_unique', ['accountId'], { unique: true })
 export class AgentConfigEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

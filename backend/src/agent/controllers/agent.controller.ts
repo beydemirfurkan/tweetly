@@ -10,8 +10,10 @@ import {
   Req,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiKeyGuard, getAuthContext } from '@/auth/api-key.guard';
+import { AccountsService } from '@/accounts/accounts.service';
 import { StyleProfileService } from '../services/style-profile.service';
 import { AgentConfigService } from '../services/agent-config.service';
 import { AgentDraftService } from '../services/agent-draft.service';
@@ -36,6 +38,7 @@ export class AgentController {
     private readonly configService: AgentConfigService,
     private readonly draftService: AgentDraftService,
     private readonly scheduler: AgentSchedulerService,
+    private readonly accounts: AccountsService,
   ) {}
 
   @Get('configs')
@@ -72,15 +75,21 @@ export class AgentController {
   }
 
   @Get('style-profile/:accountId')
-  async getStyleProfile(@Param('accountId') accountId: string) {
+  async getStyleProfile(@Req() req: Request, @Param('accountId') accountId: string) {
+    const { userId } = getAuthContext(req);
+    await this.assertAccountOwnership(userId, accountId);
     return this.styleProfile.findByAccountId(accountId);
   }
 
   @Post('style-profile/:accountId')
   async updateStyleProfile(
+    @Req() req: Request,
     @Param('accountId') accountId: string,
     @Body() dto: UpdateStyleProfileDto,
   ) {
+    const { userId } = getAuthContext(req);
+    await this.assertAccountOwnership(userId, accountId);
+
     return this.styleProfile.upsert(accountId, {
       customInstructions: dto.customInstructions,
       tweetLanguage: dto.tweetLanguage,
@@ -89,9 +98,13 @@ export class AgentController {
 
   @Post('style-profile/:accountId/analyze')
   async analyzeStyleProfile(
+    @Req() req: Request,
     @Param('accountId') accountId: string,
     @Body() dto: AnalyzeStyleDto,
   ) {
+    const { userId } = getAuthContext(req);
+    await this.assertAccountOwnership(userId, accountId);
+
     if (!dto.handle?.trim()) throw new BadRequestException('handle is required');
     return this.styleProfile.analyzeAndSave(accountId, dto.handle.replace('@', '').trim());
   }
@@ -157,5 +170,10 @@ export class AgentController {
   async triggerAgent(@Req() req: Request, @Param('configId') configId: string) {
     const { userId } = getAuthContext(req);
     return this.scheduler.triggerManually(configId, userId);
+  }
+
+  private async assertAccountOwnership(userId: string, accountId: string): Promise<void> {
+    const account = await this.accounts.findByIdForUser(accountId, userId);
+    if (!account) throw new ForbiddenException('Account does not belong to this user');
   }
 }
