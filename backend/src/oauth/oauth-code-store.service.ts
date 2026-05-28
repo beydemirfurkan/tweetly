@@ -1,5 +1,7 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
+import { AppConfigService } from '@/config/app-config.service';
+import { envBackedConfig, type EnvBackedConfig } from '@/config/process-env-shim';
 
 export interface AuthCodeRecord {
   userId: string;
@@ -10,17 +12,7 @@ export interface AuthCodeRecord {
 }
 
 const CODE_TTL_SEC = 60;
-// Belt-and-suspenders for the in-memory backend: codes are TTL-pruned on
-// every put() call, but a runaway producer could still queue thousands
-// of unconsumed entries in the gap between sweeps. Cap rejects new puts
-// once the map fills, so memory is bounded regardless of producer rate.
-//
-// 10_000 entries × ~200 B/entry ≈ 2 MB worst case. Redis-backed
-// deployments never hit this — codes there expire via EX TTL.
-// Read at call time so tests can flip the cap via env between cases.
-function inMemoryCap(): number {
-  return parseInt(process.env.OAUTH_CODE_STORE_IN_MEMORY_CAP ?? '10000', 10);
-}
+const DEFAULT_IN_MEMORY_CAP = 10_000;
 const codeKey = (code: string) => `oauth:code:${code}`;
 
 /**
@@ -38,12 +30,33 @@ export class OAuthCodeStore implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(OAuthCodeStore.name);
   private redis: Redis | null = null;
   private memory = new Map<string, { value: AuthCodeRecord; expiresAt: number }>();
+  private readonly config: EnvBackedConfig;
+
+  // AppConfigService is Optional so the hand-rolled `new OAuthCodeStore()`
+  // in specs keeps working; under DI the global AppConfigModule supplies
+  // the real one. Either way we resolve through one typed surface.
+  constructor(@Optional() config?: AppConfigService) {
+    this.config = config ?? envBackedConfig();
+  }
+
+  /**
+   * In-memory cap: bounds memory when REDIS_URL is unset. Read on each
+   * call so tests can flip OAUTH_CODE_STORE_IN_MEMORY_CAP between cases.
+   * 10_000 entries × ~200 B/entry ≈ 2 MB worst case.
+   */
+  private inMemoryCap(): number {
+    return this.config.getNumber('OAUTH_CODE_STORE_IN_MEMORY_CAP', DEFAULT_IN_MEMORY_CAP);
+  }
+
+  private redisUrl(): string | null {
+    return this.config.getOptionalString('REDIS_URL');
+  }
 
   onModuleInit(): void {
-    const url = process.env.REDIS_URL;
+    const url = this.redisUrl();
     if (!url) {
       this.log.log(
-        `OAuthCodeStore using in-memory backend (no REDIS_URL) — dev only. Cap=${inMemoryCap()}`,
+        `OAuthCodeStore using in-memory backend (no REDIS_URL) — dev only. Cap=${this.inMemoryCap()}`,
       );
       return;
     }
@@ -68,7 +81,7 @@ export class OAuthCodeStore implements OnModuleInit, OnModuleDestroy {
     // Sweep expired entries before inserting — keeps the map clean during
     // normal-rate use without needing a separate interval timer.
     this.sweepInMemory();
-    const cap = inMemoryCap();
+    const cap = this.inMemoryCap();
     if (this.memory.size >= cap) {
       // Hard cap reached even after a sweep: producer is faster than the
       // 60s TTL window. Reject so we never grow unbounded. Authorize flow

@@ -3,6 +3,7 @@ import type { Page } from 'patchright';
 import { XBrowserService } from '@/x-automation/browser/x-browser.service';
 import { SelectorRegistry } from '@/x-automation/browser/selector-registry';
 import { AccountsService } from '@/accounts/accounts.service';
+import { envBackedConfig } from '@/config/process-env-shim';
 import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
 
 export type SessionRunner<T> = (page: Page, accountId: string) => Promise<T>;
@@ -25,7 +26,7 @@ export abstract class XDirectBaseService {
   ) {}
 
   protected isNoopMode(): boolean {
-    return (process.env.X_EXECUTOR_MODE ?? 'noop') !== 'patchright';
+    return envBackedConfig().getString('X_EXECUTOR_MODE', 'noop') !== 'patchright';
   }
 
   protected async resolveAccountId(accountId?: string): Promise<string> {

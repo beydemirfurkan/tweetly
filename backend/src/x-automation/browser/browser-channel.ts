@@ -1,4 +1,6 @@
+import { envBackedConfig } from '@/config/process-env-shim';
+
 export function optionalBrowserChannel(): { channel: string } | Record<string, never> {
-  const channel = process.env.PATCHRIGHT_BROWSER_CHANNEL?.trim();
+  const channel = envBackedConfig().getOptionalString('PATCHRIGHT_BROWSER_CHANNEL');
   return channel ? { channel } : {};
 }

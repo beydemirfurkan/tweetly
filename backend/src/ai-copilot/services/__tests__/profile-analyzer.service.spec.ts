@@ -1,5 +1,5 @@
 import { ProfileAnalyzerService } from '../profile-analyzer.service';
-import type { OpenRouterService } from '../openrouter.service';
+import type { ILlmClient } from '../../llm/llm-client.port';
 import type { XDirectReadService } from '@/x-automation/x-direct/x-direct-read.service';
 import type { TweetResult, UserResult } from '@/x-automation/x-direct';
 
@@ -46,7 +46,7 @@ function makeService(
   mockChat: jest.Mock,
   reads: Partial<jest.Mocked<XDirectReadService>>,
 ): { svc: ProfileAnalyzerService } {
-  const ai = { chat: mockChat } as unknown as jest.Mocked<OpenRouterService>;
+  const ai = { chat: mockChat } as unknown as jest.Mocked<ILlmClient>;
   const xRead = reads as unknown as jest.Mocked<XDirectReadService>;
   const svc = new ProfileAnalyzerService(ai, xRead);
   return { svc };

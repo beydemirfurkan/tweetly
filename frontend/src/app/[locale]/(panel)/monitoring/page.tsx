@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useApiFetch, type Monitor, type MonitorsResponse, type MonitorDetailResponse } from '@/lib/api';
-import { useLazyLoad } from '@/lib/use-lazy-load';
+import { useApiResource } from '@/lib/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -186,8 +186,10 @@ export default function MonitoringPage() {
   const t = useTranslations('monitoring');
   const tCommon = useTranslations('common');
   const apiFetch = useApiFetch();
-  const [monitors, setMonitors] = useState<Monitor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const monitorsRes = useApiResource<MonitorsResponse>('/api/v1/monitors');
+  const monitors: Monitor[] = monitorsRes.data?.monitors ?? [];
+  const loading = monitorsRes.loading;
+  const fetchError = monitorsRes.error?.message;
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -199,20 +201,7 @@ export default function MonitoringPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [rotateTarget, setRotateTarget] = useState<{ id: string; handle: string } | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await apiFetch<MonitorsResponse>('/api/v1/monitors');
-      setMonitors(res.monitors);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFetch]);
-
-  useLazyLoad(load);
+  const load = () => void monitorsRes.refetch();
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,7 +255,15 @@ export default function MonitoringPage() {
   const handleDelete = async (id: string) => {
     try {
       await apiFetch(`/api/v1/monitors/${id}`, { method: 'DELETE' });
-      setMonitors((prev) => prev.filter((m) => m.id !== id));
+      // Optimistic local update; the next refetch will reconcile if the
+      // server pruned anything else.
+      const current = monitorsRes.data;
+      if (current) {
+        monitorsRes.setData({
+          ...current,
+          monitors: current.monitors.filter((m) => m.id !== id),
+        });
+      }
     } catch (err) {
       setError((err as Error).message);
     }
@@ -275,9 +272,13 @@ export default function MonitoringPage() {
   const handlePause = async (id: string) => {
     try {
       await apiFetch(`/api/v1/monitors/${id}/pause`, { method: 'PATCH' });
-      setMonitors((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, enabled: false } : m)),
-      );
+      const current = monitorsRes.data;
+      if (current) {
+        monitorsRes.setData({
+          ...current,
+          monitors: current.monitors.map((m) => (m.id === id ? { ...m, enabled: false } : m)),
+        });
+      }
     } catch (err) {
       alert((err as Error).message);
     }
@@ -386,9 +387,9 @@ export default function MonitoringPage() {
         </Card>
       )}
 
-      {error && (
+      {(error || fetchError) && (
         <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <span>{tCommon('apiError')}: {error}</span>
+          <span>{tCommon('apiError')}: {error || fetchError}</span>
           <button onClick={load} className="ml-auto underline hover:no-underline">{tCommon('retry')}</button>
         </div>
       )}

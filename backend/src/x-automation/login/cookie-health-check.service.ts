@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { AppConfigService } from '@/config/app-config.service';
+import { envBackedConfig, type EnvBackedConfig } from '@/config/process-env-shim';
 import { X_PUBLIC_BEARER } from './x-public-bearer';
 
 export interface CookieHealthInput {
@@ -23,17 +25,6 @@ export interface CookieHealthResult {
 
 const SETTINGS_URL = 'https://api.x.com/1.1/account/settings.json';
 
-// Match the server-side session-check policy: X sometimes returns 401/403
-// for a few seconds after a freshly-set cookie while the session shard
-// syncs. Retry once before the manual-cookie-paste UI surfaces a hard
-// rejection. Read at call time so tests can flip the policy via env.
-function authRetryConfig(): { retries: number; delayMs: number } {
-  return {
-    retries: parseInt(process.env.COOKIE_HEALTH_AUTH_RETRY ?? '1', 10),
-    delayMs: parseInt(process.env.COOKIE_HEALTH_AUTH_RETRY_DELAY_MS ?? '2500', 10),
-  };
-}
-
 /**
  * Probe X's authenticated settings endpoint with a candidate cookie set to
  * see whether the session is still alive — used by the manual-cookie-paste
@@ -46,6 +37,25 @@ function authRetryConfig(): { retries: number; delayMs: number } {
 @Injectable()
 export class CookieHealthCheckService {
   private readonly log = new Logger(CookieHealthCheckService.name);
+  private readonly config: EnvBackedConfig;
+
+  // AppConfigService is Optional so the hand-rolled
+  // `new CookieHealthCheckService()` in specs keeps working; under DI the
+  // global AppConfigModule supplies the real one.
+  constructor(@Optional() config?: AppConfigService) {
+    this.config = config ?? envBackedConfig();
+  }
+
+  // Match the server-side session-check policy: X sometimes returns 401/403
+  // for a few seconds after a freshly-set cookie while the session shard
+  // syncs. Retry once before the manual-cookie-paste UI surfaces a hard
+  // rejection. Read at call time so tests can flip the policy via env.
+  private authRetryConfig(): { retries: number; delayMs: number } {
+    return {
+      retries: this.config.getNumber('COOKIE_HEALTH_AUTH_RETRY', 1),
+      delayMs: this.config.getNumber('COOKIE_HEALTH_AUTH_RETRY_DELAY_MS', 2500),
+    };
+  }
 
   async check(input: CookieHealthInput): Promise<CookieHealthResult> {
     const authToken = input.authToken?.trim();
@@ -58,7 +68,7 @@ export class CookieHealthCheckService {
     if (input.twid?.trim()) cookieParts.push(`twid=${input.twid.trim()}`);
     const cookieHeader = cookieParts.join('; ');
 
-    const { retries: AUTH_RETRY, delayMs: AUTH_RETRY_DELAY_MS } = authRetryConfig();
+    const { retries: AUTH_RETRY, delayMs: AUTH_RETRY_DELAY_MS } = this.authRetryConfig();
     let lastAuthRejection: number | null = null;
     for (let attempt = 0; attempt <= AUTH_RETRY; attempt++) {
       let res: Response;

@@ -1,4 +1,6 @@
 import { ContentMemoryService } from '../content-memory.service';
+import { TextNormalizer } from '../text-normalizer.service';
+import { SimilarityScorer } from '../similarity-scorer.service';
 
 function createMockQueryBuilder(rows: unknown[] = []) {
   const qb: any = {
@@ -17,7 +19,10 @@ function createService(rows: unknown[] = []) {
     createQueryBuilder: jest.fn().mockReturnValue(qb),
     insert: jest.fn().mockResolvedValue(undefined),
   };
-  const service = new ContentMemoryService(repo as any);
+  // Use the real normaliser + scorer — both are pure, no I/O, and
+  // exercising the same code path as production catches regressions in the
+  // composition that mocks would mask.
+  const service = new ContentMemoryService(repo as any, new TextNormalizer(), new SimilarityScorer());
   return { service, repo, qb };
 }
 

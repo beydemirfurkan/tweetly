@@ -5,12 +5,11 @@ import { clearStaleLocks } from './clear-stale-locks';
 import { optionalBrowserChannel } from './browser-channel';
 import { BrowserConfigService } from './browser-config';
 import { CookieInjectorService } from './cookie-injector.service';
+import { AppConfigService } from '@/config/app-config.service';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
-const STRICT_SESSION_HEALTH_ENABLED = (process.env.STRICT_SESSION_HEALTH_ENABLED ?? 'true').toLowerCase() !== 'false';
 
 export interface LaunchResult {
   context: BrowserContext;
@@ -28,11 +27,17 @@ export interface LaunchResult {
 export class XBrowserService implements OnModuleDestroy {
   private readonly log = new Logger(XBrowserService.name);
   private readonly active = new Set<BrowserContext>();
+  private readonly strictSessionHealthEnabled: boolean;
 
   constructor(
     private readonly config: BrowserConfigService,
     private readonly cookies: CookieInjectorService,
-  ) {}
+    appConfig: AppConfigService,
+  ) {
+    // Original semantics: enabled unless the env var literally equals 'false'.
+    this.strictSessionHealthEnabled =
+      appConfig.getString('STRICT_SESSION_HEALTH_ENABLED', '').toLowerCase() !== 'false';
+  }
 
   async launch(accountId?: string): Promise<LaunchResult> {
     const profileDir = this.config.resolveProfileDir(accountId);
@@ -82,7 +87,7 @@ export class XBrowserService implements OnModuleDestroy {
   }
 
   async assertSessionHealthy(page: Page, _accountId?: string): Promise<void> {
-    if (!STRICT_SESSION_HEALTH_ENABLED) return;
+    if (!this.strictSessionHealthEnabled) return;
 
     const url = page.url();
     const title = await page.title().catch(() => 'unknown');

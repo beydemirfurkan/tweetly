@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
+import { envBackedConfig } from '@/config/process-env-shim';
 
 const VERSION = 'v1';
 const ALGO = 'aes-256-gcm';
@@ -43,8 +44,10 @@ export class CredentialCipherService {
   }
 }
 
-export function loadMasterKeyFromEnv(env: NodeJS.ProcessEnv = process.env): Buffer {
-  const raw = (env.ENCRYPTION_KEY ?? '').trim();
+export function loadMasterKeyFromEnv(env?: NodeJS.ProcessEnv): Buffer {
+  const raw = (env === undefined
+    ? envBackedConfig().raw('ENCRYPTION_KEY') ?? ''
+    : env.ENCRYPTION_KEY ?? '').trim();
   if (!raw) {
     throw new Error('ENCRYPTION_KEY is required (32 bytes, base64 or hex). See .env.example');
   }

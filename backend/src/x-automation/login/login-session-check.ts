@@ -5,16 +5,20 @@ import { humanDelay } from './login-humanize';
 import { HOME_URL_PREFIX } from './login-selectors';
 import { truncate } from './login-classifiers';
 import { X_PUBLIC_BEARER } from './x-public-bearer';
+import { envBackedConfig } from '@/config/process-env-shim';
 import type { XLoginCookies } from './login.types';
 
-const NAV_TIMEOUT_MS = parseInt(process.env.LOGIN_NAV_TIMEOUT_MS ?? '45000', 10);
-
-// X sometimes returns 401/403 from settings.json for a few seconds after
-// login while the session shard syncs across regions. We retry once with
-// a brief backoff before declaring `cookies_missing`. Configurable so a
-// suspected-down deployment can disable it.
-const SETTINGS_AUTH_RETRY = parseInt(process.env.LOGIN_SETTINGS_AUTH_RETRY ?? '1', 10);
-const SETTINGS_AUTH_RETRY_DELAY_MS = parseInt(process.env.LOGIN_SETTINGS_AUTH_RETRY_DELAY_MS ?? '2500', 10);
+// Resolved on each call (rather than at module load) so test mutation of
+// LOGIN_NAV_TIMEOUT_MS / LOGIN_SETTINGS_AUTH_RETRY between cases works
+// without a module reset.
+function timeoutCfg(): { navMs: number; retries: number; retryDelayMs: number } {
+  const cfg = envBackedConfig();
+  return {
+    navMs: cfg.getNumber('LOGIN_NAV_TIMEOUT_MS', 45_000),
+    retries: cfg.getNumber('LOGIN_SETTINGS_AUTH_RETRY', 1),
+    retryDelayMs: cfg.getNumber('LOGIN_SETTINGS_AUTH_RETRY_DELAY_MS', 2500),
+  };
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,7 +36,7 @@ export async function tryPreLoginSession(
   username: string,
 ): Promise<{ screenName: string; cookies: XLoginCookies } | null> {
   try {
-    await page.goto(HOME_URL_PREFIX, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+    await page.goto(HOME_URL_PREFIX, { waitUntil: 'domcontentloaded', timeout: timeoutCfg().navMs });
     await humanDelay(1000, 2000);
     if (!page.url().startsWith(HOME_URL_PREFIX)) return null;
     if (!(await isLoggedInAs(page, username))) return null;
@@ -68,8 +72,9 @@ export async function verifyAuthenticatedSession(
   // so a per-shard outage doesn't burn the retry budget.
   let lastStatus: number | null = null;
   let lastAuthRejection: { status: number } | null = null;
+  const { retries, retryDelayMs } = timeoutCfg();
 
-  for (let attempt = 0; attempt <= SETTINGS_AUTH_RETRY; attempt++) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
     lastAuthRejection = null;
 
     for (const url of urls) {
@@ -104,8 +109,8 @@ export async function verifyAuthenticatedSession(
     }
 
     // Both URLs returned 401/403 this pass. Back off and try once more.
-    if (lastAuthRejection && attempt < SETTINGS_AUTH_RETRY) {
-      await sleep(SETTINGS_AUTH_RETRY_DELAY_MS);
+    if (lastAuthRejection && attempt < retries) {
+      await sleep(retryDelayMs);
       continue;
     }
     break;

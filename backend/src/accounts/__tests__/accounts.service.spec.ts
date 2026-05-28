@@ -1,7 +1,9 @@
 import type { DataSource, Repository } from 'typeorm';
 import { AccountsService } from '../accounts.service';
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
+import { ActionAdminRepository } from '@persistence/repositories/action-admin.repository';
 import type { AccountEntity } from '@persistence/entities/account.entity';
+import type { AppConfigService } from '@/config/app-config.service';
 
 describe('AccountsService', () => {
   function createService(): {
@@ -9,6 +11,7 @@ describe('AccountsService', () => {
     repo: jest.Mocked<Pick<Repository<AccountEntity>, 'findOne' | 'find' | 'save' | 'update'>>;
     query: jest.Mock;
     managerQuery: jest.Mock;
+    actionAdmin: jest.Mocked<Pick<ActionAdminRepository, 'cancelPendingByAccount'>>;
   } {
     const repo = {
       findOne: jest.fn(),
@@ -25,11 +28,29 @@ describe('AccountsService', () => {
     );
     const dataSource = { query, transaction } as unknown as DataSource;
     const state = new ControlStateRepository(dataSource);
+    const actionAdmin = {
+      cancelPendingByAccount: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<Pick<ActionAdminRepository, 'cancelPendingByAccount'>>;
+    // Default config: pause after 3 auth failures, mirroring production.
+    const config = {
+      getNumber: jest.fn(
+        (key: string, fallback: number) => (key === 'AUTH_FAILURE_PAUSE_THRESHOLD' ? 3 : fallback),
+      ),
+      getString: jest.fn((_k: string, fb: string) => fb),
+      getBoolean: jest.fn((_k: string, fb: boolean) => fb),
+    } as unknown as AppConfigService;
     return {
-      service: new AccountsService(repo as unknown as Repository<AccountEntity>, dataSource, state),
+      service: new AccountsService(
+        repo as unknown as Repository<AccountEntity>,
+        dataSource,
+        state,
+        actionAdmin as unknown as ActionAdminRepository,
+        config,
+      ),
       repo,
       query,
       managerQuery,
+      actionAdmin,
     };
   }
 

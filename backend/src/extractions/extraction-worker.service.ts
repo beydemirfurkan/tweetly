@@ -1,12 +1,12 @@
 import * as fs from 'fs/promises';
 import { Injectable } from '@nestjs/common';
-import { XDirectReadService, type PaginatedResult } from '@/x-automation/x-direct';
-import type { ExtractionParams } from '@persistence/entities/extraction-job.entity';
+import type { PaginatedResult } from '@/x-automation/x-direct';
 import {
   ExtractionJobsRepository,
   type ClaimedExtraction,
 } from './extraction-jobs.repository';
 import { ExtractionService } from './extraction.service';
+import { ExtractionStrategyRegistry } from './strategies/extraction-strategy.registry';
 import { PollingWorker, WorkerOptionsFactory, type WorkerLoopOptions } from '@/common/workers';
 
 /**
@@ -27,7 +27,7 @@ export class ExtractionWorker extends PollingWorker {
   constructor(
     private readonly jobs: ExtractionJobsRepository,
     private readonly extractions: ExtractionService,
-    private readonly reads: XDirectReadService,
+    private readonly strategies: ExtractionStrategyRegistry,
     private readonly optionsFactory: WorkerOptionsFactory,
   ) {
     super('extract');
@@ -111,62 +111,16 @@ export class ExtractionWorker extends PollingWorker {
     }
   }
 
-  private async fetchPage(
+  private fetchPage(
     job: ClaimedExtraction,
     limit: number,
     cursor: string | undefined,
   ): Promise<PaginatedResult<unknown>> {
-    const accountId = job.accountId ?? undefined;
-    const params = job.params;
-    switch (job.type) {
-      case 'user_followers':
-        return this.reads.getUserFollowers(this.requireHandle(params), limit, accountId, cursor, {
-          verifiedOnly: params.verifiedOnly,
-        });
-      case 'user_following':
-        return this.reads.getUserFollowing(this.requireHandle(params), limit, accountId, cursor, {
-          verifiedOnly: params.verifiedOnly,
-        });
-      case 'user_tweets':
-        return this.reads.getUserTweets(this.requireHandle(params), limit, accountId, cursor);
-      case 'user_likes':
-        return this.reads.getUserLikes(this.requireHandle(params), limit, accountId, cursor);
-      case 'user_mentions':
-        return this.reads.getUserMentions(this.requireHandle(params), limit, accountId, cursor);
-      case 'tweet_retweeters':
-        return this.reads.getTweetRetweeters(
-          this.requireTweetUrl(params),
-          limit,
-          accountId,
-          cursor,
-          { verifiedOnly: params.verifiedOnly },
-        );
-      case 'search_tweets':
-        return this.reads.searchTweets(this.requireQuery(params), limit, accountId, cursor);
-      case 'list_members':
-        return this.reads.getListMembers(this.requireListId(params), limit, accountId, cursor, {
-          verifiedOnly: params.verifiedOnly,
-        });
-    }
-  }
-
-  private requireHandle(p: ExtractionParams): string {
-    if (!p.handle) throw new Error('params.handle is required');
-    return p.handle;
-  }
-
-  private requireTweetUrl(p: ExtractionParams): string {
-    if (!p.tweetUrl) throw new Error('params.tweetUrl is required');
-    return p.tweetUrl;
-  }
-
-  private requireQuery(p: ExtractionParams): string {
-    if (!p.query) throw new Error('params.query is required');
-    return p.query;
-  }
-
-  private requireListId(p: ExtractionParams): string {
-    if (!p.listId) throw new Error('params.listId is required');
-    return p.listId;
+    return this.strategies.forType(job.type).fetch({
+      params: job.params,
+      limit,
+      accountId: job.accountId ?? undefined,
+      cursor,
+    });
   }
 }

@@ -24,6 +24,7 @@ import { CircuitBreakerService } from '@/action-engine/circuit-breaker.service';
 import { BrowserDiagnosticsService } from '@/x-automation/browser/browser-diagnostics.service';
 import { BrowserProbeService } from '@/x-automation/browser/browser-probe.service';
 import { XDirectReadService } from '@/x-automation/x-direct';
+import { AppConfigService } from '@/config/app-config.service';
 
 class SecretUpdateBody {
   @ApiProperty({ required: false, description: 'New persistent admin token (replaces BOOTSTRAP_ADMIN_TOKEN)' })
@@ -72,6 +73,7 @@ export class AdminApiController {
     private readonly browserDiagnostics: BrowserDiagnosticsService,
     private readonly browserProbe: BrowserProbeService,
     private readonly xDirect: XDirectReadService,
+    private readonly config: AppConfigService,
   ) {}
 
   // ── Dead-letter (DLQ) ─────────────────────────────────────────────────
@@ -247,7 +249,7 @@ export class AdminApiController {
   }
 
   private assertDebugEndpointsEnabled(): void {
-    if (process.env.ADMIN_DEBUG_ENDPOINTS_ENABLED !== 'true') {
+    if (!this.config.getBoolean('ADMIN_DEBUG_ENDPOINTS_ENABLED', false)) {
       throw new NotFoundException('Not found');
     }
   }

@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { useApiFetch, type RedactedAccount } from '@/lib/api';
+import { useApiResource, useAccounts } from '@/lib/hooks';
 import { Link } from '@/i18n/navigation';
 import {
   Bot,
@@ -40,36 +39,23 @@ interface DraftStats {
 export default function AgentDashboardPage() {
   const t = useTranslations('agent');
   const tc = useTranslations('common');
-  const apiFetch = useApiFetch();
 
-  const [accounts, setAccounts] = useState<RedactedAccount[]>([]);
-  const [configs, setConfigs] = useState<AgentConfig[]>([]);
-  const [stats, setStats] = useState<DraftStats>({ pending: 0, approved: 0, rejected: 0, published: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const accountsRes = useAccounts();
+  const configsRes = useApiResource<AgentConfig[]>('/api/v1/agent/configs');
+  const statsRes = useApiResource<DraftStats>('/api/v1/agent/drafts/stats');
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
+  const accounts = accountsRes.accounts;
+  const configs = configsRes.data ?? [];
+  const stats = statsRes.data ?? { pending: 0, approved: 0, rejected: 0, published: 0 };
+  const loading = accountsRes.loading || configsRes.loading || statsRes.loading;
+  const errorObj = accountsRes.error ?? configsRes.error ?? statsRes.error;
+  const error = errorObj ? errorObj.message : '';
 
-      const accs = await apiFetch<RedactedAccount[]>('/api/v1/accounts');
-      const cfgs = await apiFetch<AgentConfig[]>('/api/v1/agent/configs');
-      const draftStats = await apiFetch<DraftStats>('/api/v1/agent/drafts/stats');
-
-      setAccounts(accs);
-      setConfigs(cfgs);
-      setStats(draftStats);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFetch]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const loadData = () => {
+    void accountsRes.refetch();
+    void configsRes.refetch();
+    void statsRes.refetch();
+  };
 
   const getAccountName = (accountId: string) => {
     const acc = accounts.find((a) => a.id === accountId);

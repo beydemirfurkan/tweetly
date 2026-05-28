@@ -6,7 +6,10 @@ import { WriteHandler } from '../handlers/write.handler';
 import { ProfileHandler } from '../handlers/profile.handler';
 import { ReadHandler } from '../handlers/read.handler';
 import { MonitorHandler } from '../handlers/monitor.handler';
-import { AccountHandler } from '../handlers/account.handler';
+import { AccountInfoHandler } from '../handlers/account-info.handler';
+import { LoginHandler } from '../handlers/login.handler';
+import { ActionQueueHandler } from '../handlers/action-queue.handler';
+import { AccountSettingsHandler } from '../handlers/account-settings.handler';
 import { ExtractionHandler } from '../handlers/extraction.handler';
 
 // Stub each handler with no real deps. The bindings file only references
@@ -20,7 +23,10 @@ function stubHandlers() {
     profile: handlerProxy() as ProfileHandler,
     read: handlerProxy() as ReadHandler,
     monitor: handlerProxy() as MonitorHandler,
-    account: handlerProxy() as AccountHandler,
+    accountInfo: handlerProxy() as AccountInfoHandler,
+    login: handlerProxy() as LoginHandler,
+    actionQueue: handlerProxy() as ActionQueueHandler,
+    accountSettings: handlerProxy() as AccountSettingsHandler,
     extraction: handlerProxy() as ExtractionHandler,
   };
 }
@@ -35,7 +41,10 @@ describe('MCP tool registration drift', () => {
       handlers.profile,
       handlers.read,
       handlers.monitor,
-      handlers.account,
+      handlers.accountInfo,
+      handlers.login,
+      handlers.actionQueue,
+      handlers.accountSettings,
       handlers.extraction,
     );
     bindings.onApplicationBootstrap();

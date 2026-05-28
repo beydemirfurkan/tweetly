@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OpenRouterService } from './openrouter.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { LLM_CLIENT, type ILlmClient } from '../llm/llm-client.port';
 import type {
   ContentSuggestRequest,
   ContentSuggestResult,
@@ -14,7 +14,7 @@ import { randomUUID } from 'crypto';
 export class ContentSuggesterService {
   private readonly logger = new Logger(ContentSuggesterService.name);
 
-  constructor(private readonly ai: OpenRouterService) {}
+  constructor(@Inject(LLM_CLIENT) private readonly ai: ILlmClient) {}
 
   async suggest(request: ContentSuggestRequest): Promise<ContentSuggestResult> {
     const { format, topic, sourceHandles, styleProfile } = request;

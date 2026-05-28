@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useApiFetch, type ApiKey, type CreatedApiKey } from '@/lib/api';
-import { useLazyLoad } from '@/lib/use-lazy-load';
+import { useApiResource } from '@/lib/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,9 +23,12 @@ import { cn } from '@/lib/utils';
 export default function ApiKeysPage() {
   const t = useTranslations('apiKeys');
   const apiFetch = useApiFetch();
-  const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [loading, setLoading] = useState(true);
+  const keysResource = useApiResource<ApiKey[]>('/auth/api-keys');
+  const keys = Array.isArray(keysResource.data) ? keysResource.data : [];
+  const loading = keysResource.loading;
   const [error, setError] = useState('');
+  // Surface fetch errors through the same banner as mutation errors.
+  const fetchError = keysResource.error?.message;
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
@@ -33,21 +36,6 @@ export default function ApiKeysPage() {
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokeId, setRevokeId] = useState<string | null>(null);
-
-  const loadKeys = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const list = await apiFetch<ApiKey[]>('/auth/api-keys');
-      setKeys(Array.isArray(list) ? list : []);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFetch]);
-
-  useLazyLoad(loadKeys);
 
   const submitCreate = async () => {
     if (!newKeyName.trim()) return;
@@ -62,7 +50,7 @@ export default function ApiKeysPage() {
       setCreatedKey(created);
       setNewKeyName('');
       setNewKeyScope('full');
-      loadKeys();
+      void keysResource.refetch();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -73,7 +61,7 @@ export default function ApiKeysPage() {
   const revokeKey = async (id: string) => {
     try {
       await apiFetch(`/auth/api-keys/${id}`, { method: 'DELETE' });
-      loadKeys();
+      void keysResource.refetch();
     } catch (err) {
       setError((err as Error).message);
     }
@@ -107,7 +95,7 @@ export default function ApiKeysPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadKeys}
+            onClick={() => void keysResource.refetch()}
             disabled={loading}
             className="gap-1.5"
           >
@@ -128,9 +116,9 @@ export default function ApiKeysPage() {
         </div>
       </header>
 
-      {error && (
+      {(error || fetchError) && (
         <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {t('serverError')}: {error}
+          {t('serverError')}: {error || fetchError}
         </div>
       )}
 

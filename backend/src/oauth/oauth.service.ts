@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { OAuthClientEntity } from '@persistence/entities/oauth-client.entity';
 import { OAuthCodeStore, type AuthCodeRecord } from './oauth-code-store.service';
+import { OAuthCredentialHasher } from './credential-hasher.service';
+import { PkceVerifier } from './pkce-verifier.service';
 
 export interface RegisteredClient {
   clientId: string;
@@ -20,6 +22,8 @@ export class OAuthService {
     @InjectRepository(OAuthClientEntity)
     private readonly clients: Repository<OAuthClientEntity>,
     private readonly codes: OAuthCodeStore,
+    private readonly hasher: OAuthCredentialHasher,
+    private readonly pkce: PkceVerifier,
   ) {}
 
   // ── DCR (RFC 7591) ────────────────────────────────────────────────────────
@@ -51,7 +55,7 @@ export class OAuthService {
 
     const clientId = `oauth_${crypto.randomBytes(16).toString('hex')}`;
     const clientSecret = crypto.randomBytes(32).toString('hex');
-    const clientSecretHash = sha256(clientSecret);
+    const clientSecretHash = this.hasher.hash(clientSecret);
 
     const saved = await this.clients.save(
       this.clients.create({
@@ -78,7 +82,7 @@ export class OAuthService {
   async verifyClientSecret(clientId: string, clientSecret: string): Promise<OAuthClientEntity | null> {
     const client = await this.findClient(clientId);
     if (!client) return null;
-    return timingSafeEqual(sha256(clientSecret), client.clientSecretHash) ? client : null;
+    return this.hasher.verify(clientSecret, client.clientSecretHash) ? client : null;
   }
 
   // ── Authorization codes ───────────────────────────────────────────────────
@@ -96,9 +100,7 @@ export class OAuthService {
   // ── PKCE (S256 only) ──────────────────────────────────────────────────────
 
   verifyPkce(verifier: string, challenge: string): boolean {
-    if (!verifier || !challenge) return false;
-    const computed = crypto.createHash('sha256').update(verifier).digest('base64url');
-    return timingSafeEqual(computed, challenge);
+    return this.pkce.verifyS256(verifier, challenge);
   }
 
   // ── Validation helpers ────────────────────────────────────────────────────
@@ -122,16 +124,4 @@ export class OAuthService {
     }
     return client;
   }
-}
-
-function sha256(value: string): string {
-  return crypto.createHash('sha256').update(value).digest('hex');
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-  if (aBuffer.length !== bBuffer.length) return false;
-
-  return crypto.timingSafeEqual(aBuffer, bBuffer);
 }

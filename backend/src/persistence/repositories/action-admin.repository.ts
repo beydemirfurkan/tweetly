@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import type { ActionStatus } from '@domain/types/action.types';
+import { ACTION_TABLE_CONFIG } from './action-repository';
 
 export interface AdminActionRow {
   id: string;
@@ -139,5 +140,21 @@ export class ActionAdminRepository {
       [id],
     );
     return rows[0]?.account_id ?? null;
+  }
+
+  /**
+   * Cancel all pending/failed actions for an account across every action
+   * table. Single-sourced from ACTION_TABLE_CONFIG so new action types are
+   * picked up automatically. Caller passes an EntityManager so this can run
+   * inside a larger transaction (e.g. account deletion).
+   */
+  async cancelPendingByAccount(accountId: string, manager: EntityManager): Promise<void> {
+    for (const cfg of Object.values(ACTION_TABLE_CONFIG)) {
+      await manager.query(
+        `UPDATE ${cfg.table} SET status = 'cancelled', updated_at = now()
+          WHERE account_id = $1 AND status IN ('pending', 'failed')`,
+        [accountId],
+      );
+    }
   }
 }

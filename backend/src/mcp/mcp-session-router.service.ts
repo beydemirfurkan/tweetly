@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
+import { AppConfigService } from '@/config/app-config.service';
 
 const SESSION_TTL_SEC = 60 * 60; // 1 hour — SSE connections that go idle longer get re-established
 const SESSION_KEY = (sessionId: string) => `mcp:session:${sessionId}`;
@@ -23,8 +24,10 @@ export class McpSessionRouter implements OnModuleInit, OnModuleDestroy {
   readonly instanceId = `${process.pid}-${randomUUID().slice(0, 8)}`;
   private redis: Redis | null = null;
 
+  constructor(private readonly config: AppConfigService) {}
+
   onModuleInit(): void {
-    const url = process.env.REDIS_URL;
+    const url = this.config.getOptionalString('REDIS_URL');
     if (!url) {
       this.log.log(
         `MCP session router using in-memory registry (no REDIS_URL); instance=${this.instanceId}`,

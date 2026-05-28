@@ -13,9 +13,8 @@ import { ProfileAnalyzerService } from '../services/profile-analyzer.service';
 import { ContentSuggesterService } from '../services/content-suggester.service';
 import { ViralScorerService } from '../services/viral-scorer.service';
 import { CopilotAnalysisService } from '../services/copilot-analysis.service';
+import { PublishOrchestratorService } from '../services/publish-orchestrator.service';
 import { AnalyzeProfileDto, ContentSuggestDto, ViralScoreDto, PublishTweetDto } from '../dto/ai-copilot.dto';
-import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
-import { ContentMemoryService } from '@/content-memory/content-memory.service';
 import type { Request } from 'express';
 import type { ProfileAnalysisResult } from '../types/style-profile.types';
 import type { ContentSuggestResult } from '../types/content-format.types';
@@ -31,9 +30,8 @@ export class AiCopilotController {
     private readonly profileAnalyzer: ProfileAnalyzerService,
     private readonly contentSuggester: ContentSuggesterService,
     private readonly viralScorer: ViralScorerService,
-    private readonly enqueue: ActionEnqueueService,
     private readonly analysisService: CopilotAnalysisService,
-    private readonly contentMemory: ContentMemoryService,
+    private readonly publisher: PublishOrchestratorService,
   ) {}
 
   @Post('analyze-profile')
@@ -114,22 +112,11 @@ export class AiCopilotController {
     if (!dto.accountId) throw new BadRequestException('accountId is required');
     if (!dto.text?.trim()) throw new BadRequestException('text is required');
 
-    const dedupReason = await this.contentMemory.similarityReason(dto.text, dto.accountId);
-    if (dedupReason) {
-      throw new BadRequestException(`Similar content already posted: ${dedupReason}`);
-    }
-
-    const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : new Date();
-    const result = await this.enqueue.enqueuePost({
+    return this.publisher.publish({
       accountId: dto.accountId,
       text: dto.text,
-      scheduledAt,
-      metadata: { source: 'ai-copilot' },
+      scheduledAt: dto.scheduledAt,
     });
-
-    await this.contentMemory.add('ai-copilot', dto.text, dto.accountId);
-
-    return { queued: true, ...result };
   }
 
   @Get('formats')

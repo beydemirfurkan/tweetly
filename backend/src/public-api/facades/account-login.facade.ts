@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestj
 import { AccountsService } from '@/accounts/accounts.service';
 import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import { AppConfigService } from '@/config/app-config.service';
 import {
   assertBase32Secret,
   normalizeProxyCountry,
@@ -28,7 +29,12 @@ export class AccountLoginFacade {
     private readonly accounts: AccountsService,
     private readonly loginJobs: LoginJobsRepository,
     private readonly cipher: CredentialCipherService,
+    private readonly config: AppConfigService,
   ) {}
+
+  private defaultProxyCountry(): string | null {
+    return this.config.getOptionalString('LOGIN_DEFAULT_PROXY_COUNTRY');
+  }
 
   async createConnectJob(userId: string, body: AccountConnectDto): Promise<LoginJobAcceptedDto> {
     const username = normalizeUsername(body.username);
@@ -36,7 +42,7 @@ export class AccountLoginFacade {
     const password = requireString(body.password, 'password');
     const totpSecretRaw = body.totpSecret?.trim() || null;
     if (totpSecretRaw) assertBase32Secret(totpSecretRaw, 'totpSecret');
-    const proxyCountry = resolveLoginProxyCountry(body.proxyCountry, process.env.LOGIN_DEFAULT_PROXY_COUNTRY);
+    const proxyCountry = resolveLoginProxyCountry(body.proxyCountry, this.defaultProxyCountry());
 
     // X account ids are stored lowercase; reject a second 'connect' for an
     // account the user already owns and steer them to /reauth so we don't
@@ -83,7 +89,7 @@ export class AccountLoginFacade {
       : account.totpSecretEncrypted;
     const proxyCountry = resolveLoginProxyCountry(
       body.proxyCountry,
-      account.proxyCountry ?? process.env.LOGIN_DEFAULT_PROXY_COUNTRY,
+      account.proxyCountry ?? this.defaultProxyCountry(),
     );
 
     await this.assertLoginCooldownIsClear(userId, account.id);

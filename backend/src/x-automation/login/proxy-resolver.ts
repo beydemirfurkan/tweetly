@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { envBackedConfig } from '@/config/process-env-shim';
 
 const log = new Logger('LoginProxyResolver');
 
@@ -23,7 +24,7 @@ export function resolveProxy(country: string | null | undefined): ProxyConfig | 
   const cc = country.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(cc)) return null;
 
-  const raw = process.env[`LOGIN_PROXY_${cc}`];
+  const raw = envBackedConfig().raw(`LOGIN_PROXY_${cc}`);
   if (!raw) {
     log.warn(`No proxy configured for country=${cc} (set LOGIN_PROXY_${cc}); falling back to host IP`);
     return null;
@@ -46,5 +47,5 @@ export function hasLoginProxy(country: string | null | undefined): boolean {
   if (!country) return false;
   const cc = country.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(cc)) return false;
-  return Boolean(process.env[`LOGIN_PROXY_${cc}`]?.trim());
+  return Boolean(envBackedConfig().getOptionalString(`LOGIN_PROXY_${cc}`));
 }

@@ -33,18 +33,7 @@ import {
 import { Pencil, RefreshCw, Users, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldAlert, Shield, Plus, KeyRound, ExternalLink, UserCheck, UserPlus, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConnectAccountDialog } from '@/components/connect-account-dialog';
-
-const STATUS_CLASS: Record<string, string> = {
-  active: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
-  paused: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
-  banned: 'border-destructive/25 bg-destructive/10 text-destructive',
-};
-
-function statusLabelKey(status: string): 'statusActive' | 'statusPaused' | 'statusBanned' {
-  if (status === 'active') return 'statusActive';
-  if (status === 'banned') return 'statusBanned';
-  return 'statusPaused';
-}
+import { accountStatusLabelKey, getAccountStatusClass } from '@/lib/theme/account-status';
 
 function TokenCell({ has }: { has: boolean }) {
   return has ? (
@@ -128,7 +117,7 @@ function ProfileCard({
   const locale = useLocale();
   const accId = String(account.id ?? '');
   const statusKey = typeof account.status === 'string' ? account.status : '';
-  const statusClass = STATUS_CLASS[statusKey] ?? STATUS_CLASS.paused;
+  const statusClass = getAccountStatusClass(statusKey);
   const profile = account.profile;
 
   return (
@@ -165,7 +154,7 @@ function ProfileCard({
                       statusClass,
                     )}
                   >
-                    {t(statusLabelKey(statusKey))}
+                    {t(accountStatusLabelKey(statusKey))}
                   </span>
                   <SessionHealthBadge session={account.session} />
                 </div>

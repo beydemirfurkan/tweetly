@@ -9,7 +9,13 @@ function createService() {
   const settings = {
     get: jest.fn().mockImplementation(async (_key: string, fallback: unknown) => fallback),
   };
-  const service = new MagicLinkService(repo as any, settings as any);
+  // The service reads APP_URL and NODE_ENV through AppConfigService; the
+  // tests still mutate process.env.NODE_ENV directly, so route the config
+  // reads back through it to preserve behavior.
+  const appConfig = {
+    getString: jest.fn((k: string, fb: string) => process.env[k] ?? fb),
+  };
+  const service = new MagicLinkService(repo as any, settings as any, appConfig as any);
   return { service, repo, settings };
 }
 

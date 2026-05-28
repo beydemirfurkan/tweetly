@@ -1,4 +1,4 @@
-import { OpenRouterService } from '../openrouter.service';
+import { OpenRouterLlmClient } from '../openrouter-llm.client';
 import type { SettingsService } from '@/settings/settings.service';
 
 function mockFetchOnce(response: Partial<Response> | Error): jest.SpyInstance {
@@ -21,15 +21,15 @@ function makeResponse(opts: { status: number; jsonBody?: unknown; textBody?: str
   };
 }
 
-function makeService(apiKey = 'sk-or-test'): { svc: OpenRouterService; settings: jest.Mocked<SettingsService> } {
+function makeService(apiKey = 'sk-or-test'): { svc: OpenRouterLlmClient; settings: jest.Mocked<SettingsService> } {
   const settings = {
     get: jest.fn().mockResolvedValue(apiKey),
   } as unknown as jest.Mocked<SettingsService>;
-  const svc = new OpenRouterService(settings);
+  const svc = new OpenRouterLlmClient(settings);
   return { svc, settings };
 }
 
-describe('OpenRouterService.chat', () => {
+describe('OpenRouterLlmClient.chat', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('throws when no API key is configured (settings returns empty string)', async () => {

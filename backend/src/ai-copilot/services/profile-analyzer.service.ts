@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OpenRouterService } from './openrouter.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { LLM_CLIENT, type ILlmClient } from '../llm/llm-client.port';
 import { XDirectReadService } from '@/x-automation/x-direct/x-direct-read.service';
 import type { ProfileAnalysisResult, StyleProfile } from '../types/style-profile.types';
 
@@ -8,7 +8,7 @@ export class ProfileAnalyzerService {
   private readonly logger = new Logger(ProfileAnalyzerService.name);
 
   constructor(
-    private readonly ai: OpenRouterService,
+    @Inject(LLM_CLIENT) private readonly ai: ILlmClient,
     private readonly xRead: XDirectReadService,
   ) {}
 

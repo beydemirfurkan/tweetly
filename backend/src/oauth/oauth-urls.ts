@@ -3,9 +3,10 @@
 // (Coolify / nginx / Cloudflare set X-Forwarded-Host + X-Forwarded-Proto)
 // so deploys without explicit env config still produce the right URLs.
 import type { Request } from 'express';
+import { envBackedConfig } from '@/config/process-env-shim';
 
 export function backendBaseUrl(req?: Request): string {
-  const env = process.env.PUBLIC_BACKEND_URL?.trim();
+  const env = envBackedConfig().getOptionalString('PUBLIC_BACKEND_URL');
   if (env) return env.replace(/\/$/, '');
 
   if (req) {
@@ -17,7 +18,7 @@ export function backendBaseUrl(req?: Request): string {
 }
 
 export function appBaseUrl(): string {
-  return (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  return envBackedConfig().getString('APP_URL', 'http://localhost:3000').replace(/\/$/, '');
 }
 
 function deriveFromRequest(req: Request): string | null {

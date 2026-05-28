@@ -1,15 +1,11 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { AppConfigService } from '@/config/app-config.service';
+import { envBackedConfig, type EnvBackedConfig } from '@/config/process-env-shim';
 
-const RETENTION_DAYS = parseInt(process.env.LOGIN_PROFILE_RETENTION_DAYS ?? '7', 10);
-const SWEEP_INTERVAL_MS = parseInt(
-  process.env.LOGIN_PROFILE_CLEANUP_INTERVAL_MS ?? `${6 * 60 * 60 * 1000}`,
-  10,
-);
-const DATA_ROOT = process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data');
-const PROFILES_DIR = path.join(DATA_ROOT, 'user-data');
-const DEBUG_ARTIFACTS_DIR = path.join(DATA_ROOT, 'errors', 'login');
+const DEFAULT_RETENTION_DAYS = 7;
+const DEFAULT_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Periodic disk-retention task for the login module.
@@ -35,22 +31,41 @@ const DEBUG_ARTIFACTS_DIR = path.join(DATA_ROOT, 'errors', 'login');
 @Injectable()
 export class LoginProfileCleanupService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly log = new Logger(LoginProfileCleanupService.name);
+  private readonly retentionDays: number;
+  private readonly sweepIntervalMs: number;
+  private readonly dataRoot: string;
+  private readonly profilesDir: string;
+  private readonly debugArtifactsDir: string;
+  private readonly disabled: boolean;
   private timer: ReturnType<typeof setInterval> | null = null;
 
+  // Optional so the hand-rolled `new LoginProfileCleanupService()` in specs
+  // keeps working (they mutate process.env directly to feed config); under
+  // DI the global AppConfigModule supplies the real one.
+  constructor(@Optional() config?: AppConfigService) {
+    const cfg: EnvBackedConfig = config ?? envBackedConfig();
+    this.retentionDays = cfg.getNumber('LOGIN_PROFILE_RETENTION_DAYS', DEFAULT_RETENTION_DAYS);
+    this.sweepIntervalMs = cfg.getNumber('LOGIN_PROFILE_CLEANUP_INTERVAL_MS', DEFAULT_SWEEP_INTERVAL_MS);
+    this.dataRoot = cfg.getString('DATA_DIR', path.resolve(process.cwd(), 'data'));
+    this.profilesDir = path.join(this.dataRoot, 'user-data');
+    this.debugArtifactsDir = path.join(this.dataRoot, 'errors', 'login');
+    this.disabled = cfg.getBoolean('LOGIN_PROFILE_CLEANUP_DISABLED', false);
+  }
+
   async onApplicationBootstrap(): Promise<void> {
-    if (process.env.LOGIN_PROFILE_CLEANUP_DISABLED === 'true') {
+    if (this.disabled) {
       this.log.log('LoginProfileCleanupService disabled via env');
       return;
     }
     this.log.log(
-      `LoginProfileCleanupService enabled: retention=${RETENTION_DAYS}d, interval=${Math.round(SWEEP_INTERVAL_MS / 1000)}s`,
+      `LoginProfileCleanupService enabled: retention=${this.retentionDays}d, interval=${Math.round(this.sweepIntervalMs / 1000)}s`,
     );
     // Run once on boot so a long-running prior instance's accumulated
     // profiles get a sweep before the next disk-pressure event.
     this.sweep().catch((err) => this.log.warn(`bootstrap sweep failed: ${asString(err)}`));
     this.timer = setInterval(
       () => this.sweep().catch((err) => this.log.warn(`scheduled sweep failed: ${asString(err)}`)),
-      SWEEP_INTERVAL_MS,
+      this.sweepIntervalMs,
     );
     this.timer.unref?.();
   }
@@ -64,7 +79,7 @@ export class LoginProfileCleanupService implements OnApplicationBootstrap, OnMod
    * profiles + artifacts removed so a caller can log or assert.
    */
   async sweep(): Promise<{ profiles: number; artifacts: number }> {
-    const cutoffMs = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    const cutoffMs = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000;
     const profiles = await this.sweepProfiles(cutoffMs);
     const artifacts = await this.sweepDebugArtifacts(cutoffMs);
     if (profiles > 0 || artifacts > 0) {
@@ -74,7 +89,7 @@ export class LoginProfileCleanupService implements OnApplicationBootstrap, OnMod
   }
 
   private async sweepProfiles(cutoffMs: number): Promise<number> {
-    const entries = await fs.readdir(PROFILES_DIR, { withFileTypes: true }).catch(() => null);
+    const entries = await fs.readdir(this.profilesDir, { withFileTypes: true }).catch(() => null);
     if (!entries) return 0;
 
     let removed = 0;
@@ -85,7 +100,7 @@ export class LoginProfileCleanupService implements OnApplicationBootstrap, OnMod
       // count — touching them risks evicting a live session.
       if (!entry.name.startsWith('login-')) continue;
 
-      const dirPath = path.join(PROFILES_DIR, entry.name);
+      const dirPath = path.join(this.profilesDir, entry.name);
       const stat = await fs.stat(dirPath).catch(() => null);
       if (!stat || stat.mtimeMs >= cutoffMs) continue;
 
@@ -100,12 +115,12 @@ export class LoginProfileCleanupService implements OnApplicationBootstrap, OnMod
   }
 
   private async sweepDebugArtifacts(cutoffMs: number): Promise<number> {
-    const entries = await fs.readdir(DEBUG_ARTIFACTS_DIR).catch(() => null);
+    const entries = await fs.readdir(this.debugArtifactsDir).catch(() => null);
     if (!entries) return 0;
 
     let removed = 0;
     for (const name of entries) {
-      const filePath = path.join(DEBUG_ARTIFACTS_DIR, name);
+      const filePath = path.join(this.debugArtifactsDir, name);
       const stat = await fs.stat(filePath).catch(() => null);
       if (!stat || !stat.isFile() || stat.mtimeMs >= cutoffMs) continue;
 

@@ -1,11 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { AppConfigService } from '@/config/app-config.service';
 import { MonitoringService } from './monitoring.service';
 import { WebhookDeliveryService } from './webhook-delivery.service';
 import { WebhookDeliveryHistoryService } from './webhook-delivery-history.service';
 import { XDirectReadService } from '@/x-automation/x-direct';
-
-const POLL_INTERVAL_MS = parseInt(process.env.MONITOR_POLL_INTERVAL_MS ?? '600000', 10); // 10 min default
 
 // Stable 64-bit lock id (Postgres pg_try_advisory_lock takes a bigint).
 // Any instance arrives at the same constant; collisions with unrelated
@@ -15,6 +14,9 @@ const POLLER_LOCK_KEY = '8275634918273401';
 @Injectable()
 export class MonitorPollerService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly log = new Logger(MonitorPollerService.name);
+  private readonly pollIntervalMs: number;
+  private readonly enabled: boolean;
+  private readonly leaderLockDisabled: boolean;
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
 
@@ -24,15 +26,21 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
     private readonly deliveryHistory: WebhookDeliveryHistoryService,
     private readonly xDirect: XDirectReadService,
     private readonly dataSource: DataSource,
-  ) {}
+    private readonly config: AppConfigService,
+  ) {
+    this.pollIntervalMs = this.config.getNumber('MONITOR_POLL_INTERVAL_MS', 600_000);
+    // Original semantics: enabled unless literally 'false'.
+    this.enabled = this.config.getString('MONITOR_POLLING_ENABLED', '').toLowerCase() !== 'false';
+    this.leaderLockDisabled = this.config.getBoolean('MONITOR_LEADER_LOCK_DISABLED', false);
+  }
 
   onApplicationBootstrap(): void {
-    if (process.env.MONITOR_POLLING_ENABLED === 'false') {
+    if (!this.enabled) {
       this.log.log('Monitor polling disabled via MONITOR_POLLING_ENABLED=false');
       return;
     }
-    this.log.log(`Monitor polling started, interval: ${POLL_INTERVAL_MS / 1000}s`);
-    this.timer = setInterval(() => this.poll(), POLL_INTERVAL_MS);
+    this.log.log(`Monitor polling started, interval: ${this.pollIntervalMs / 1000}s`);
+    this.timer = setInterval(() => this.poll(), this.pollIntervalMs);
     // First poll after 30s startup delay
     setTimeout(() => this.poll(), 30_000);
   }
@@ -86,7 +94,7 @@ export class MonitorPollerService implements OnApplicationBootstrap, OnApplicati
     // mocks / non-Postgres deployments. In production we MUST NOT silently
     // treat a query failure as success — that turns a 30s DB hiccup into
     // duplicate webhook deliveries from every replica simultaneously.
-    if (process.env.MONITOR_LEADER_LOCK_DISABLED === 'true') return true;
+    if (this.leaderLockDisabled) return true;
     try {
       const rows: Array<{ acquired: boolean }> = await this.dataSource.query(
         `SELECT pg_try_advisory_lock($1::bigint) AS acquired`,

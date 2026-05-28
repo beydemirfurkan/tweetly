@@ -4,6 +4,9 @@ import { DataSource } from 'typeorm';
 
 import { AccountsService } from '@/accounts/accounts.service';
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
+import { ActionAdminRepository } from '@persistence/repositories/action-admin.repository';
+import { AppConfigService } from '@/config/app-config.service';
+import { ConfigService } from '@nestjs/config';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { AccountEntity } from '@persistence/entities/account.entity';
 import { AppDataSource } from '@persistence/data-source';
@@ -36,6 +39,8 @@ async function main(): Promise<void> {
       dataSource.getRepository(AccountEntity),
       dataSource,
       new ControlStateRepository(dataSource),
+      new ActionAdminRepository(dataSource),
+      new AppConfigService(new ConfigService()),
     );
     const worker = new LoginWorker(
       dataSource,

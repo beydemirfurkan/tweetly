@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AccountEntity } from '@persistence/entities/account.entity';
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
+import { ActionAdminRepository } from '@persistence/repositories/action-admin.repository';
+import { AppConfigService } from '@/config/app-config.service';
 import type { AccountStatus } from '@domain/types/account.types';
-
-const AUTH_FAILURE_PAUSE_THRESHOLD = parseInt(process.env.AUTH_FAILURE_PAUSE_THRESHOLD ?? '3', 10);
 
 export interface AccountSessionHealth {
   health: 'unknown' | 'healthy' | 'unhealthy';
@@ -28,12 +28,18 @@ export interface AccountUpsertInput {
 
 @Injectable()
 export class AccountsService {
+  private readonly authFailurePauseThreshold: number;
+
   constructor(
     @InjectRepository(AccountEntity)
     private readonly repo: Repository<AccountEntity>,
     private readonly dataSource: DataSource,
     private readonly state: ControlStateRepository,
-  ) {}
+    private readonly actionAdmin: ActionAdminRepository,
+    private readonly config: AppConfigService,
+  ) {
+    this.authFailurePauseThreshold = this.config.getNumber('AUTH_FAILURE_PAUSE_THRESHOLD', 3);
+  }
 
   async findById(id: string): Promise<AccountEntity | null> {
     return this.repo.findOne({ where: { id } });
@@ -130,23 +136,8 @@ export class AccountsService {
     const existing = await this.findByIdForUser(id, userId);
     if (!existing) return false;
 
-    const actionTables = [
-      'post_actions',
-      'reply_actions',
-      'like_actions',
-      'bookmark_actions',
-      'retweet_actions',
-      'quote_actions',
-      'follow_actions',
-    ];
     await this.dataSource.transaction(async (manager) => {
-      for (const table of actionTables) {
-        await manager.query(
-          `UPDATE ${table} SET status = 'cancelled', updated_at = now()
-            WHERE account_id = $1 AND status IN ('pending', 'failed')`,
-          [id],
-        );
-      }
+      await this.actionAdmin.cancelPendingByAccount(id, manager);
       await manager.query(`DELETE FROM control_state WHERE account_id = $1`, [id]);
       await manager.query(`DELETE FROM content_memory WHERE account_id = $1`, [id]);
       await manager.query(`DELETE FROM accounts WHERE id = $1 AND user_id = $2`, [id, userId]);
@@ -219,7 +210,7 @@ export class AccountsService {
         );
       }
 
-      if (failures >= AUTH_FAILURE_PAUSE_THRESHOLD) {
+      if (failures >= this.authFailurePauseThreshold) {
         await manager.query(
           `UPDATE accounts SET status = 'paused' WHERE id = $1`,
           [id],

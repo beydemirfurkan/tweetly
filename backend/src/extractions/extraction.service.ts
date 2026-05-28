@@ -2,22 +2,13 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type {
-  ExtractionParams,
-  ExtractionType,
+import {
+  EXTRACTION_TYPES,
+  type ExtractionParams,
+  type ExtractionType,
 } from '@persistence/entities/extraction-job.entity';
+import { AppConfigService } from '@/config/app-config.service';
 import { ExtractionJobsRepository, type ExtractionView } from './extraction-jobs.repository';
-
-const EXTRACTION_TYPES: readonly ExtractionType[] = [
-  'user_followers',
-  'user_following',
-  'user_tweets',
-  'user_likes',
-  'user_mentions',
-  'tweet_retweeters',
-  'search_tweets',
-  'list_members',
-];
 
 const MAX_ROWS_HARD_CAP = 100_000;
 
@@ -28,13 +19,15 @@ export interface EnqueueExtractionInput {
   params: ExtractionParams;
   maxRows: number;
 }
-
 @Injectable()
 export class ExtractionService {
   private readonly storageDir: string;
 
-  constructor(private readonly jobs: ExtractionJobsRepository) {
-    this.storageDir = process.env.EXTRACTIONS_DIR ?? path.join(os.tmpdir(), 'tweetly-extractions');
+  constructor(
+    private readonly jobs: ExtractionJobsRepository,
+    config: AppConfigService,
+  ) {
+    this.storageDir = config.getString('EXTRACTIONS_DIR', path.join(os.tmpdir(), 'tweetly-extractions'));
   }
 
   /** Resolved on first use so the worker can use the same dir. */
@@ -121,5 +114,3 @@ export class ExtractionService {
     }
   }
 }
-
-export { EXTRACTION_TYPES };

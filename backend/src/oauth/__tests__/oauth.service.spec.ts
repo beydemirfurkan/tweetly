@@ -8,6 +8,8 @@ import { createHash, randomBytes } from 'crypto';
 import * as crypto from 'crypto';
 import { OAuthService } from '../oauth.service';
 import { OAuthCodeStore } from '../oauth-code-store.service';
+import { OAuthCredentialHasher } from '../credential-hasher.service';
+import { PkceVerifier } from '../pkce-verifier.service';
 import type { OAuthClientEntity } from '@persistence/entities/oauth-client.entity';
 
 function makeStore(): OAuthCodeStore {
@@ -36,7 +38,10 @@ function makeRepo() {
 function makeService() {
   const repo = makeRepo();
   const store = makeStore();
-  const svc = new OAuthService(repo as never, store);
+  // Use the real hasher + PKCE verifier: they're pure crypto primitives and
+  // the existing assertions inspect concrete SHA-256 output, so a stub
+  // would just re-implement them.
+  const svc = new OAuthService(repo as never, store, new OAuthCredentialHasher(), new PkceVerifier());
   return { svc, repo, store };
 }
 

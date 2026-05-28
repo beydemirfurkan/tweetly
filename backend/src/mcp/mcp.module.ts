@@ -16,7 +16,10 @@ import { WriteHandler } from './handlers/write.handler';
 import { ProfileHandler } from './handlers/profile.handler';
 import { ReadHandler } from './handlers/read.handler';
 import { MonitorHandler } from './handlers/monitor.handler';
-import { AccountHandler } from './handlers/account.handler';
+import { AccountInfoHandler } from './handlers/account-info.handler';
+import { LoginHandler } from './handlers/login.handler';
+import { ActionQueueHandler } from './handlers/action-queue.handler';
+import { AccountSettingsHandler } from './handlers/account-settings.handler';
 import { ExtractionHandler } from './handlers/extraction.handler';
 
 @Module({
@@ -40,7 +43,10 @@ import { ExtractionHandler } from './handlers/extraction.handler';
     ProfileHandler,
     ReadHandler,
     MonitorHandler,
-    AccountHandler,
+    AccountInfoHandler,
+    LoginHandler,
+    ActionQueueHandler,
+    AccountSettingsHandler,
     ExtractionHandler,
   ],
 })

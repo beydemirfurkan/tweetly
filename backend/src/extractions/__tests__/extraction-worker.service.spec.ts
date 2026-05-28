@@ -6,7 +6,12 @@ import type {
   ExtractionJobsRepository,
 } from '../extraction-jobs.repository';
 import type { ExtractionService } from '../extraction.service';
-import type { PaginatedResult, XDirectReadService } from '@/x-automation/x-direct';
+import type { PaginatedResult } from '@/x-automation/x-direct';
+import type { ExtractionStrategyRegistry } from '../strategies/extraction-strategy.registry';
+import type {
+  ExtractionFetchArgs,
+  IExtractionStrategy,
+} from '../strategies/extraction-strategy.port';
 import { WorkerOptionsFactory } from '@/common/workers';
 
 // fs/promises.open is the only filesystem touch the worker makes; mock the
@@ -44,13 +49,13 @@ function makeWorker(opts: {
 }): {
   worker: ExtractionWorker;
   jobs: jest.Mocked<ExtractionJobsRepository>;
-  reads: jest.Mocked<XDirectReadService>;
+  fetchSpy: jest.Mock<Promise<PaginatedResult<unknown>>, [ExtractionFetchArgs]>;
   extractions: jest.Mocked<ExtractionService>;
 } {
-  // Each call to a read endpoint pops one page from the queue. Tests
+  // Each call to the strategy's fetch pops one page from the queue. Tests
   // pre-seed the queue with whatever progression they want to assert.
   const pages = [...(opts.pages ?? [])];
-  const fetchImpl = jest.fn(async (): Promise<PaginatedResult<unknown>> => {
+  const fetchSpy = jest.fn(async (_args: ExtractionFetchArgs): Promise<PaginatedResult<unknown>> => {
     if (opts.fetchThrows) throw opts.fetchThrows;
     const page = pages.shift();
     if (!page) throw new Error('no more mocked pages');
@@ -64,16 +69,13 @@ function makeWorker(opts: {
     updateProgress: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<ExtractionJobsRepository>;
 
-  const reads = {
-    getUserFollowers: fetchImpl,
-    getUserFollowing: fetchImpl,
-    getUserTweets: fetchImpl,
-    getUserLikes: fetchImpl,
-    getUserMentions: fetchImpl,
-    getTweetRetweeters: fetchImpl,
-    searchTweets: fetchImpl,
-    getListMembers: fetchImpl,
-  } as unknown as jest.Mocked<XDirectReadService>;
+  const strategy: IExtractionStrategy = {
+    type: 'user_followers',
+    fetch: fetchSpy,
+  };
+  const strategies = {
+    forType: jest.fn(() => strategy),
+  } as unknown as jest.Mocked<ExtractionStrategyRegistry>;
 
   const extractions = {
     filePathFor: jest.fn((id: string) => path.join(os.tmpdir(), `${id}.jsonl`)),
@@ -85,10 +87,10 @@ function makeWorker(opts: {
   const worker = new ExtractionWorker(
     jobs,
     extractions,
-    reads,
+    strategies,
     new WorkerOptionsFactory(),
   );
-  return { worker, jobs, reads, extractions };
+  return { worker, jobs, fetchSpy, extractions };
 }
 
 afterEach(() => {
@@ -148,7 +150,7 @@ describe('ExtractionWorker.process: multi-page progression', () => {
     // The worker was claimed against an already-mid-flight row (e.g. lock
     // expired). Should pass lastCursor into the first fetch and treat
     // rowsExtracted as the running total.
-    const { worker, reads, jobs } = makeWorker({
+    const { worker, fetchSpy, jobs } = makeWorker({
       pages: [makePage([{ handle: 'c' }], null)],
       batchSize: 10,
     });
@@ -157,14 +159,13 @@ describe('ExtractionWorker.process: multi-page progression', () => {
       makeClaimed({ rowsExtracted: 5, lastCursor: 'resume-here', maxRows: 100 }),
     );
 
-    // First (and only) read call gets the resume cursor.
-    expect(reads.getUserFollowers).toHaveBeenCalledWith(
-      'alice',
-      10,
-      'acc-1',
-      'resume-here',
-      { verifiedOnly: undefined },
-    );
+    // First (and only) fetch call gets the resume cursor.
+    expect(fetchSpy).toHaveBeenCalledWith({
+      params: { handle: 'alice' },
+      limit: 10,
+      accountId: 'acc-1',
+      cursor: 'resume-here',
+    });
     // Total rows = pre-existing 5 + 1 from this page = 6.
     expect(jobs.markSuccess).toHaveBeenCalledWith('job-1', expect.any(String), 6);
   });
@@ -173,7 +174,7 @@ describe('ExtractionWorker.process: multi-page progression', () => {
 describe('ExtractionWorker.process: max-rows truncation', () => {
   it('clamps the per-page limit to (maxRows - totalRows) so we never overfetch', async () => {
     // batchSize=50, maxRows=3 → first fetch should use limit=3.
-    const { worker, reads } = makeWorker({
+    const { worker, fetchSpy } = makeWorker({
       pages: [makePage([{ a: 1 }, { a: 2 }, { a: 3 }], null)],
       batchSize: 50,
     });
@@ -181,13 +182,12 @@ describe('ExtractionWorker.process: max-rows truncation', () => {
     await worker.process(makeClaimed({ maxRows: 3 }));
 
     // The 50-batch worker should have requested only 3 rows.
-    expect(reads.getUserFollowers).toHaveBeenCalledWith(
-      'alice',
-      3,
-      'acc-1',
-      undefined,
-      { verifiedOnly: undefined },
-    );
+    expect(fetchSpy).toHaveBeenCalledWith({
+      params: { handle: 'alice' },
+      limit: 3,
+      accountId: 'acc-1',
+      cursor: undefined,
+    });
   });
 });
 
@@ -203,40 +203,24 @@ describe('ExtractionWorker.process: failure path', () => {
     expect(jobs.markFailure).toHaveBeenCalledWith('job-1', 'patchright timeout', 0);
     expect(jobs.markSuccess).not.toHaveBeenCalled();
   });
-
-  it('rejects an unknown type by way of the missing-param helpers', async () => {
-    const { worker, jobs } = makeWorker({
-      pages: [],
-      batchSize: 50,
-    });
-
-    // search_tweets requires params.query — without it, fetchPage throws,
-    // which the surrounding try/catch routes to markFailure.
-    await worker.process(makeClaimed({ type: 'search_tweets', params: {}, maxRows: 100 }));
-
-    expect(jobs.markFailure).toHaveBeenCalledWith(
-      'job-1',
-      expect.stringMatching(/params\.query is required/),
-      0,
-    );
-  });
 });
 
-describe('ExtractionWorker.process: type routing', () => {
-  it.each([
-    ['user_following', { handle: 'alice' }, 'getUserFollowing'] as const,
-    ['user_tweets', { handle: 'alice' }, 'getUserTweets'] as const,
-    ['user_likes', { handle: 'alice' }, 'getUserLikes'] as const,
-    ['user_mentions', { handle: 'alice' }, 'getUserMentions'] as const,
-    ['tweet_retweeters', { tweetUrl: 'https://x.com/u/status/1' }, 'getTweetRetweeters'] as const,
-    ['search_tweets', { query: 'q' }, 'searchTweets'] as const,
-    ['list_members', { listId: '1' }, 'getListMembers'] as const,
-  ])('dispatches type=%s to the matching XDirectReadService method', async (type, params, method) => {
-    const { worker, reads } = makeWorker({
+describe('ExtractionWorker.process: strategy dispatch', () => {
+  it('looks up the strategy by job.type and calls its fetch with the job context', async () => {
+    const { worker, fetchSpy } = makeWorker({
       pages: [makePage([{ x: 1 }], null)],
       batchSize: 10,
     });
-    await worker.process(makeClaimed({ type, params, maxRows: 100 }));
-    expect((reads as any)[method]).toHaveBeenCalled();
+
+    await worker.process(
+      makeClaimed({ type: 'tweet_retweeters', params: { tweetUrl: 'https://x.com/u/status/1' } }),
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith({
+      params: { tweetUrl: 'https://x.com/u/status/1' },
+      limit: 10,
+      accountId: 'acc-1',
+      cursor: undefined,
+    });
   });
 });

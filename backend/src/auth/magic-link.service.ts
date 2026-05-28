@@ -5,6 +5,7 @@ import { createHash, randomBytes } from 'crypto';
 import { createTransport, type Transporter } from 'nodemailer';
 import { MagicLinkEntity } from '@persistence/entities/magic-link.entity';
 import { SettingsService } from '@/settings/settings.service';
+import { AppConfigService } from '@/config/app-config.service';
 
 const LINK_TTL_MIN = 15;
 const DEFAULT_FROM = 'tweetly <noreply@example.com>';
@@ -29,6 +30,7 @@ export class MagicLinkService {
     @InjectRepository(MagicLinkEntity)
     private readonly repo: Repository<MagicLinkEntity>,
     private readonly settings: SettingsService,
+    private readonly appConfig: AppConfigService,
   ) {}
 
   /** Called from AdminApiController.updateSecrets after a config write. */
@@ -66,7 +68,7 @@ export class MagicLinkService {
   }
 
   private async deliver(email: string, token: string): Promise<void> {
-    const baseUrl = process.env.APP_URL ?? 'http://localhost:3000';
+    const baseUrl = this.appConfig.getString('APP_URL', 'http://localhost:3000');
     const link = `${baseUrl}/auth/verify?token=${token}`;
 
     const transporter = await this.resolveTransporter();
@@ -93,13 +95,14 @@ export class MagicLinkService {
       }
     }
 
-    if (canLogMagicLinkToConsole()) {
+    const nodeEnv = this.appConfig.getString('NODE_ENV', 'production');
+    if (canLogMagicLinkToConsole(nodeEnv)) {
       this.log.log(`[MAGIC_LINK] ${email} → ${link}`);
       return;
     }
 
     this.log.warn(
-      `Magic-link console fallback disabled in NODE_ENV=${process.env.NODE_ENV ?? 'production'}; ` +
+      `Magic-link console fallback disabled in NODE_ENV=${nodeEnv}; ` +
         'configure SMTP delivery to issue sign-in links.',
     );
     throw new ServiceUnavailableException('Magic-link delivery is not configured');
@@ -136,7 +139,7 @@ export class MagicLinkService {
   }
 }
 
-function canLogMagicLinkToConsole(env = process.env.NODE_ENV): boolean {
+function canLogMagicLinkToConsole(env: string): boolean {
   return !env || MAGIC_LINK_CONSOLE_ENVS.has(env.toLowerCase());
 }
 

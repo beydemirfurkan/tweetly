@@ -7,6 +7,7 @@ import type {
   XSession,
 } from '@domain/ports/x-action-executor.port';
 import { ExecutorRegistry } from '@/action-engine/executor-registry.service';
+import { envBackedConfig } from '@/config/process-env-shim';
 import { isAuthRequiredError } from '@/x-automation/browser/x-post-flow.service';
 
 /**
@@ -39,7 +40,7 @@ export abstract class BaseExecutor<P>
 
   private shouldRegister(): boolean {
     if (this.mode === 'always') return true;
-    return process.env.X_EXECUTOR_MODE === this.mode;
+    return envBackedConfig().raw('X_EXECUTOR_MODE') === this.mode;
   }
 }
 

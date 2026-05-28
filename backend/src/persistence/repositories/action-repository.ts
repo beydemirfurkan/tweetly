@@ -1,6 +1,8 @@
 import { DataSource } from 'typeorm';
 import type { ActionType, ErrorClass } from '@domain/types/action.types';
 import { type ClaimedActionRow } from './claimed-action-row.types';
+import { AppConfigService } from '@/config/app-config.service';
+import { envBackedConfig, type EnvBackedConfig } from '@/config/process-env-shim';
 
 export {
   ClaimedActionRow,
@@ -44,10 +46,15 @@ export const ACTION_TABLE_CONFIG: Record<ActionType, ActionTableConfig> = {
 };
 
 export class GenericActionRepository {
+  private readonly config: EnvBackedConfig;
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly cfg: ActionTableConfig,
-  ) {}
+    config?: AppConfigService,
+  ) {
+    this.config = config ?? envBackedConfig();
+  }
 
   /**
    * Bir worker turunda en fazla `batchSize` aksiyon claim eder.
@@ -58,7 +65,8 @@ export class GenericActionRepository {
     // the FIFO contract until we explicitly enable it on a per-env basis.
     // The supporting partial index was added in migration 1762600000000,
     // so flipping the flag is purely a query-plan change.
-    const orderBy = process.env.ACTION_PRIORITY_ENABLED === 'true'
+    const priorityEnabled = this.config.getBoolean('ACTION_PRIORITY_ENABLED', false);
+    const orderBy = priorityEnabled
       ? 'priority DESC, scheduled_at'
       : 'scheduled_at';
     const sql = `

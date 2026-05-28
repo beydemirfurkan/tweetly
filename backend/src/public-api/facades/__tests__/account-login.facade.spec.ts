@@ -2,6 +2,7 @@ import { HttpException, NotFoundException } from '@nestjs/common';
 import type { AccountsService } from '@/accounts/accounts.service';
 import type { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
 import type { CredentialCipherService } from '@common/crypto/credential-cipher.service';
+import type { AppConfigService } from '@/config/app-config.service';
 import { AccountLoginFacade } from '../account-login.facade';
 
 function makeFacade(overrides: {
@@ -25,7 +26,15 @@ function makeFacade(overrides: {
   const cipher = {
     encrypt: jest.fn((v: string) => `enc:${v}`),
   } as unknown as CredentialCipherService;
-  const facade = new AccountLoginFacade(accounts, loginJobs, cipher);
+  // The facade reads LOGIN_DEFAULT_PROXY_COUNTRY through AppConfigService;
+  // tests still mutate process.env directly, so route the read back through it.
+  const config = {
+    getOptionalString: jest.fn((key: string) => {
+      const v = process.env[key]?.trim();
+      return v && v.length > 0 ? v : null;
+    }),
+  } as unknown as AppConfigService;
+  const facade = new AccountLoginFacade(accounts, loginJobs, cipher, config);
   return { facade, loginJobs, accounts };
 }
 

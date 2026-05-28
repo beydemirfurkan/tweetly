@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import type { Page } from 'patchright';
 
 import type { LoginJobFailureReason } from './login.types';
+import { envBackedConfig } from '@/config/process-env-shim';
 
 interface LoginDebugArtifactInput {
   page: Page;
@@ -20,7 +21,8 @@ export interface LoginDebugArtifact {
 }
 
 export async function writeLoginDebugArtifact(input: LoginDebugArtifactInput): Promise<LoginDebugArtifact | null> {
-  if ((process.env.LOGIN_DEBUG_ARTIFACTS ?? 'true').toLowerCase() === 'false') return null;
+  // Original semantics: enabled unless literally 'false'.
+  if (envBackedConfig().getString('LOGIN_DEBUG_ARTIFACTS', '').toLowerCase() === 'false') return null;
 
   const dir = loginDebugDir();
   await mkdir(dir, { recursive: true });
@@ -92,10 +94,11 @@ async function safeButtons(page: Page, secrets: Array<string | null | undefined>
 }
 
 function loginDebugDir(): string {
-  const configured = process.env.LOGIN_DEBUG_DIR?.trim();
+  const cfg = envBackedConfig();
+  const configured = cfg.getOptionalString('LOGIN_DEBUG_DIR');
   if (configured) return configured;
 
-  const dataDir = process.env.DATA_DIR?.trim() || path.resolve(process.cwd(), 'data');
+  const dataDir = cfg.getString('DATA_DIR', path.resolve(process.cwd(), 'data'));
   return path.join(dataDir, 'errors', 'login');
 }
 

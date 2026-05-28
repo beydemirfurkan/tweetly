@@ -1,4 +1,19 @@
 import { MonitorPollerService } from '../monitor-poller.service';
+import type { AppConfigService } from '@/config/app-config.service';
+
+function fakeConfig(): AppConfigService {
+  return {
+    getNumber: jest.fn(
+      (k: string, fb: number) => (process.env[k] !== undefined ? parseInt(process.env[k] as string, 10) : fb),
+    ),
+    getString: jest.fn((k: string, fb: string) => process.env[k] ?? fb),
+    getBoolean: jest.fn((k: string, fb: boolean) => {
+      const v = process.env[k];
+      if (v === undefined) return fb;
+      return v.toLowerCase() === 'true';
+    }),
+  } as unknown as AppConfigService;
+}
 
 function createService() {
   const monitoring = {
@@ -29,6 +44,7 @@ function createService() {
     deliveryHistory as any,
     xDirect as any,
     dataSource as any,
+    fakeConfig(),
   );
   return { service, monitoring, deliveryHistory, webhook, xDirect, dataSource };
 }

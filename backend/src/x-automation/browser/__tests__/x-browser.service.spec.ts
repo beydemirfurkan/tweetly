@@ -1,5 +1,10 @@
 import { XBrowserService } from '../x-browser.service';
 import type { BrowserConfigService } from '../browser-config';
+import type { AppConfigService } from '@/config/app-config.service';
+
+const fakeAppConfig = {
+  getString: jest.fn((_k: string, fb: string) => fb),
+} as unknown as AppConfigService;
 
 function makeConfig(releaseTimeoutMs: number): BrowserConfigService {
   return {
@@ -23,7 +28,7 @@ describe('XBrowserService', () => {
     jest.useFakeTimers();
     const config = makeConfig(25);
     const cookies = { inject: jest.fn() } as any;
-    const service = new XBrowserService(config, cookies);
+    const service = new XBrowserService(config, cookies, fakeAppConfig);
     const context = {
       close: jest.fn(() => new Promise<void>(() => undefined)),
     };

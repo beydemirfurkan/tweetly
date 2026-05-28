@@ -1,5 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AppConfigModule } from './config/app-config.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
@@ -28,6 +29,7 @@ import { AgentModule } from './agent/agent.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    AppConfigModule,
     ThrottlerModule.forRootAsync({
       useFactory: () => {
         const throttlers = [{ name: 'default', ttl: 60_000, limit: 30 }];

@@ -1,11 +1,11 @@
 import { ViralScorerService } from '../viral-scorer.service';
-import type { OpenRouterService } from '../openrouter.service';
+import type { ILlmClient } from '../../llm/llm-client.port';
 
 function makeService(mockChat: jest.Mock): {
   svc: ViralScorerService;
-  ai: jest.Mocked<OpenRouterService>;
+  ai: jest.Mocked<ILlmClient>;
 } {
-  const ai = { chat: mockChat } as unknown as jest.Mocked<OpenRouterService>;
+  const ai = { chat: mockChat } as unknown as jest.Mocked<ILlmClient>;
   const svc = new ViralScorerService(ai);
   return { svc, ai };
 }

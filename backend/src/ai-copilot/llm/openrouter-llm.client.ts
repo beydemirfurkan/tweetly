@@ -1,34 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SettingsService } from '@/settings/settings.service';
-
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export interface ChatCompletionOptions {
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-}
-
-export interface ChatCompletionResult {
-  content: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-}
+import type {
+  ChatCompletionOptions,
+  ChatCompletionResult,
+  ChatMessage,
+  ILlmClient,
+} from './llm-client.port';
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 const DEFAULT_TEMPERATURE = 0.8;
 const DEFAULT_MAX_TOKENS = 4096;
 const REQUEST_TIMEOUT_MS = 60_000;
 
+/**
+ * OpenRouter adapter for the ILlmClient port. Reads the API key from the
+ * SettingsService (admin-configurable, not env-baked), POSTs against the
+ * OpenRouter chat-completions endpoint, normalises the response.
+ */
 @Injectable()
-export class OpenRouterService {
-  private readonly logger = new Logger(OpenRouterService.name);
+export class OpenRouterLlmClient implements ILlmClient {
+  private readonly logger = new Logger(OpenRouterLlmClient.name);
 
   constructor(private readonly settings: SettingsService) {}
 

@@ -1,14 +1,16 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { AppConfigService } from '@/config/app-config.service';
 import { AgentConfigService } from './agent-config.service';
 import { AgentPipelineService } from './agent-pipeline.service';
 
-const SCHEDULER_INTERVAL_MS = parseInt(process.env.AGENT_SCHEDULER_INTERVAL_MS ?? '300000', 10);
 const SCHEDULER_LOCK_KEY = '9182736450918273';
 
 @Injectable()
 export class AgentSchedulerService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(AgentSchedulerService.name);
+  private readonly intervalMs: number;
+  private readonly enabled: boolean;
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
 
@@ -16,15 +18,22 @@ export class AgentSchedulerService implements OnApplicationBootstrap, OnApplicat
     private readonly configService: AgentConfigService,
     private readonly pipeline: AgentPipelineService,
     private readonly dataSource: DataSource,
-  ) {}
+    private readonly config: AppConfigService,
+  ) {
+    this.intervalMs = this.config.getNumber('AGENT_SCHEDULER_INTERVAL_MS', 300_000);
+    // Original semantics: enabled unless the env var literally equals 'false'
+    // (any other value or unset = enabled). Preserved here so flipping
+    // existing deploys doesn't change behavior.
+    this.enabled = this.config.getString('AGENT_SCHEDULER_ENABLED', '').toLowerCase() !== 'false';
+  }
 
   onApplicationBootstrap(): void {
-    if (process.env.AGENT_SCHEDULER_ENABLED === 'false') {
+    if (!this.enabled) {
       this.logger.log('Agent scheduler disabled via AGENT_SCHEDULER_ENABLED=false');
       return;
     }
-    this.logger.log(`Agent scheduler started, interval: ${SCHEDULER_INTERVAL_MS / 1000}s`);
-    this.timer = setInterval(() => this.tick(), SCHEDULER_INTERVAL_MS);
+    this.logger.log(`Agent scheduler started, interval: ${this.intervalMs / 1000}s`);
+    this.timer = setInterval(() => this.tick(), this.intervalMs);
     setTimeout(() => this.tick(), 45_000);
   }
 

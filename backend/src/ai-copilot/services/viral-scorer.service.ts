@@ -1,12 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OpenRouterService } from './openrouter.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { LLM_CLIENT, type ILlmClient } from '../llm/llm-client.port';
 import type { ViralScoreRequest, ViralScoreResult } from '../types/viral-score.types';
 
 @Injectable()
 export class ViralScorerService {
   private readonly logger = new Logger(ViralScorerService.name);
 
-  constructor(private readonly ai: OpenRouterService) {}
+  constructor(@Inject(LLM_CLIENT) private readonly ai: ILlmClient) {}
 
   async score(request: ViralScoreRequest): Promise<ViralScoreResult> {
     const { text, format, handle } = request;

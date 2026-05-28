@@ -1,22 +1,28 @@
 import { ForbiddenException, type ExecutionContext } from '@nestjs/common';
 import { AdminUserGuard } from '../admin-user.guard';
 import type { UsersService } from '@/auth/users.service';
+import type { AppConfigService } from '@/config/app-config.service';
+
+function fakeConfig(envEmails: string | undefined): AppConfigService {
+  // The guard only ever calls `getString('AI_COPILOT_ADMIN_EMAILS', '')`.
+  return {
+    getString: jest.fn((key: string, fallback: string) =>
+      key === 'AI_COPILOT_ADMIN_EMAILS' ? (envEmails ?? fallback) : fallback,
+    ),
+  } as unknown as AppConfigService;
+}
 
 function createGuard(opts: {
   envEmails: string | undefined;
   user: { id: string; email: string } | null;
   authUserId?: string;
-}): { guard: AdminUserGuard; users: jest.Mocked<UsersService> } {
-  if (opts.envEmails === undefined) {
-    delete process.env.AI_COPILOT_ADMIN_EMAILS;
-  } else {
-    process.env.AI_COPILOT_ADMIN_EMAILS = opts.envEmails;
-  }
+}): { guard: AdminUserGuard; users: jest.Mocked<UsersService>; config: AppConfigService } {
   const users = {
     findById: jest.fn().mockResolvedValue(opts.user),
   } as unknown as jest.Mocked<UsersService>;
-  const guard = new AdminUserGuard(users);
-  return { guard, users };
+  const config = fakeConfig(opts.envEmails);
+  const guard = new AdminUserGuard(users, config);
+  return { guard, users, config };
 }
 
 function createContext(userId = 'user-1'): ExecutionContext {
@@ -28,17 +34,7 @@ function createContext(userId = 'user-1'): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-const ORIGINAL_ENV = process.env.AI_COPILOT_ADMIN_EMAILS;
-
 describe('AdminUserGuard', () => {
-  afterEach(() => {
-    if (ORIGINAL_ENV === undefined) {
-      delete process.env.AI_COPILOT_ADMIN_EMAILS;
-    } else {
-      process.env.AI_COPILOT_ADMIN_EMAILS = ORIGINAL_ENV;
-    }
-  });
-
   it('throws Forbidden when the allow-list env var is unset', async () => {
     const { guard } = createGuard({
       envEmails: undefined,
@@ -95,15 +91,22 @@ describe('AdminUserGuard', () => {
     await expect(guard.canActivate(createContext())).resolves.toBe(true);
   });
 
-  it('re-reads AI_COPILOT_ADMIN_EMAILS on every call (env change between requests)', async () => {
-    const { guard, users } = createGuard({
-      envEmails: 'alice@example.com',
-      user: { id: 'user-1', email: 'alice@example.com' },
-    });
-    // First call: allowed.
+  it('re-reads AI_COPILOT_ADMIN_EMAILS on every call (config rotated mid-process)', async () => {
+    // Drive the config response from a single mutable ref so the second
+    // request observes the rotated allow-list.
+    let current = 'alice@example.com';
+    const users = {
+      findById: jest.fn().mockResolvedValue({ id: 'user-1', email: 'alice@example.com' }),
+    } as unknown as jest.Mocked<UsersService>;
+    const config = {
+      getString: jest.fn((key: string, fallback: string) =>
+        key === 'AI_COPILOT_ADMIN_EMAILS' ? current : fallback,
+      ),
+    } as unknown as AppConfigService;
+    const guard = new AdminUserGuard(users, config);
+
     await expect(guard.canActivate(createContext())).resolves.toBe(true);
-    // Env changes (e.g. operator rotates the allow-list mid-process).
-    process.env.AI_COPILOT_ADMIN_EMAILS = 'someone-else@example.com';
+    current = 'someone-else@example.com';
     await expect(guard.canActivate(createContext())).rejects.toBeInstanceOf(ForbiddenException);
     expect(users.findById).toHaveBeenCalledTimes(2);
   });

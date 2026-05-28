@@ -5,7 +5,10 @@ import { WriteHandler } from './handlers/write.handler';
 import { ProfileHandler } from './handlers/profile.handler';
 import { ReadHandler } from './handlers/read.handler';
 import { MonitorHandler } from './handlers/monitor.handler';
-import { AccountHandler } from './handlers/account.handler';
+import { AccountInfoHandler } from './handlers/account-info.handler';
+import { LoginHandler } from './handlers/login.handler';
+import { ActionQueueHandler } from './handlers/action-queue.handler';
+import { AccountSettingsHandler } from './handlers/account-settings.handler';
 import { ExtractionHandler } from './handlers/extraction.handler';
 
 /**
@@ -21,7 +24,10 @@ export class McpToolBindings implements OnApplicationBootstrap {
     private readonly profile: ProfileHandler,
     private readonly read: ReadHandler,
     private readonly monitor: MonitorHandler,
-    private readonly account: AccountHandler,
+    private readonly accountInfo: AccountInfoHandler,
+    private readonly login: LoginHandler,
+    private readonly actionQueue: ActionQueueHandler,
+    private readonly accountSettings: AccountSettingsHandler,
     private readonly extraction: ExtractionHandler,
   ) {}
 
@@ -30,7 +36,6 @@ export class McpToolBindings implements OnApplicationBootstrap {
     const p = this.profile;
     const r = this.read;
     const m = this.monitor;
-    const a = this.account;
     const e = this.extraction;
 
     const bindings: Record<ToolName, McpToolInvoker> = {
@@ -90,17 +95,23 @@ export class McpToolBindings implements OnApplicationBootstrap {
       list_extractions: (args, ctx) => e.listExtractions(args, ctx),
       cancel_extraction: (args, ctx) => e.cancelExtraction(args, ctx),
 
-      // Accounts, login, action queue, settings
-      get_accounts: (args, ctx) => a.getAccounts(args, ctx),
-      get_account_health: (args, ctx) => a.getAccountHealth(args, ctx),
-      connect_x_account: (args, ctx) => a.connectXAccount(args, ctx),
-      reauth_x_account: (args, ctx) => a.reauthXAccount(args, ctx),
-      get_x_login_job: (args, ctx) => a.getXLoginJob(args, ctx),
-      list_actions: (args, ctx) => a.listActions(args, ctx),
-      cancel_action: (args, ctx) => a.cancelAction(args, ctx),
-      replay_action: (args, ctx) => a.replayAction(args, ctx),
-      get_settings: (args, ctx) => a.getSettings(args, ctx),
-      update_settings: (args, ctx) => a.updateSettings(args, ctx),
+      // Account info
+      get_accounts: (args, ctx) => this.accountInfo.getAccounts(args, ctx),
+      get_account_health: (args, ctx) => this.accountInfo.getAccountHealth(args, ctx),
+
+      // Login lifecycle
+      connect_x_account: (args, ctx) => this.login.connectXAccount(args, ctx),
+      reauth_x_account: (args, ctx) => this.login.reauthXAccount(args, ctx),
+      get_x_login_job: (args, ctx) => this.login.getXLoginJob(args, ctx),
+
+      // Action queue
+      list_actions: (args, ctx) => this.actionQueue.listActions(args, ctx),
+      cancel_action: (args, ctx) => this.actionQueue.cancelAction(args, ctx),
+      replay_action: (args, ctx) => this.actionQueue.replayAction(args, ctx),
+
+      // Per-account settings
+      get_settings: (args, ctx) => this.accountSettings.getSettings(args, ctx),
+      update_settings: (args, ctx) => this.accountSettings.updateSettings(args, ctx),
     };
 
     for (const name of Object.keys(bindings) as ToolName[]) {

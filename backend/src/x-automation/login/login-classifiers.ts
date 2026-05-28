@@ -1,8 +1,14 @@
 import * as path from 'path';
 import type { Page } from 'patchright';
 import type { LoginJobFailureReason } from './login.types';
+import { envBackedConfig } from '@/config/process-env-shim';
 
-const DATA_ROOT = process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data');
+// Resolved lazily on each `resolveLoginProfileDir` call rather than at
+// module load so tests that mutate DATA_DIR between cases see the change
+// without `jest.resetModules`.
+function dataRoot(): string {
+  return envBackedConfig().getString('DATA_DIR', path.resolve(process.cwd(), 'data'));
+}
 
 export function stripAt(s: string): string {
   return s.trim().replace(/^@+/, '');
@@ -87,7 +93,7 @@ export function resolveLoginProfileDir(
     /[^A-Za-z0-9._-]/g,
     '_',
   );
-  return path.join(DATA_ROOT, 'user-data', safe);
+  return path.join(dataRoot(), 'user-data', safe);
 }
 
 export interface OnboardingErrorLog {

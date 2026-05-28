@@ -6,11 +6,13 @@ import { WellKnownController } from './well-known.controller';
 import { OAuthController } from './oauth.controller';
 import { OAuthService } from './oauth.service';
 import { OAuthCodeStore } from './oauth-code-store.service';
+import { OAuthCredentialHasher } from './credential-hasher.service';
+import { PkceVerifier } from './pkce-verifier.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([OAuthClientEntity]), AuthModule],
   controllers: [WellKnownController, OAuthController],
-  providers: [OAuthService, OAuthCodeStore],
+  providers: [OAuthService, OAuthCodeStore, OAuthCredentialHasher, PkceVerifier],
   exports: [OAuthService],
 })
 export class OAuthModule {}

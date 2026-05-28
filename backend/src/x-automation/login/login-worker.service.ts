@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CredentialCipherService } from '@common/crypto/credential-cipher.service';
 import { AccountsService } from '@/accounts/accounts.service';
@@ -13,9 +13,8 @@ import {
   startHeartbeat,
   type WorkerLoopOptions,
 } from '@/common/workers';
-
-/** Wait between the first attempt and the auto-retry, in ms. */
-const RETRY_DELAY_MS = parseInt(process.env.LOGIN_WORKER_RETRY_DELAY_MS ?? '30000', 10);
+import { AppConfigService } from '@/config/app-config.service';
+import { envBackedConfig, type EnvBackedConfig } from '@/config/process-env-shim';
 
 /**
  * A failure is transient (worth one retry) when the reason is `unknown` AND
@@ -47,6 +46,7 @@ function truncateForLog(s: string, max: number): string {
 @Injectable()
 export class LoginWorker extends PollingWorker {
   private inflight: Promise<unknown> | null = null;
+  private readonly config: EnvBackedConfig;
   // Abort signal sources for the currently-processing job. Held as a Set so
   // `onShutdownAbort` can fan out a shutdown abort without caring which
   // controller is active. Cleaned up in `process()` finally.
@@ -61,8 +61,10 @@ export class LoginWorker extends PollingWorker {
     private readonly accounts: AccountsService,
     private readonly profileCache: ProfileCacheService,
     private readonly optionsFactory: WorkerOptionsFactory,
+    @Optional() config?: AppConfigService,
   ) {
     super('login');
+    this.config = config ?? envBackedConfig();
     // 5min lock: covers a slow login + 2FA + verify-home with margin. Past this
     // the row reverts to claimable (we treat the prior worker as crashed).
     this.options = this.optionsFactory.fromEnv('LOGIN_WORKER', { pollMs: 3000, lockTtlSec: 300 });
@@ -266,11 +268,12 @@ export class LoginWorker extends PollingWorker {
     // (invalid_credentials, captcha_required, account_locked, …) bypass the
     // retry — re-trying those just burns the cooldown counter.
     if (isTransientFailure(result) && (await this.cooldownClearOrSkip(job, 'transient retry'))) {
+      const retryDelayMs = this.config.getNumber('LOGIN_WORKER_RETRY_DELAY_MS', 30_000);
       this.log.warn(
         `transient login failure job=${job.id} reason=${result.reason} ` +
-          `detail=${truncateForLog(result.detail, 120)} — retrying once after ${RETRY_DELAY_MS}ms`,
+          `detail=${truncateForLog(result.detail, 120)} — retrying once after ${retryDelayMs}ms`,
       );
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      await new Promise((r) => setTimeout(r, retryDelayMs));
       result = await this.login.run(creds);
       this.log.log(
         `retry result job=${job.id} ok=${result.ok} ` +
@@ -409,5 +412,5 @@ function parseCountryList(raw: string): string[] {
 }
 
 function fallbackProxyCountries(): string[] {
-  return parseCountryList(process.env.LOGIN_FALLBACK_PROXY_COUNTRIES ?? 'US');
+  return parseCountryList(envBackedConfig().getString('LOGIN_FALLBACK_PROXY_COUNTRIES', 'US'));
 }

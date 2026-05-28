@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
-import { useApiFetch, apiUrl, type ApiKey, type UserSummary } from '@/lib/api';
+import { apiUrl, type ApiKey, type UserSummary } from '@/lib/api';
+import { useApiResource } from '@/lib/hooks';
 import { useAuth } from '@/lib/auth-context';
 import {
   Activity,
@@ -17,39 +18,26 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface DashboardData {
-  summary: UserSummary;
-  apiKeys: ApiKey[];
-}
-
 export default function DashboardPage() {
   const t = useTranslations('dashboard');
   const { user } = useAuth();
-  const apiFetch = useApiFetch();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [error, setError] = useState('');
+  const summary = useApiResource<UserSummary>('/api/v1/me/summary');
+  const apiKeys = useApiResource<ApiKey[]>('/auth/api-keys');
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      apiFetch<UserSummary>('/api/v1/me/summary'),
-      apiFetch<ApiKey[]>('/auth/api-keys'),
-    ])
-      .then(([summary, apiKeys]) => setData({ summary, apiKeys }))
-      .catch((err: Error) => setError(err.message));
-  }, [apiFetch]);
-
+  const error = summary.error ?? apiKeys.error;
   if (error) {
     return (
       <div className="flex items-center gap-2.5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
         <AlertTriangle className="h-4 w-4 shrink-0" />
-        {t('serverError')}: {error}
+        {t('serverError')}: {error.message}
       </div>
     );
   }
 
-  if (!data) return <DashboardSkeleton />;
+  if (!summary.data || !apiKeys.data) return <DashboardSkeleton />;
 
+  const data = { summary: summary.data, apiKeys: apiKeys.data };
   const activeKeys = data.apiKeys.filter((k) => !k.revokedAt);
   const firstActiveKey = activeKeys[0];
   const totalDead = data.summary.queue.totalDead;

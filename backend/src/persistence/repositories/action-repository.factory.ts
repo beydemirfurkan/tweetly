@@ -2,17 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ACTION_TABLE_CONFIG, type ActionTableConfig, GenericActionRepository } from './action-repository';
 import type { ActionType } from '@domain/types/action.types';
+import { AppConfigService } from '@/config/app-config.service';
 
 @Injectable()
 export class ActionRepositoryFactory {
   private readonly cache = new Map<string, GenericActionRepository>();
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly config: AppConfigService,
+  ) {}
 
   for(cfg: ActionTableConfig): GenericActionRepository {
     let repo = this.cache.get(cfg.table);
     if (!repo) {
-      repo = new GenericActionRepository(this.dataSource, cfg);
+      repo = new GenericActionRepository(this.dataSource, cfg, this.config);
       this.cache.set(cfg.table, repo);
     }
     return repo;

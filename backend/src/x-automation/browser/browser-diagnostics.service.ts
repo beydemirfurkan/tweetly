@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import { Injectable } from '@nestjs/common';
 import { chromium } from 'patchright';
 import { BrowserConfigService, type BrowserConfig } from './browser-config';
+import { AppConfigService } from '@/config/app-config.service';
 
 export interface BrowserDiagnostics {
   node: {
@@ -34,11 +35,14 @@ export interface BrowserDiagnostics {
  */
 @Injectable()
 export class BrowserDiagnosticsService {
-  constructor(private readonly config: BrowserConfigService) {}
+  constructor(
+    private readonly config: BrowserConfigService,
+    private readonly appConfig: AppConfigService,
+  ) {}
 
   getDiagnostics(): BrowserDiagnostics {
     const executablePath = this.resolveExecutablePath();
-    const browserRoot = process.env.PLAYWRIGHT_BROWSERS_PATH ?? null;
+    const browserRoot = this.appConfig.getOptionalString('PLAYWRIGHT_BROWSERS_PATH');
     const cfg = this.config.cfg;
 
     return {
@@ -51,7 +55,7 @@ export class BrowserDiagnosticsService {
       config: cfg,
       env: {
         playwrightBrowsersPath: browserRoot,
-        patchrightBrowserChannel: process.env.PATCHRIGHT_BROWSER_CHANNEL ?? null,
+        patchrightBrowserChannel: this.appConfig.getOptionalString('PATCHRIGHT_BROWSER_CHANNEL'),
       },
       paths: {
         cwd: process.cwd(),

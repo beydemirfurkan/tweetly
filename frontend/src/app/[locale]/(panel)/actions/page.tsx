@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useApiFetch, type ActionRow } from '@/lib/api';
-import { useLazyLoad } from '@/lib/use-lazy-load';
+import { useApiResource } from '@/lib/hooks';
+import { getActionStatusClass } from '@/lib/theme/action-status';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,15 +35,6 @@ const ACTION_TYPES = [
   'banner_update',
 ];
 
-const STATUS_CLASS: Record<string, string> = {
-  pending: 'border-border bg-muted/50 text-muted-foreground',
-  claimed: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
-  running: 'border-primary/25 bg-primary/10 text-primary',
-  succeeded: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
-  failed: 'border-destructive/25 bg-destructive/10 text-destructive',
-  dead: 'border-destructive/40 bg-destructive/15 text-destructive font-semibold',
-  cancelled: 'border-border bg-muted/30 text-muted-foreground',
-};
 
 const STATUS_LABEL_KEY: Record<string, string> = {
   pending: 'statusPending',
@@ -61,9 +53,15 @@ export default function ActionsPage() {
   const apiFetch = useApiFetch();
   const [type, setType] = useState('post');
   const [status, setStatus] = useState<string>('');
-  const [rows, setRows] = useState<ActionRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState('');
+
+  // Path changes whenever the filters change; useApiResource re-fetches
+  // automatically on path change and serialises the latest run via its
+  // internal generation guard.
+  const path = `/api/v1/actions?type=${type}&limit=100${status ? `&status=${status}` : ''}`;
+  const resource = useApiResource<{ rows: ActionRow[] }>(path);
+  const rows = resource.data?.rows ?? [];
+  const loading = resource.loading;
+  const loadError = resource.error?.message ?? '';
 
   const statusOptions = useMemo(
     () =>
@@ -79,38 +77,21 @@ export default function ActionsPage() {
     [t],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError('');
-    try {
-      let path = `/api/v1/actions?type=${type}&limit=100`;
-      if (status) path += `&status=${status}`;
-      const res = await apiFetch<{ rows: ActionRow[] }>(path);
-      setRows(res.rows);
-    } catch (err) {
-      setLoadError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [type, status, apiFetch]);
-
-  useLazyLoad(load);
-
   const replay = async (id: string) => {
     await apiFetch(`/api/v1/actions/${type}/${id}/replay`, { method: 'POST' });
-    load();
+    void resource.refetch();
   };
 
   const cancel = async (id: string) => {
     await apiFetch(`/api/v1/actions/${type}/${id}/cancel`, { method: 'POST' });
-    load();
+    void resource.refetch();
   };
 
   if (loadError) {
     return (
       <div className="flex items-center gap-2.5 rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
         <span>{tCommon('apiError')}: {loadError}</span>
-        <button onClick={load} className="ml-auto underline hover:no-underline">{tCommon('retry')}</button>
+        <button onClick={() => void resource.refetch()} className="ml-auto underline hover:no-underline">{tCommon('retry')}</button>
       </div>
     );
   }
@@ -161,7 +142,7 @@ export default function ActionsPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={load}
+          onClick={() => void resource.refetch()}
           disabled={loading}
           className="h-9 gap-1.5 text-xs"
         >
@@ -212,7 +193,7 @@ export default function ActionsPage() {
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const className = STATUS_CLASS[r.status] ?? STATUS_CLASS.pending;
+                    const className = getActionStatusClass(r.status);
                     const labelKey = STATUS_LABEL_KEY[r.status] ?? STATUS_LABEL_KEY.pending;
                     return (
                       <tr

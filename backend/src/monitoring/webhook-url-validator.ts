@@ -1,5 +1,6 @@
 import { promises as dns } from 'node:dns';
 import { isIP } from 'node:net';
+import { envBackedConfig } from '@/config/process-env-shim';
 
 /**
  * Outcome of a webhook URL safety check. Callers translate `ok=false`
@@ -111,12 +112,13 @@ interface ResolvedOptions {
 }
 
 function resolveOptions(o: ValidatorOptions): ResolvedOptions {
-  const env = (o.nodeEnv ?? process.env.NODE_ENV ?? 'development').toLowerCase();
+  const config = envBackedConfig();
+  const env = (o.nodeEnv ?? config.getString('NODE_ENV', 'development')).toLowerCase();
   return {
     requireHttps: env === 'production',
-    allowHttp: o.allowHttp ?? process.env.ALLOW_HTTP_WEBHOOK === 'true',
-    allowlist: parseHostList(o.hostAllowlist ?? process.env.WEBHOOK_HOST_ALLOWLIST),
-    blocklist: parseHostList(o.hostBlocklist ?? process.env.WEBHOOK_HOST_BLOCKLIST),
+    allowHttp: o.allowHttp ?? config.getString('ALLOW_HTTP_WEBHOOK', '') === 'true',
+    allowlist: parseHostList(o.hostAllowlist ?? config.getOptionalString('WEBHOOK_HOST_ALLOWLIST') ?? undefined),
+    blocklist: parseHostList(o.hostBlocklist ?? config.getOptionalString('WEBHOOK_HOST_BLOCKLIST') ?? undefined),
   };
 }
 

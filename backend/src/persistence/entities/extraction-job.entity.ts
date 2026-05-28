@@ -1,14 +1,17 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-export type ExtractionType =
-  | 'user_followers'
-  | 'user_following'
-  | 'user_tweets'
-  | 'user_likes'
-  | 'user_mentions'
-  | 'tweet_retweeters'
-  | 'search_tweets'
-  | 'list_members';
+export const EXTRACTION_TYPES = [
+  'user_followers',
+  'user_following',
+  'user_tweets',
+  'user_likes',
+  'user_mentions',
+  'tweet_retweeters',
+  'search_tweets',
+  'list_members',
+] as const;
+
+export type ExtractionType = (typeof EXTRACTION_TYPES)[number];
 
 export type ExtractionStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 

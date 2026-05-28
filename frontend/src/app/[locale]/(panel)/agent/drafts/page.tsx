@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useApiFetch, type RedactedAccount } from '@/lib/api';
+import { useApiFetch } from '@/lib/api';
+import { useApiResource, useAccounts } from '@/lib/hooks';
 import {
   Check,
   X,
@@ -37,39 +38,26 @@ export default function AgentDraftsPage() {
   const tc = useTranslations('common');
   const apiFetch = useApiFetch();
 
-  const [accounts, setAccounts] = useState<RedactedAccount[]>([]);
-  const [drafts, setDrafts] = useState<AgentDraft[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+  const accountsRes = useAccounts();
+  const draftsRes = useApiResource<{ items: AgentDraft[]; total: number }>(
+    `/api/v1/agent/drafts?status=${statusFilter === 'all' ? '' : statusFilter}&limit=50`,
+  );
+  const accounts = accountsRes.accounts;
+  const drafts = draftsRes.data?.items ?? [];
+  const total = draftsRes.data?.total ?? 0;
+  const loading = accountsRes.loading || draftsRes.loading;
+  const [error, setError] = useState('');
+  const fetchError = accountsRes.error?.message ?? draftsRes.error?.message;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const accs = await apiFetch<RedactedAccount[]>('/api/v1/accounts');
-      const draftData = await apiFetch<{ items: AgentDraft[]; total: number }>(
-        `/api/v1/agent/drafts?status=${statusFilter === 'all' ? '' : statusFilter}&limit=50`,
-      );
-
-      setAccounts(accs);
-      setDrafts(draftData.items);
-      setTotal(draftData.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFetch, statusFilter]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Re-fetches after a mutation; left as an arrow so the existing
+  // `await loadData()` call sites read naturally.
+  const loadData = async () => {
+    await Promise.all([accountsRes.refetch(), draftsRes.refetch()]);
+  };
 
   const getAccountName = (accountId: string) => {
     const acc = accounts.find((a) => a.id === accountId);
@@ -189,9 +177,9 @@ export default function AgentDraftsPage() {
         ))}
       </div>
 
-      {error && (
+      {(error || fetchError) && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
+          {error || fetchError}
         </div>
       )}
 

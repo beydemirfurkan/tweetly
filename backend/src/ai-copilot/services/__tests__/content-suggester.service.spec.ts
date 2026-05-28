@@ -1,12 +1,12 @@
 import { ContentSuggesterService } from '../content-suggester.service';
-import type { OpenRouterService } from '../openrouter.service';
+import type { ILlmClient } from '../../llm/llm-client.port';
 import type { StyleProfile } from '../../types/style-profile.types';
 
 function makeService(mockChat: jest.Mock): {
   svc: ContentSuggesterService;
-  ai: jest.Mocked<OpenRouterService>;
+  ai: jest.Mocked<ILlmClient>;
 } {
-  const ai = { chat: mockChat } as unknown as jest.Mocked<OpenRouterService>;
+  const ai = { chat: mockChat } as unknown as jest.Mocked<ILlmClient>;
   const svc = new ContentSuggesterService(ai);
   return { svc, ai };
 }

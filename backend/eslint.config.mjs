@@ -47,6 +47,20 @@ export default tseslint.config(
       // PROFILE_FETCHER port. Any new circular import is structural drift.
       'import/no-cycle': ['error', { maxDepth: 10, ignoreExternal: true }],
 
+      // DIP guard: service code must read env via AppConfigService, not by
+      // touching process.env directly. The override blocks below allowlist
+      // config/, main.ts, app.module.ts, observability/logger.module.ts,
+      // scripts/, migrations, and tests — where direct access is
+      // structurally appropriate (bootstrap / standalone tools / testing).
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[object.object.name='process'][object.property.name='env']",
+          message:
+            'Direct process.env reads are banned in service code. Inject AppConfigService (config/app-config.service.ts) and use getString/getNumber/getBoolean.',
+        },
+      ],
+
       // Recommended-but-noisy rules: relaxed during refactor; revisit after.
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': [
@@ -63,6 +77,10 @@ export default tseslint.config(
     rules: {
       'max-lines': 'off',
       'max-lines-per-function': 'off',
+      // Tests legitimately set process.env to exercise env-dependent code
+      // paths; forcing every spec to thread an AppConfigService mock is
+      // heavier than the value.
+      'no-restricted-syntax': 'off',
     },
   },
   {
@@ -74,6 +92,21 @@ export default tseslint.config(
     rules: {
       'max-lines': 'off',
       'max-lines-per-function': 'off',
+      'no-restricted-syntax': 'off',
     },
+  },
+  {
+    // Bootstrap, observability, and the env-parser layer itself read
+    // process.env directly — they're the boundary that everything else
+    // routes through.
+    files: [
+      'src/main.ts',
+      'src/config/**/*.ts',
+      'src/observability/logger.module.ts',
+      'src/observability/health.controller.ts',
+      'src/app.module.ts',
+      'src/test/**/*.ts',
+    ],
+    rules: { 'no-restricted-syntax': 'off' },
   },
 );
