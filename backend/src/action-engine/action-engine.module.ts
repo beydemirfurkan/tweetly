@@ -9,7 +9,9 @@ import { FollowActionEntity } from '@persistence/entities/follow-action.entity';
 import { QuoteActionEntity } from '@persistence/entities/quote-action.entity';
 import { AccountsModule } from '@/accounts/accounts.module';
 import { ControlStateRepository } from '@persistence/repositories/control-state.repository';
+import { ActionAdminRepository } from '@persistence/repositories/action-admin.repository';
 import { ActionRepositoryFactory } from '@persistence/repositories/action-repository.factory';
+import { ActionQueueService } from './application/action-queue.service';
 import { ExecutorRegistry } from './executor-registry.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { ClaimWorker } from './claim-worker.service';
@@ -73,11 +75,13 @@ const STRATEGY_PROVIDERS: Provider[] = STRATEGY_CLASSES.flatMap((Strategy) => [
     CircuitBreakerService,
     ClaimWorker,
     ActionEnqueueService,
+    ActionQueueService,
     ControlStateRepository,
+    ActionAdminRepository,
     ActionRepositoryFactory,
     ActionStrategyRegistry,
     ...STRATEGY_PROVIDERS,
   ],
-  exports: [ExecutorRegistry, CircuitBreakerService, ActionEnqueueService, ActionRepositoryFactory, ActionStrategyRegistry],
+  exports: [ExecutorRegistry, CircuitBreakerService, ActionEnqueueService, ActionQueueService, ActionRepositoryFactory, ActionStrategyRegistry],
 })
 export class ActionEngineModule {}

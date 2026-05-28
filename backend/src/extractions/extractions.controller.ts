@@ -29,7 +29,7 @@ import {
   RateLimitRead,
   TieredThrottlerGuard,
 } from '@/auth/tiered-throttler.guard';
-import { AccountFacade } from '@/public-api/facades/account.facade';
+import { AccountAccessService } from '@/accounts/application/account-access.service';
 import type {
   ExtractionParams,
   ExtractionType,
@@ -51,7 +51,7 @@ interface CreateExtractionBody {
 export class ExtractionsController {
   constructor(
     private readonly extractions: ExtractionService,
-    private readonly accounts: AccountFacade,
+    private readonly accounts: AccountAccessService,
   ) {}
 
   @Post()

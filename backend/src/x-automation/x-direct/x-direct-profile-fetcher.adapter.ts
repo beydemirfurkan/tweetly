@@ -7,7 +7,7 @@ import { XDirectReadService } from './x-direct-read.service';
  * so accounts/ProfileCacheService can refresh profiles without taking a
  * direct dependency on the x-automation module.
  *
- * Registered against the PROFILE_FETCHER token in XAutomationModule.
+ * Registered against the PROFILE_FETCHER token in ProfileFetcherModule.
  */
 @Injectable()
 export class XDirectProfileFetcherAdapter implements IProfileFetcher {

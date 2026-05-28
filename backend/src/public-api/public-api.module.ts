@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AccountsModule } from '@/accounts/accounts.module';
 import { ActionEngineModule } from '@/action-engine/action-engine.module';
-import { AdminApiModule } from '@/admin-api/admin-api.module';
 import { AuthModule } from '@/auth/auth.module';
 import { MonitoringModule } from '@/monitoring/monitoring.module';
-import { XAutomationModule } from '@/x-automation/x-automation.module';
+import { XBrowserModule } from '@/x-automation/browser/browser.module';
+import { XDirectModule } from '@/x-automation/x-direct/x-direct.module';
+import { XLoginModule } from '@/x-automation/login/x-login.module';
 import { AccountsController } from './controllers/accounts.controller';
 import { ActionsController } from './controllers/actions.controller';
 import { LoginController } from './controllers/login.controller';
@@ -21,10 +22,11 @@ import { XFacade } from './facades/x.facade';
   imports: [
     AccountsModule,
     ActionEngineModule,
-    AdminApiModule,
     AuthModule,
     MonitoringModule,
-    XAutomationModule,
+    XBrowserModule,
+    XDirectModule,
+    XLoginModule,
   ],
   controllers: [
     AccountsController,

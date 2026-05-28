@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { AccountsModule } from '@/accounts/accounts.module';
 import { ActionEngineModule } from '@/action-engine/action-engine.module';
 import { SettingsModule } from '@/settings/settings.module';
-import { AdminApiModule } from '@/admin-api/admin-api.module';
 import { AuthModule } from '@/auth/auth.module';
-import { XAutomationModule } from '@/x-automation/x-automation.module';
+import { XBrowserModule } from '@/x-automation/browser/browser.module';
+import { XDirectModule } from '@/x-automation/x-direct/x-direct.module';
+import { XLoginModule } from '@/x-automation/login/x-login.module';
 import { MonitoringModule } from '@/monitoring/monitoring.module';
 import { ExtractionsModule } from '@/extractions/extractions.module';
 import { McpController } from './mcp.controller';
@@ -24,12 +25,13 @@ import { ExtractionHandler } from './handlers/extraction.handler';
 
 @Module({
   imports: [
-    AdminApiModule,
     AccountsModule,
     ActionEngineModule,
     SettingsModule,
     AuthModule,
-    XAutomationModule,
+    XBrowserModule,
+    XDirectModule,
+    XLoginModule,
     MonitoringModule,
     ExtractionsModule,
   ],

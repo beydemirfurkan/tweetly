@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { AccountsService } from '@/accounts/accounts.service';
 import { AccountOwnershipService } from '@/accounts/account-ownership.service';
+import { AccountAccessService } from '@/accounts/application/account-access.service';
 import type { ProfileCacheService } from '@/accounts/profile-cache.service';
 import type { CookieHealthCheckService } from '@/x-automation/login/cookie-health-check.service';
 import { AccountFacade } from '../account.facade';
@@ -32,13 +33,14 @@ function makeFacade(overrides: {
     ...overrides.accounts,
   } as unknown as jest.Mocked<AccountsService>;
   const ownership = new AccountOwnershipService(accounts as unknown as AccountsService);
+  const access = new AccountAccessService(ownership);
   const cookieHealth = {
     check: jest.fn().mockResolvedValue({ ok: false, reason: 'missing_fields' }),
     ...overrides.cookieHealth,
   } as unknown as jest.Mocked<CookieHealthCheckService>;
   const facade = new AccountFacade(
     accounts,
-    ownership,
+    access,
     {} as unknown as ProfileCacheService,
     {} as unknown as AccountSummaryService,
     cookieHealth,

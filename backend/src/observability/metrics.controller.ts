@@ -1,8 +1,8 @@
 import { Controller, Get, Header, UseGuards } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { AdminTokenGuard } from '@/admin-api/admin-token.guard';
+import { ActionQueueService } from '@/action-engine/application/action-queue.service';
 import { MetricsService } from './metrics.service';
-import { AdminApiService } from '@/admin-api/admin-api.service';
 import type { ActionType } from '@domain/types/action.types';
 
 @ApiExcludeController()
@@ -10,7 +10,7 @@ import type { ActionType } from '@domain/types/action.types';
 export class MetricsController {
   constructor(
     private readonly metricsService: MetricsService,
-    private readonly adminService: AdminApiService,
+    private readonly queue: ActionQueueService,
   ) {}
 
   @Get('metrics')
@@ -18,8 +18,8 @@ export class MetricsController {
   @UseGuards(AdminTokenGuard)
   async getMetrics(): Promise<string> {
     const [depth, lag] = await Promise.all([
-      this.adminService.getQueueDepth(),
-      this.adminService.getQueueLag(),
+      this.queue.getQueueDepth(),
+      this.queue.getQueueLag(),
     ]);
     for (const d of depth) {
       for (const [status, count] of Object.entries(d) as Array<[string, number]>) {

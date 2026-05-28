@@ -1,15 +1,15 @@
 import { NotFoundException } from '@nestjs/common';
 import { ActionQueueHandler } from '../action-queue.handler';
 import { fakeContext } from './test-helpers';
-import type { AdminApiService } from '@/admin-api/admin-api.service';
+import type { ActionQueueService } from '@/action-engine/application/action-queue.service';
 
 function build() {
-  const adminApi = {
+  const queue = {
     listActions: jest.fn().mockResolvedValue([]),
     cancelAction: jest.fn().mockResolvedValue(true),
     replayAction: jest.fn().mockResolvedValue(true),
-  } as unknown as jest.Mocked<AdminApiService>;
-  return { handler: new ActionQueueHandler(adminApi), adminApi };
+  } as unknown as jest.Mocked<ActionQueueService>;
+  return { handler: new ActionQueueHandler(queue), queue };
 }
 
 describe('ActionQueueHandler.listActions', () => {
@@ -32,8 +32,8 @@ describe('ActionQueueHandler.listActions', () => {
   });
 
   it('filters rows by allowedIds when no account_id is given', async () => {
-    const { handler, adminApi } = build();
-    adminApi.listActions.mockResolvedValue([
+    const { handler, queue } = build();
+    queue.listActions.mockResolvedValue([
       { id: 'r1', account_id: 'acc-1' },
       { id: 'r2', account_id: 'foreign' },
     ] as never);
@@ -51,10 +51,10 @@ describe('ActionQueueHandler.cancelAction / replayAction', () => {
     const ctx = fakeContext({
       assertActionOwnership: jest.fn().mockRejectedValue(new NotFoundException('Action a not found')),
     });
-    const { handler, adminApi } = build();
+    const { handler, queue } = build();
 
     await expect(handler.cancelAction({ type: 'post', action_id: 'a' }, ctx)).rejects.toThrow(NotFoundException);
-    expect(adminApi.cancelAction).not.toHaveBeenCalled();
+    expect(queue.cancelAction).not.toHaveBeenCalled();
   });
 
   it('replayAction returns ok+pending on success', async () => {

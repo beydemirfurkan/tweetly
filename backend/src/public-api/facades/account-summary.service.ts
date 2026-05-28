@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AccountsService } from '@/accounts/accounts.service';
-import { AdminApiService } from '@/admin-api/admin-api.service';
+import { ActionQueueService } from '@/action-engine/application/action-queue.service';
 
 export interface AccountSummaryDto {
   accounts: {
@@ -28,15 +28,15 @@ export interface AccountSummaryDto {
 export class AccountSummaryService {
   constructor(
     private readonly accounts: AccountsService,
-    private readonly admin: AdminApiService,
+    private readonly queue: ActionQueueService,
   ) {}
 
   async getSummary(userId: string): Promise<AccountSummaryDto> {
     const userAccounts = await this.accounts.listAllForUser(userId);
     const accountIds = userAccounts.map((a) => a.id);
     const [queue, succeeded24h] = await Promise.all([
-      this.admin.getQueueDepthForAccounts(accountIds),
-      this.admin.getRecentSucceededCount(accountIds, 24 * 60 * 60 * 1000),
+      this.queue.getQueueDepthForAccounts(accountIds),
+      this.queue.getRecentSucceededCount(accountIds, 24 * 60 * 60 * 1000),
     ]);
     const totalPending = queue.reduce((s, q) => s + q.pending, 0);
     const totalDead = queue.reduce((s, q) => s + q.dead, 0);

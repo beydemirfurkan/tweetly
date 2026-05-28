@@ -22,7 +22,7 @@ export type StatusCounts = Record<
 >;
 
 /**
- * Cross-cutting admin queries against any action table. AdminApiService used
+ * Cross-cutting admin queries against any action table. ActionQueueService uses
  * to issue these as raw SQL inline; centralising them here keeps the SQL in
  * one file and lets us change the schema (column names, indexes) without
  * grepping through service code.

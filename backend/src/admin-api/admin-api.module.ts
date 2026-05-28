@@ -2,16 +2,16 @@ import { Module } from '@nestjs/common';
 import { SettingsModule } from '@/settings/settings.module';
 import { AuthModule } from '@/auth/auth.module';
 import { ActionEngineModule } from '@/action-engine/action-engine.module';
-import { XAutomationModule } from '@/x-automation/x-automation.module';
-import { ActionAdminRepository } from '@persistence/repositories';
+import { XBrowserModule } from '@/x-automation/browser/browser.module';
+import { XDirectModule } from '@/x-automation/x-direct/x-direct.module';
 import { AdminApiController } from './admin-api.controller';
 import { AdminApiService } from './admin-api.service';
 import { AdminTokenGuard } from './admin-token.guard';
 
 @Module({
-  imports: [SettingsModule, AuthModule, ActionEngineModule, XAutomationModule],
+  imports: [SettingsModule, AuthModule, ActionEngineModule, XBrowserModule, XDirectModule],
   controllers: [AdminApiController],
-  providers: [AdminApiService, AdminTokenGuard, ActionAdminRepository],
-  exports: [AdminApiService, AdminTokenGuard, SettingsModule],
+  providers: [AdminApiService, AdminTokenGuard],
+  exports: [AdminTokenGuard, SettingsModule],
 })
 export class AdminApiModule {}

@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { ExtractionsController } from '../extractions.controller';
 import type { ExtractionService } from '../extraction.service';
-import type { AccountFacade } from '@/public-api/facades/account.facade';
+import type { AccountAccessService } from '@/accounts/application/account-access.service';
 
 jest.mock('fs', () => ({
   ...jest.requireActual<typeof import('fs')>('fs'),
@@ -19,11 +19,11 @@ function fakeRequest(userId = 'user-1'): any {
 
 function makeController(overrides: {
   extractions?: Partial<jest.Mocked<ExtractionService>>;
-  accounts?: Partial<jest.Mocked<AccountFacade>>;
+  accounts?: Partial<jest.Mocked<AccountAccessService>>;
 } = {}): {
   ctrl: ExtractionsController;
   extractions: jest.Mocked<ExtractionService>;
-  accounts: jest.Mocked<AccountFacade>;
+  accounts: jest.Mocked<AccountAccessService>;
 } {
   const extractions = {
     validateAndEnqueue: jest.fn(),
@@ -36,13 +36,13 @@ function makeController(overrides: {
   const accounts = {
     resolveAccountIdOptional: jest.fn().mockResolvedValue('acc-1'),
     ...overrides.accounts,
-  } as unknown as jest.Mocked<AccountFacade>;
+  } as unknown as jest.Mocked<AccountAccessService>;
   const ctrl = new ExtractionsController(extractions, accounts);
   return { ctrl, extractions, accounts };
 }
 
 describe('ExtractionsController.create', () => {
-  it('resolves the account via AccountFacade, then enqueues with normalized fields', async () => {
+  it('resolves the account via AccountAccessService, then enqueues with normalized fields', async () => {
     const { ctrl, extractions, accounts } = makeController({
       extractions: {
         validateAndEnqueue: jest.fn().mockResolvedValue({ id: 'job-1' }),

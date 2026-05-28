@@ -3,7 +3,7 @@ import { Server } from '@modelcontextprotocol/sdk/server';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { AccountsService } from '@/accounts/accounts.service';
-import { AdminApiService } from '@/admin-api/admin-api.service';
+import { ActionQueueService } from '@/action-engine/application/action-queue.service';
 import type { ActionType } from '@domain/types/action.types';
 import { McpSessionRouter } from './mcp-session-router.service';
 import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
@@ -19,7 +19,7 @@ export class McpService {
 
   constructor(
     private readonly accounts: AccountsService,
-    private readonly adminApi: AdminApiService,
+    private readonly queue: ActionQueueService,
     private readonly sessionRouter: McpSessionRouter,
     private readonly loginJobs: LoginJobsRepository,
     private readonly router: McpRouter,
@@ -143,7 +143,7 @@ export class McpService {
   }
 
   private async assertActionOwnership(userId: string, type: ActionType, id: string): Promise<void> {
-    const accountId = await this.adminApi.findActionAccountId(type, id);
+    const accountId = await this.queue.findActionAccountId(type, id);
     if (!accountId) throw new NotFoundException(`Action ${id} not found`);
     await this.assertAccountOwnership(userId, accountId);
   }

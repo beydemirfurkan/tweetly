@@ -62,6 +62,28 @@ export default tseslint.config(
       ],
 
       // Recommended-but-noisy rules: relaxed during refactor; revisit after.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/public-api/**'],
+              message:
+                'public-api is a transport adapter. Move shared logic into a feature application service instead of importing public-api.',
+            },
+            {
+              group: ['@/admin-api/admin-api.service'],
+              message:
+                'admin-api is a transport adapter. Use action-engine application services for shared queue/action operations.',
+            },
+            {
+              group: ['@/x-automation/x-automation.module'],
+              message:
+                'XAutomationModule is app-level composition. Import XBrowserModule, XDirectModule, or XLoginModule from the focused submodule instead.',
+            },
+          ],
+        },
+      ],
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -70,6 +92,23 @@ export default tseslint.config(
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-unsafe-function-type': 'off',
       '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
+    files: ['src/public-api/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/x-automation/x-automation.module'],
+              message:
+                'XAutomationModule is app-level composition. Import XBrowserModule, XDirectModule, or XLoginModule from the focused submodule instead.',
+            },
+          ],
+        },
+      ],
     },
   },
   {

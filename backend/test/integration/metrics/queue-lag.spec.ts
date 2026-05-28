@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { AppModule } from '@/app.module';
-import { AdminApiService } from '@/admin-api/admin-api.service';
 import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
+import { ActionQueueService } from '@/action-engine/application/action-queue.service';
 import { IntegrationDbHarness } from '../harness';
 
 /**
@@ -11,10 +11,10 @@ import { IntegrationDbHarness } from '../harness';
  * arithmetic is exercised end-to-end — pure unit mocks would miss
  * timezone or null-MIN edge cases.
  */
-describe('AdminApiService.getQueueLag', () => {
+describe('ActionQueueService.getQueueLag', () => {
   let harness: IntegrationDbHarness;
   let app: INestApplication;
-  let admin: AdminApiService;
+  let queue: ActionQueueService;
   let enqueue: ActionEnqueueService;
   const TEST_ACCOUNT = 'lag-test-acc';
 
@@ -23,7 +23,7 @@ describe('AdminApiService.getQueueLag', () => {
     await harness.start();
     app = await NestFactory.create(AppModule, { logger: false });
     await app.init();
-    admin = app.get(AdminApiService);
+    queue = app.get(ActionQueueService);
     enqueue = app.get(ActionEnqueueService);
 
     const [{ id: userId }] = await harness.dataSource.query(
@@ -53,7 +53,7 @@ describe('AdminApiService.getQueueLag', () => {
   });
 
   it('returns 0 lag for every type when there are no pending actions', async () => {
-    const lag = await admin.getQueueLag();
+    const lag = await queue.getQueueLag();
     // 15 action types in the system as of this sprint.
     expect(lag).toHaveLength(15);
     for (const entry of lag) {
@@ -69,7 +69,7 @@ describe('AdminApiService.getQueueLag', () => {
       scheduledAt: oneMinuteAgo,
     });
 
-    const lag = await admin.getQueueLag();
+    const lag = await queue.getQueueLag();
     const likeLag = lag.find((l) => l.type === 'like');
     expect(likeLag).toBeDefined();
     // Should be roughly 60s (allow a wide 50-90s window for test clock jitter).
@@ -96,7 +96,7 @@ describe('AdminApiService.getQueueLag', () => {
       scheduledAt: oneMinAgo,
     });
 
-    const lag = await admin.getQueueLag();
+    const lag = await queue.getQueueLag();
     const likeLag = lag.find((l) => l.type === 'like');
     expect(likeLag!.oldestPendingSeconds).toBeGreaterThanOrEqual(550);
     expect(likeLag!.oldestPendingSeconds).toBeLessThanOrEqual(700);

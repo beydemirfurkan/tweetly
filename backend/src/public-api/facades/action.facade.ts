@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ActionEnqueueService } from '@/action-engine/action-enqueue.service';
-import { AdminApiService } from '@/admin-api/admin-api.service';
+import { ActionQueueService } from '@/action-engine/application/action-queue.service';
 import type { ActionType, ActionStatus } from '@domain/types/action.types';
 import { ACTION_TYPES } from '@domain/types/action.types';
 import { AccountFacade } from './account.facade';
@@ -18,7 +18,7 @@ import type {
 } from '../dto/action.dto';
 
 /**
- * Wraps ActionEnqueueService + AdminApiService with ownership / idempotency
+ * Wraps ActionEnqueueService + ActionQueueService with ownership / idempotency
  * concerns so that controllers stay declarative. Resolution helpers come
  * from AccountFacade — ownership lives in one place.
  */
@@ -26,7 +26,7 @@ import type {
 export class ActionFacade {
   constructor(
     private readonly enqueue: ActionEnqueueService,
-    private readonly admin: AdminApiService,
+    private readonly queue: ActionQueueService,
     private readonly accountFacade: AccountFacade,
   ) {}
 
@@ -156,7 +156,7 @@ export class ActionFacade {
       throw new NotFoundException(`Account ${accountId} not found`);
     }
     const limit = Math.min(Math.max(1, parseInt(limitStr ?? '50', 10)), 200);
-    const rows = await this.admin.listActions(
+    const rows = await this.queue.listActions(
       type as ActionType,
       status as ActionStatus | undefined,
       accountId || undefined,
@@ -169,7 +169,7 @@ export class ActionFacade {
   async cancel(userId: string, type: string, id: string) {
     const t = this.requireKnownType(type);
     await this.assertActionOwnership(userId, t, id);
-    const ok = await this.admin.cancelAction(t, id);
+    const ok = await this.queue.cancelAction(t, id);
     if (!ok) throw new NotFoundException(`Action ${id} not found or not cancellable`);
     return { ok: true, id, status: 'cancelled' };
   }
@@ -177,7 +177,7 @@ export class ActionFacade {
   async replay(userId: string, type: string, id: string) {
     const t = this.requireKnownType(type);
     await this.assertActionOwnership(userId, t, id);
-    const ok = await this.admin.replayAction(t, id);
+    const ok = await this.queue.replayAction(t, id);
     if (!ok) throw new NotFoundException(`Action ${id} not found or not replayable`);
     return { ok: true, id, status: 'pending' };
   }
@@ -190,7 +190,7 @@ export class ActionFacade {
   }
 
   private async assertActionOwnership(userId: string, type: ActionType, id: string): Promise<void> {
-    const accountId = await this.admin.findActionAccountId(type, id);
+    const accountId = await this.queue.findActionAccountId(type, id);
     if (!accountId) throw new NotFoundException(`Action ${id} not found`);
     await this.accountFacade.assertAccountOwnership(userId, accountId);
   }

@@ -1,4 +1,4 @@
-import { AdminApiService } from '../admin-api.service';
+import { ActionQueueService } from '../action-queue.service';
 import { ActionAdminRepository } from '@persistence/repositories/action-admin.repository';
 
 jest.mock('@persistence/repositories/action-repository', () => ({
@@ -16,11 +16,11 @@ jest.mock('@persistence/repositories/action-repository', () => ({
 function createService() {
   const ds = { query: jest.fn() };
   const repo = new ActionAdminRepository(ds as any);
-  const service = new AdminApiService(repo);
+  const service = new ActionQueueService(repo);
   return { service, ds };
 }
 
-describe('AdminApiService', () => {
+describe('ActionQueueService', () => {
   describe('getQueueDepth()', () => {
     it('returns queue depth for all action types', async () => {
       const { service, ds } = createService();

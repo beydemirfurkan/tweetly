@@ -1,11 +1,8 @@
 import { Module, type Provider } from '@nestjs/common';
 import { AuthModule } from '@/auth/auth.module';
 import { AccountsModule } from '@/accounts/accounts.module';
-import { AdminApiModule } from '@/admin-api/admin-api.module';
 import { CryptoModule } from '@/common/crypto/crypto.module';
-import { XAutomationModule } from '@/x-automation/x-automation.module';
-import { LoginJobsRepository } from '@/x-automation/login/login-jobs.repository';
-import { AccountFacade } from '@/public-api/facades/account.facade';
+import { XDirectModule } from '@/x-automation/x-direct/x-direct.module';
 import { ExtractionJobsRepository } from './extraction-jobs.repository';
 import { ExtractionService } from './extraction.service';
 import { ExtractionWorker } from './extraction-worker.service';
@@ -40,15 +37,12 @@ const STRATEGY_PROVIDERS: Provider[] = STRATEGY_CLASSES.flatMap((Strategy) => [
 @Module({
   imports: [
     AccountsModule,
-    AdminApiModule,
     AuthModule,
     CryptoModule,
-    XAutomationModule,
+    XDirectModule,
   ],
   controllers: [ExtractionsController],
   providers: [
-    AccountFacade,
-    LoginJobsRepository,
     ExtractionJobsRepository,
     ExtractionService,
     ExtractionWorker,

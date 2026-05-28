@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AccountsService } from '@/accounts/accounts.service';
-import { AccountOwnershipService } from '@/accounts/account-ownership.service';
+import { AccountAccessService } from '@/accounts/application/account-access.service';
 import { ProfileCacheService } from '@/accounts/profile-cache.service';
 import {
   CookieHealthCheckService,
@@ -29,15 +29,15 @@ const ACCOUNT_STATUSES: AccountStatus[] = ['active', 'paused', 'banned'];
  * cookie pre-flight). Controllers MUST NOT inject the underlying services
  * directly — facade boundaries are enforced by eslint import/no-restricted-paths.
  *
- * Login lifecycle lives in AccountLoginFacade; ownership resolution in
- * AccountOwnershipService; summary in AccountSummaryService — this facade
+ * Login lifecycle lives in AccountLoginFacade; ownership/access resolution in
+ * AccountsModule application services; summary in AccountSummaryService, and this facade
  * composes them where it needs to.
  */
 @Injectable()
 export class AccountFacade {
   constructor(
     private readonly accounts: AccountsService,
-    private readonly ownership: AccountOwnershipService,
+    private readonly access: AccountAccessService,
     private readonly profileCache: ProfileCacheService,
     private readonly summary: AccountSummaryService,
     private readonly cookieHealth: CookieHealthCheckService,
@@ -47,34 +47,22 @@ export class AccountFacade {
     return this.cookieHealth.check(input);
   }
 
-  // ── Resolution / ownership (delegated to AccountOwnershipService) ─────
+  // ── Resolution / ownership (delegated to AccountsModule application) ───
 
   async resolveAccountId(userId: string, candidate?: string): Promise<string> {
-    const resolved = await this.ownership.resolve(userId, candidate);
-    if (resolved.hadCandidate && !resolved.accountId) {
-      throw new NotFoundException(`Account ${candidate} not found`);
-    }
-    if (!resolved.accountId) {
-      throw new BadRequestException('no active account; specify "account" or connect one');
-    }
-    return resolved.accountId;
+    return this.access.resolveAccountId(userId, candidate);
   }
 
   async resolveAccountIdOptional(userId: string, candidate?: string): Promise<string | undefined> {
-    if (!candidate) {
-      const resolved = await this.ownership.resolve(userId);
-      return resolved.accountId ?? undefined;
-    }
-    return this.resolveAccountId(userId, candidate);
+    return this.access.resolveAccountIdOptional(userId, candidate);
   }
 
   async assertAccountOwnership(userId: string, accountId: string): Promise<void> {
-    const ok = await this.ownership.ownsAccount(userId, accountId);
-    if (!ok) throw new NotFoundException(`Account ${accountId} not found`);
+    await this.access.assertAccountOwnership(userId, accountId);
   }
 
   userAccountIds(userId: string): Promise<string[]> {
-    return this.ownership.userAccountIds(userId);
+    return this.access.userAccountIds(userId);
   }
 
   // ── Listing / CRUD ────────────────────────────────────────────────────
