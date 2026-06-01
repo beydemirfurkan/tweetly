@@ -110,7 +110,7 @@ export default async function DocsPage({
                   </p>
                   <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-popover px-4 py-3 font-mono text-[12px] leading-[1.65] text-muted-foreground">
 <span className="text-muted-foreground"># frontend/.env.local</span>{'\n'}
-<span className="text-foreground">NEXT_PUBLIC_API_URL=</span><span className="text-primary">http://localhost:3000</span>
+<span className="text-foreground">NEXT_PUBLIC_API_URL=</span><span className="text-primary">https://api.xtweetly.com</span>
                   </pre>
                 </div>
               </div>

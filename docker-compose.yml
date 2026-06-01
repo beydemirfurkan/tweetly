@@ -18,10 +18,11 @@ services:
       # Bootstrap-only — set on first deploy, then write secrets.admin_token
       # via PUT /admin/secrets and remove these env vars.
       BOOTSTRAP_ADMIN_TOKEN: ${BOOTSTRAP_ADMIN_TOKEN:-}
-      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@tweetly.local}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@xtweetly.com}
 
       # Public URLs the magic-link emails embed and CORS allows.
       APP_URL: ${APP_URL:-http://localhost:3000}
+      PUBLIC_BACKEND_URL: ${PUBLIC_BACKEND_URL:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
 
       # Multi-instance coordination (rate-limit + MCP session registry).

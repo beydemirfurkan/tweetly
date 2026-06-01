@@ -18,9 +18,9 @@ import {
 import { AnthropicLogo, OpenAILogo, CursorLogo } from '@/components/brand-logos';
 
 const apiBase = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
-  ?? 'https://your-backend.example.com');
+  ?? 'https://api.xtweetly.com');
 const panelBase = (process.env.NEXT_PUBLIC_PANEL_URL?.replace(/\/$/, '')
-  ?? 'https://your-panel.example.com');
+  ?? 'https://xtweetly.com');
 const mcpUrl = `${apiBase}/mcp`;
 const mcpSseUrl = `${apiBase}/mcp/sse`;
 

@@ -10,8 +10,12 @@ function resolveApiOrigin(): string {
   if (typeof window === 'undefined') return '';
 
   const host = window.location.hostname.replace(/^www\./, '');
-  if (host.startsWith('tw-panel.')) {
-    return `${window.location.protocol}//${host.replace(/^tw-panel\./, 'tw-backend.')}`;
+  if (host === 'xtweetly.com') {
+    return `${window.location.protocol}//api.xtweetly.com`;
+  }
+
+  if (host.startsWith('panel.')) {
+    return `${window.location.protocol}//${host.replace(/^panel\./, 'api.')}`;
   }
 
   return '';

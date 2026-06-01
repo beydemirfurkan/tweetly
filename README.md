@@ -7,7 +7,7 @@
 
 Self-hosted automation layer for X (Twitter), built around the **Model Context Protocol**. Bring your own AI agent — Claude Code, Cursor, Codex, anything that speaks MCP — and tweetly executes the post / engage / read actions on X through a real browser session, not the public API.
 
-> **Live demo:** [tw-panel.beydemir.dev](https://tw-panel.beydemir.dev) — request a magic link with your email, mint a `tk_*` API key, plug it into your MCP client.
+> **Live demo:** [xtweetly.com](https://xtweetly.com) — request a magic link with your email, mint a `tk_*` API key, plug it into your MCP client.
 > For production, **self-host on your own infrastructure** — see [Deploy](#deploy) below.
 
 ---
@@ -319,7 +319,7 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_API_TOKEN" \
     "smtpUser": "your-server-token",
     "smtpPass": "your-server-token",
     "smtpSecure": false,
-    "mailFrom": "tweetly <noreply@yourdomain.com>"
+    "mailFrom": "xtweetly <noreply@xtweetly.com>"
   }' \
   http://localhost:3001/admin/secrets
 ```
@@ -516,7 +516,7 @@ docker compose up --build
 | Service | Type | Notes |
 |---|---|---|
 | `tweetly-backend` | Application (Dockerfile) | `backend/` directory, `Dockerfile` build, port 3000 |
-| `tweetly-frontend` | Application (Dockerfile) | `frontend/` directory, build arg `NEXT_PUBLIC_API_URL=https://api.your-domain.com` |
+| `tweetly-frontend` | Application (Dockerfile) | `frontend/` directory, build arg `NEXT_PUBLIC_API_URL=https://api.xtweetly.com` |
 | `tweetly-postgres` | Managed Postgres | Coolify add-on, 16-alpine, persistent volume |
 
 **Backend env:**
@@ -525,20 +525,21 @@ docker compose up --build
 DATABASE_URL=postgres://tweetly:tweetly@<coolify-postgres>:5432/tweetly
 NODE_ENV=production
 X_EXECUTOR_MODE=patchright
-APP_URL=https://panel.yourdomain.com
-CORS_ORIGINS=https://panel.yourdomain.com
+APP_URL=https://xtweetly.com
+PUBLIC_BACKEND_URL=https://api.xtweetly.com
+CORS_ORIGINS=https://xtweetly.com
 BOOTSTRAP_ADMIN_TOKEN=<random-32-byte-hex>      # one-time
-BOOTSTRAP_ADMIN_EMAIL=you@yourdomain.com         # first user's email
+BOOTSTRAP_ADMIN_EMAIL=you@xtweetly.com           # first user's email
 # REDIS_URL=redis://<coolify-redis>:6379         # required for 2+ instances
 ```
 
 **Frontend build arg:**
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.your-domain.com
+NEXT_PUBLIC_API_URL=https://api.xtweetly.com
 ```
 
-If you keep the `panel.*` ↔ `api.*` naming convention, `NEXT_PUBLIC_API_URL` can be omitted — `lib/api.ts` derives it at runtime. Any other convention requires the build arg.
+For `xtweetly.com`, `NEXT_PUBLIC_API_URL` can be omitted — `lib/api.ts` derives `https://api.xtweetly.com` at runtime. Any other convention requires the build arg.
 
 **Persistent volume.** The backend container mounts `/data`:
 - `/data/user-data` — X session profiles (cookie persistence)
@@ -552,8 +553,8 @@ The Patchright Chromium binary lives at `/app/browsers` inside the image. **Don'
 # 1. Create the first admin user
 curl -X POST -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"email":"you@yourdomain.com"}' \
-  https://api.your-domain.com/admin/users
+  -d '{"email":"you@xtweetly.com"}' \
+  https://api.xtweetly.com/admin/users
 
 # 2. Write the permanent admin token + SMTP credentials
 curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
@@ -565,9 +566,9 @@ curl -X PUT -H "Authorization: Bearer $BOOTSTRAP_ADMIN_TOKEN" \
     "smtpPort": 587,
     "smtpUser": "<provider-user>",
     "smtpPass": "<provider-pass>",
-    "mailFrom": "tweetly <noreply@yourdomain.com>"
+    "mailFrom": "xtweetly <noreply@xtweetly.com>"
   }' \
-  https://api.your-domain.com/admin/secrets
+  https://api.xtweetly.com/admin/secrets
 
 # 3. Remove BOOTSTRAP_ADMIN_TOKEN from Coolify env, redeploy
 # 4. Frontend → /login → enter email → click magic link → in
@@ -611,7 +612,7 @@ scrape_configs:
   - job_name: tweetly
     metrics_path: /metrics
     static_configs:
-      - targets: ['api.your-domain.com:443']
+      - targets: ['api.xtweetly.com:443']
     scheme: https
     bearer_token: <secrets.admin_token>
 ```

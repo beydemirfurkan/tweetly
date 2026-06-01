@@ -48,12 +48,12 @@ class SecretUpdateBody {
   @ApiProperty({ required: false, description: 'Use TLS on connect (true for port 465)' })
   smtpSecure?: boolean;
 
-  @ApiProperty({ required: false, description: 'From header for outgoing mail (e.g. "Tweetly <noreply@x.com>")' })
+  @ApiProperty({ required: false, description: 'From header for outgoing mail (e.g. "xtweetly <noreply@xtweetly.com>")' })
   mailFrom?: string;
 }
 
 class CreateUserBody {
-  @ApiProperty({ example: 'first-user@yourdomain.com' })
+  @ApiProperty({ example: 'first-user@xtweetly.com' })
   email?: string;
 }
 

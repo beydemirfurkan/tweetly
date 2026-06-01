@@ -8,7 +8,7 @@ import { SettingsService } from '@/settings/settings.service';
 import { AppConfigService } from '@/config/app-config.service';
 
 const LINK_TTL_MIN = 15;
-const DEFAULT_FROM = 'tweetly <noreply@example.com>';
+const DEFAULT_FROM = 'xtweetly <noreply@xtweetly.com>';
 const MAGIC_LINK_CONSOLE_ENVS = new Set(['development', 'test', 'local']);
 
 interface SmtpConfig {

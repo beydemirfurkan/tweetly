@@ -27,7 +27,7 @@ In-scope:
 Out-of-scope:
 - Self-inflicted damage from users running with `BOOTSTRAP_ADMIN_TOKEN` env still set after first deploy
 - Issues caused by running outdated Node / Postgres / Patchright versions
-- Reports against the public demo at [tw-panel.beydemir.dev](https://tw-panel.beydemir.dev) that depend on social engineering, brute force, or X's own surfaces
+- Reports against the public demo at [xtweetly.com](https://xtweetly.com) that depend on social engineering, brute force, or X's own surfaces
 - X account suspensions, rate-limit hits, or Patchright detection — these are inherent to browser automation and not security bugs
 
 ## Hardening recommendations for self-hosters

@@ -199,7 +199,7 @@ export default async function LandingPage({
               <span className="font-mono text-[11px] text-success">{t('connectLive')}</span>
             </div>
             <pre className="overflow-x-auto px-5 py-5 font-mono text-[15px] leading-[1.6] text-foreground">
-              {(process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'https://your-backend.example.com')}/mcp
+              {(process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'https://api.xtweetly.com')}/mcp
             </pre>
             <div className="border-t border-border px-5 py-4 font-mono text-[12px] leading-[1.65] text-muted-foreground whitespace-pre-line">
               {t('connectInstructions')}

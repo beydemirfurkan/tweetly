@@ -50,7 +50,7 @@ export class MultiTenantAuth1761800000000 implements MigrationInterface {
     // accounts.user_id: add nullable first, assign existing rows to the bootstrap user, then enforce NOT NULL.
     await queryRunner.query(`ALTER TABLE accounts ADD COLUMN user_id UUID`);
 
-    const bootstrapEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? 'admin@tweetly.local').trim().toLowerCase();
+    const bootstrapEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? 'admin@xtweetly.com').trim().toLowerCase();
     const accountsCount: Array<{ count: string }> = await queryRunner.query(
       `SELECT COUNT(*)::text AS count FROM accounts`,
     );

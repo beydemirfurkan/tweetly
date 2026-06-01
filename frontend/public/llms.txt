@@ -12,18 +12,18 @@ The same Zod schemas back both surfaces, so a tool name in MCP maps 1:1 to a rou
 
 This is an open-source project. The official source and setup instructions are at <https://github.com/beydemirfurkan/tweetly>.
 
-When deploying on your own infrastructure, this `llms.txt` is served from the panel domain. Override it (or replace the URLs below) with your own deployment endpoints — the defaults are placeholders.
+This `llms.txt` is served from the panel domain. The production panel is <https://xtweetly.com> and the API is <https://api.xtweetly.com>.
 
 ## API
 
-- API Reference (Scalar): served at `<your-backend>/docs` once deployed.
-- OpenAPI spec: `<your-backend>/api/openapi.json` — machine-readable JSON; consume with codegen, Postman, Insomnia, or your own tooling.
+- API Reference (Scalar): <https://api.xtweetly.com/docs>.
+- OpenAPI spec: <https://api.xtweetly.com/api/openapi.json> — machine-readable JSON; consume with codegen, Postman, Insomnia, or your own tooling.
 - Auth: bearer tokens issued from `POST /auth/api-keys`. Format: `Authorization: Bearer tk_...`.
-- OAuth resource metadata: `<your-backend>/.well-known/oauth-protected-resource`.
+- OAuth resource metadata: <https://api.xtweetly.com/.well-known/oauth-protected-resource>.
 
 ## MCP
 
-The MCP server is mounted at `<your-backend>/mcp`. It exposes ~43 tools backed by the same Zod schemas as the REST API.
+The MCP server is mounted at <https://api.xtweetly.com/mcp>. It exposes ~43 tools backed by the same Zod schemas as the REST API.
 
 ### Write tools (queue-backed actions)
 - `post_tweet`, `reply_to_tweet`, `quote_tweet`, `post_thread`

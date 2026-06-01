@@ -380,7 +380,7 @@
     "openReference": "Open API Reference",
     "envWarning": {
       "title": "Backend URL not configured",
-      "body": "Set <code>NEXT_PUBLIC_API_URL</code> in your environment to point this page (and every Docs link) at your live backend. In production it's usually something like <code>https://api.your-domain.com</code>."
+      "body": "Set <code>NEXT_PUBLIC_API_URL</code> in your environment to point this page (and every Docs link) at your live backend. In production use <code>https://api.xtweetly.com</code>."
     },
     "surface": {
       "eyebrow": "Surface",

@@ -15,10 +15,10 @@ afterEach(() => {
 
 describe('apiUrl', () => {
   it('uses configured API origin and normalizes slashes', () => {
-    process.env.NEXT_PUBLIC_API_URL = 'https://tw-backend.example.com/';
+    process.env.NEXT_PUBLIC_API_URL = 'https://api.xtweetly.com/';
 
-    expect(apiUrl('health')).toBe('https://tw-backend.example.com/health');
-    expect(apiUrl('/health')).toBe('https://tw-backend.example.com/health');
+    expect(apiUrl('health')).toBe('https://api.xtweetly.com/health');
+    expect(apiUrl('/health')).toBe('https://api.xtweetly.com/health');
   });
 
   it('returns a relative URL when no API origin is configured server-side', () => {

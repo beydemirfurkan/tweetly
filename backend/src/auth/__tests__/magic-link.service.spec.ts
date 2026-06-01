@@ -145,7 +145,7 @@ describe('MagicLinkService', () => {
         user: null,
         pass: null,
         secure: false,
-        from: 'tweetly <noreply@example.com>',
+        from: 'xtweetly <noreply@xtweetly.com>',
       },
     });
 
